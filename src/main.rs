@@ -6,7 +6,7 @@ use rocket::fairing::AdHoc;
 use rocket::http::Status;
 use rocket::serde::{json::Json, Deserialize};
 use serde::Serialize;
-use serde_json::{Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
 
@@ -25,7 +25,7 @@ pub struct Game {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Board {
     height: u32,
-    width: i32,
+    width: u32,
     food: Vec<Coord>,
     snakes: Vec<Battlesnake>,
     hazards: Vec<Coord>,
@@ -45,8 +45,8 @@ pub struct Battlesnake {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Coord {
-    x: i32,
-    y: i32,
+    x: u32,
+    y: u32,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
