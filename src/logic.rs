@@ -91,10 +91,42 @@ pub fn get_move(_game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> V
     }
 
     // TODO: Step 2 - Prevent your Battlesnake from colliding with itself
-    // let my_body = &you.body;
+    let my_body = &you.body;
+
+    for i in 1..my_body.len() {
+        if my_body[i].x == my_head.x - 1 {
+            is_move_safe.insert("left", false);
+        }
+        if my_body[i].x == my_head.x + 1 {
+            is_move_safe.insert("right", false);
+        }
+        if my_body[i].y == my_head.y + 1 {
+            is_move_safe.insert("up", false);
+        }
+        if my_body[i].y == my_head.y - 1 {
+            is_move_safe.insert("down", false);
+        }
+    }
 
     // TODO: Step 3 - Prevent your Battlesnake from colliding with other Battlesnakes
-    // let opponents = &board.snakes;
+    let opponents = &board.snakes;
+
+    for s in opponents {
+        for i in 0..s.body.len() {
+            if s.body[i].x == my_head.x - 1 {
+                is_move_safe.insert("left", false);
+            }
+            if s.body[i].x == my_head.x + 1 {
+                is_move_safe.insert("right", false);
+            }
+            if s.body[i].y == my_head.y + 1 {
+                is_move_safe.insert("up", false);
+            }
+            if s.body[i].y == my_head.y - 1 {
+                is_move_safe.insert("down", false);
+            }
+        }
+    }
 
     // Are there any safe moves left?
     let safe_moves = is_move_safe
