@@ -74,8 +74,8 @@ pub fn get_move(_game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> V
     }
 
     // TODO: Step 1 - Prevent your Battlesnake from moving out of bounds
-    let board_width = &board.width;
-    let board_height = &board.height;
+    let board_width = board.width;
+    let board_height = board.height as i32;
 
     if my_head.x == board_width - 1 {
         is_move_safe.insert("right", false);
