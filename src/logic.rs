@@ -15,7 +15,7 @@ use rand::seq::SliceRandom;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{Battlesnake, Board, Game};
+use crate::{Battlesnake, Board, Coord, Game};
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -97,20 +97,50 @@ pub fn get_move(_game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> V
             }
         }
     }
+    
+    // find closest food
+    let foods = &board.food;
+    let middle = Coord {x: board_width / 2, y: board_height / 2};
+    let closest_food = 
+    if foods.len() == 0 {
+        &middle
+    } else { 
+        let mut closest_distance = u32::MAX;
+        let mut tmp = &foods[0];
+        for food in foods {
+            let distance = my_head.x.abs_diff(food.x) + my_head.y.abs_diff(food.y);
+            if distance <= closest_distance {
+                closest_distance = distance;
+                tmp = food;
+            }
+        }
+        tmp
+    };
+    
+    // try to move towards closest food
+    let chosen_move: &&str = 
+    if closest_food.x > my_head.x && *is_move_safe.get("right").unwrap() {
+        &"right"
+    } else if closest_food.x < my_head.x && *is_move_safe.get("left").unwrap() {
+        &"left"
+    } else if closest_food.y > my_head.y && *is_move_safe.get("up").unwrap() {
+        &"up"
+    } else if closest_food.y < my_head.y && *is_move_safe.get("down").unwrap() {
+        &"down"
+    } else {
+        if *is_move_safe.get("right").unwrap() {
+            &"right"
+        } else if *is_move_safe.get("left").unwrap() {
+            &"left"
+        } else if *is_move_safe.get("up").unwrap() {
+            &"up"
+        } else if *is_move_safe.get("down").unwrap() {
+            &"down"
+        } else {
+            &"up"
+        }
+    };
 
-    // Are there any safe moves left?
-    let safe_moves = is_move_safe
-        .into_iter()
-        .filter(|&(_, v)| v)
-        .map(|(k, _)| k)
-        .collect::<Vec<_>>();
-
-    // Choose a random move from the safe ones
-    let chosen = safe_moves.choose(&mut rand::thread_rng()).unwrap_or(&"up");
-
-    // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
-    // let food = &board.food;
-
-    info!("MOVE {}: {}", turn, chosen);
-    return json!({ "move": chosen });
+    info!("MOVE {}: {}", turn, chosen_move);
+    return json!({ "move": chosen_move });
 }
