@@ -120,7 +120,7 @@ pub fn get_move(_game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> V
         .collect::<Vec<_>>();
 
     // Choose a random move from the safe ones
-    let chosen = safe_moves.choose(&mut rand::thread_rng()).unwrap();
+    let chosen = safe_moves.choose(&mut rand::thread_rng()).unwrap_or(&"up");
 
     // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
     // let food = &board.food;
