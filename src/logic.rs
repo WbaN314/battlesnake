@@ -11,7 +11,6 @@
 // For more info see docs.battlesnake.com
 
 use log::info;
-use rand::seq::SliceRandom;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
