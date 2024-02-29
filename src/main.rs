@@ -6,7 +6,7 @@ use rocket::fairing::AdHoc;
 use rocket::http::Status;
 use rocket::serde::{json::Json, Deserialize};
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
 
@@ -83,7 +83,7 @@ fn handle_move(move_req: Json<GameState>) -> Json<Value> {
         &move_req.you,
     );
 
-    Json(response)
+    Json(json!({ "move": response }))
 }
 
 #[post("/end", format = "json", data = "<end_req>")]
