@@ -80,10 +80,12 @@ pub fn end(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
 // Valid moves are Move::Up, Move::Down, Move::Left, or Move::Right
 // See https://docs.battlesnake.com/api/example-move for available data
 pub fn get_move(_game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Move {
-    hungry_simple_snake(you, board, turn)
+    let next_move = hungry_simple_snake(you, board, turn);
+    info!("MOVE {}: {}", turn, next_move);
+    return next_move;
 }
 
-fn hungry_simple_snake(you: &Battlesnake, board: &Board, turn: &i32) -> Move {
+fn hungry_simple_snake(you: &Battlesnake, board: &Board, _turn: &i32) -> Move {
     let mut is_move_safe: HashMap<Move, _> = vec![
         (Move::Up, true),
         (Move::Down, true),
@@ -168,7 +170,5 @@ fn hungry_simple_snake(you: &Battlesnake, board: &Board, turn: &i32) -> Move {
             Move::Up
         }
     };
-    info!("MOVE {}: {}", turn, chosen_move);
-
     return chosen_move;
 }
