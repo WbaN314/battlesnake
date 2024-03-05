@@ -167,7 +167,7 @@ fn hungry_simple_snake(you: &Battlesnake, board: &Board, _turn: &i32) -> Move {
         } else if *is_move_safe.get(&Move::Down).unwrap() {
             Move::Down
         } else {
-            Move::Up
+            Move::Down
         }
     };
     return chosen_move;
