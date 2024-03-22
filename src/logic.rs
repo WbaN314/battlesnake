@@ -85,6 +85,7 @@ pub fn end(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
 // See https://docs.battlesnake.com/api/example-move for available data
 pub fn get_move(game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
     let brain: Box<dyn Brain> = if let Ok(value) = env::var("VARIANT") {
+        debug!("{}", value);
         if value == "hungry_simple".to_string() {
             Box::new(hungry_simple_snake::HungrySimpleSnake::new())
         } else if value == "simple_tree_search" {
@@ -234,7 +235,7 @@ mod simple_tree_search_snake {
         new_boards
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug)]
     enum SnakeChange {
         Grow,
         None,
@@ -258,10 +259,10 @@ mod simple_tree_search_snake {
             own_snake.head.x - own_snake.body[0].x,
             own_snake.head.y - own_snake.body[0].y,
         ) {
-            (1, 0) => Direction::Up,
-            (-1, 0) => Direction::Down,
-            (0, 1) => Direction::Right,
-            (0, -1) => Direction::Left,
+            (1, 0) => Direction::Right,
+            (-1, 0) => Direction::Left,
+            (0, 1) => Direction::Up,
+            (0, -1) => Direction::Down,
             _ => unreachable!(),
         };
 
@@ -271,6 +272,7 @@ mod simple_tree_search_snake {
             || own_snake.head.y < 0
             || own_snake.head.y >= board.height as i32
         {
+            debug!("{} -1", own_direction);
             return (own_direction, -1);
         };
 
@@ -278,7 +280,7 @@ mod simple_tree_search_snake {
 
         // check for battles
         for i in 0..board.snakes.len() {
-            for j in i..board.snakes.len() {
+            for j in i + 1..board.snakes.len() {
                 let x1 = board.snakes[i].head.x;
                 let y1 = board.snakes[i].head.y;
                 let x2 = board.snakes[j].head.x;
@@ -364,10 +366,22 @@ mod simple_tree_search_snake {
 
         // evaluate board
         match snake_changes[own_snake_index] {
-            SnakeChange::Die => (own_direction, -1),
-            SnakeChange::Battle(_) => (own_direction, 3),
-            SnakeChange::Grow => (own_direction, 2),
-            SnakeChange::None => (own_direction, 1),
+            SnakeChange::Die => {
+                debug!("{} -1", own_direction);
+                (own_direction, -1)
+            }
+            SnakeChange::Battle(_) => {
+                debug!("{} 3", own_direction);
+                (own_direction, 3)
+            }
+            SnakeChange::Grow => {
+                debug!("{} 2", own_direction);
+                (own_direction, 2)
+            }
+            SnakeChange::None => {
+                debug!("{} 1", own_direction);
+                (own_direction, 1)
+            }
         }
     }
 
@@ -431,6 +445,8 @@ mod simple_tree_search_snake {
                 }
             }
 
+            debug!("{:?}", move_scores);
+
             let mut best_move = Direction::Up;
             let mut best_score = move_scores[0];
             for i in 1..move_scores.len() {
@@ -473,4 +489,13 @@ mod simple_tree_search_snake {
             assert_eq!(directions_iter.next(), None);
         }
     }
+
+    #[test]
+    fn test_logic() {
+        let brain = SimpleTreeSearchSnake::new();
+
+        let game = Game::new();
+    }
 }
+
+mod mocks {}
