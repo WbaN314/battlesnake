@@ -235,7 +235,7 @@ mod simple_tree_search_snake {
         new_boards
     }
 
-    #[derive(Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug, PartialEq)]
     enum SnakeChange {
         Grow,
         None,
@@ -336,7 +336,10 @@ mod simple_tree_search_snake {
         for i in 0..board.snakes.len() {
             let snake = &board.snakes[i];
             for food in board.food.iter() {
-                if food.x == snake.head.x && food.y == snake.head.y {
+                if food.x == snake.head.x
+                    && food.y == snake.head.y
+                    && snake_changes[i] != SnakeChange::Die
+                {
                     snake_changes[i] = SnakeChange::Grow;
                 }
             }
@@ -488,13 +491,6 @@ mod simple_tree_search_snake {
 
             assert_eq!(directions_iter.next(), None);
         }
-    }
-
-    #[test]
-    fn test_logic() {
-        let brain = SimpleTreeSearchSnake::new();
-
-        let game = Game::new();
     }
 }
 
