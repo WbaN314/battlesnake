@@ -446,10 +446,13 @@ mod simple_tree_search_snake {
 
             if let Ok(value) = env::var("DEPTH") {
                 let value = value.parse().unwrap();
+                let new_combinations_number =
+                    4_i32.pow(board.snakes.len() as u32) * new_boards.len() as i32;
                 for _ in 0..value {
-                    let mut tmp_boards = Vec::with_capacity(
-                        (4_i32.pow(board.snakes.len() as u32) * new_boards.len() as i32) as usize,
-                    );
+                    for i in 0..4 {
+                        move_scores[i] = move_scores[i].saturating_mul(new_combinations_number);
+                    }
+                    let mut tmp_boards = Vec::with_capacity(new_combinations_number as usize);
                     for board in new_boards.iter() {
                         let (mut b, s) = step(board, &you.id);
                         for i in 0..4 {
