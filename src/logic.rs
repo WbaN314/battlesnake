@@ -538,11 +538,11 @@ mod efficient_game_objects {
 
     const X_SIZE: usize = 11;
     const Y_SIZE: usize = 11;
-    struct Board {
-        board: [[Field; Y_SIZE]; X_SIZE],
+    struct Board<'a> {
+        board: [[Field<'a>; Y_SIZE]; X_SIZE],
     }
 
-    impl Board {
+    impl<'a> Board<'a> {
         fn new() -> Self {
             Board {
                 board: [[Field::new(); Y_SIZE]; X_SIZE],
@@ -556,16 +556,23 @@ mod efficient_game_objects {
                 board.set(food.x, food.y, Field::Food);
             }
 
-            for snake in old.snakes.iter() {
+            for (i, snake) in old.snakes.iter().enumerate() {
                 for snake_part in snake.body.iter() {
-                    board.set(snake_part.x, snake_part.y, Field::SnakePart);
+                    board.set(
+                        snake_part.x,
+                        snake_part.y,
+                        Field::SnakePart {
+                            snake_number: i as i32,
+                            next: None,
+                        },
+                    );
                 }
             }
 
             board
         }
 
-        fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
+        fn set(&mut self, x: i32, y: i32, state: Field<'a>) -> bool {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 false
             } else {
@@ -583,17 +590,20 @@ mod efficient_game_objects {
         }
     }
 
-    impl fmt::Display for Board {
+    impl<'a> fmt::Display for Board<'a> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut output: String = String::with_capacity((X_SIZE + 1) * Y_SIZE);
-            for y in 0..Y_SIZE {
+            for y in (0..Y_SIZE).rev() {
                 for x in 0..X_SIZE {
                     if let Some(state) = self.get(x as i32, y as i32) {
                         output.push(match *state {
                             Field::Empty => '.',
                             Field::Food => 'O',
-                            Field::SnakePart => 'X',
-                        })
+                            Field::SnakePart { snake_number, .. } => {
+                                char::from_digit(snake_number as u32 + 1, 10).unwrap_or('?')
+                            }
+                        });
+                        output.push(' ');
                     }
                 }
                 output.push('\n')
@@ -603,13 +613,16 @@ mod efficient_game_objects {
     }
 
     #[derive(Copy, Clone)]
-    enum Field {
+    enum Field<'a> {
         Empty,
         Food,
-        SnakePart,
+        SnakePart {
+            snake_number: i32,
+            next: Option<&'a Field<'a>>,
+        },
     }
 
-    impl Field {
+    impl<'a> Field<'a> {
         fn new() -> Self {
             Self::Empty
         }
@@ -617,6 +630,21 @@ mod efficient_game_objects {
     enum Snake {
         Head,
         Body,
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::GameState;
+
+        #[test]
+        fn board() {
+            let file = std::fs::File::open("example_move_request.json").unwrap();
+            let reader = std::io::BufReader::new(file);
+            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let board = Board::from(&game_state.board);
+            println!("{board}")
+        }
     }
 }
 
