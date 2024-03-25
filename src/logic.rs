@@ -534,6 +534,7 @@ mod simple_tree_search_snake {
 mod efficient_game_objects {
     use core::fmt;
 
+    use super::Battlesnake as DefaultSnake;
     use super::Board as DefaultBoard;
 
     const X_SIZE: usize = 11;
@@ -549,21 +550,28 @@ mod efficient_game_objects {
             }
         }
 
-        fn from(old: &DefaultBoard) -> Self {
+        fn from(old: &DefaultBoard, you: &DefaultSnake) -> Self {
             let mut board = Self::new();
 
             for food in old.food.iter() {
                 board.set(food.x, food.y, Field::Food);
             }
 
-            for (i, snake) in old.snakes.iter().enumerate() {
-                for snake_part in snake.body.iter() {
+            let mut count = 0;
+            for i in 0..old.snakes.len() {
+                let snake_number = if *old.snakes[i].id == *you.id {
+                    0
+                } else {
+                    count += 1;
+                    count
+                };
+                for snake_part in old.snakes[i].body.iter() {
                     board.set(
                         snake_part.x,
                         snake_part.y,
                         Field::SnakePart {
-                            snake_number: i as i32,
-                            next: None,
+                            snake_number: snake_number as i32,
+                            next: None, // TODO
                         },
                     );
                 }
@@ -598,9 +606,9 @@ mod efficient_game_objects {
                     if let Some(state) = self.get(x as i32, y as i32) {
                         output.push(match *state {
                             Field::Empty => '.',
-                            Field::Food => 'O',
+                            Field::Food => 'F',
                             Field::SnakePart { snake_number, .. } => {
-                                char::from_digit(snake_number as u32 + 1, 10).unwrap_or('?')
+                                char::from_digit(snake_number as u32, 10).unwrap_or('?')
                             }
                         });
                         output.push(' ');
@@ -642,7 +650,7 @@ mod efficient_game_objects {
             let file = std::fs::File::open("example_move_request.json").unwrap();
             let reader = std::io::BufReader::new(file);
             let game_state: GameState = serde_json::from_reader(reader).unwrap();
-            let board = Board::from(&game_state.board);
+            let board = Board::from(&game_state.board, &game_state.you);
             println!("{board}")
         }
     }
