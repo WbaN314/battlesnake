@@ -531,4 +531,93 @@ mod simple_tree_search_snake {
     }
 }
 
+mod efficient_game_objects {
+    use core::fmt;
+
+    use super::Board as DefaultBoard;
+
+    const X_SIZE: usize = 11;
+    const Y_SIZE: usize = 11;
+    struct Board {
+        board: [[Field; Y_SIZE]; X_SIZE],
+    }
+
+    impl Board {
+        fn new() -> Self {
+            Board {
+                board: [[Field::new(); Y_SIZE]; X_SIZE],
+            }
+        }
+
+        fn from(old: &DefaultBoard) -> Self {
+            let mut board = Self::new();
+
+            for food in old.food.iter() {
+                board.set(food.x, food.y, Field::Food);
+            }
+
+            for snake in old.snakes.iter() {
+                for snake_part in snake.body.iter() {
+                    board.set(snake_part.x, snake_part.y, Field::SnakePart);
+                }
+            }
+
+            board
+        }
+
+        fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
+            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
+                false
+            } else {
+                self.board[x as usize][y as usize] = state;
+                true
+            }
+        }
+
+        fn get(&self, x: i32, y: i32) -> Option<&Field> {
+            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
+                None
+            } else {
+                Some(&self.board[x as usize][y as usize])
+            }
+        }
+    }
+
+    impl fmt::Display for Board {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let mut output: String = String::with_capacity((X_SIZE + 1) * Y_SIZE);
+            for y in 0..Y_SIZE {
+                for x in 0..X_SIZE {
+                    if let Some(state) = self.get(x as i32, y as i32) {
+                        output.push(match *state {
+                            Field::Empty => '.',
+                            Field::Food => 'O',
+                            Field::SnakePart => 'X',
+                        })
+                    }
+                }
+                output.push('\n')
+            }
+            write!(f, "{}", output)
+        }
+    }
+
+    #[derive(Copy, Clone)]
+    enum Field {
+        Empty,
+        Food,
+        SnakePart,
+    }
+
+    impl Field {
+        fn new() -> Self {
+            Self::Empty
+        }
+    }
+    enum Snake {
+        Head,
+        Body,
+    }
+}
+
 mod mocks {}
