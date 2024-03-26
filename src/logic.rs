@@ -560,6 +560,27 @@ mod efficient_game_objects {
     const Y_SIZE: usize = 11;
     const SNAKES: usize = 4;
 
+    enum Direction {
+        Up = 0,
+        Down = 1,
+        Left = 2,
+        Right = 3,
+    }
+
+    const DIRECTIONS: [Direction; 4] = [
+        Direction::Up,
+        Direction::Down,
+        Direction::Left,
+        Direction::Right,
+    ];
+
+    const DIRECTION_VECTORS: [Coord; 4] = [
+        Coord::from(0, 1),
+        Coord::from(0, -1),
+        Coord::from(-1, 0),
+        Coord::from(1, 0),
+    ];
+
     pub struct Board {
         board: [[Field; Y_SIZE]; X_SIZE],
         snakes: [Option<Snake>; SNAKES],
@@ -629,6 +650,8 @@ mod efficient_game_objects {
                 Some(&self.board[x as usize][y as usize])
             }
         }
+
+        pub fn fill(&self) -> [Area; 4] {}
     }
 
     impl fmt::Display for Board {
@@ -688,6 +711,10 @@ mod efficient_game_objects {
                 length: snake.length,
             }
         }
+    }
+
+    pub struct Area {
+        area: usize,
     }
 
     #[cfg(test)]
