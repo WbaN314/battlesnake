@@ -531,6 +531,24 @@ mod simple_tree_search_snake {
     }
 }
 
+mod smart_snake {
+    use super::*;
+
+    pub struct SmartSnake {}
+
+    impl SmartSnake {
+        fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl Brain for SmartSnake {
+        fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+            let board = efficient_game_objects::Board::from(board, you);
+            Direction::Down
+        }
+    }
+}
 mod efficient_game_objects {
     use core::fmt;
 
@@ -542,20 +560,20 @@ mod efficient_game_objects {
     const Y_SIZE: usize = 11;
     const SNAKES: usize = 4;
 
-    struct Board {
+    pub struct Board {
         board: [[Field; Y_SIZE]; X_SIZE],
         snakes: [Option<Snake>; SNAKES],
     }
 
     impl Board {
-        fn new() -> Self {
+        pub fn new() -> Self {
             Board {
                 board: [[Field::new(); Y_SIZE]; X_SIZE],
                 snakes: [None; SNAKES],
             }
         }
 
-        fn from(old: &DefaultBoard, you: &DefaultSnake) -> Self {
+        pub fn from(old: &DefaultBoard, you: &DefaultSnake) -> Self {
             let mut board = Self::new();
 
             for food in old.food.iter() {
@@ -595,7 +613,7 @@ mod efficient_game_objects {
             board
         }
 
-        fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
+        pub fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 false
             } else {
@@ -604,7 +622,7 @@ mod efficient_game_objects {
             }
         }
 
-        fn get(&self, x: i32, y: i32) -> Option<&Field> {
+        pub fn get(&self, x: i32, y: i32) -> Option<&Field> {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 None
             } else {
@@ -636,7 +654,7 @@ mod efficient_game_objects {
     }
 
     #[derive(Copy, Clone, Debug, PartialEq)]
-    enum Field {
+    pub enum Field {
         Empty,
         Food,
         SnakePart {
