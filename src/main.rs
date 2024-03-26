@@ -43,7 +43,7 @@ pub struct Battlesnake {
     shout: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq)]
 pub struct Coord {
     x: i32,
     y: i32,

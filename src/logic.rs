@@ -563,27 +563,32 @@ mod efficient_game_objects {
             }
 
             let mut order: Vec<usize> = (0..old.snakes.len()).collect();
-            for i in 0..order.len() {
+            for i in 0..old.snakes.len() {
                 if *old.snakes[i].id == *you.id {
                     order.swap(0, i);
                     break;
                 }
             }
 
-            for i in 0..order.len() {
-                for snake_part in old.snakes[order[i]].body.iter() {
+            for i in 0..old.snakes.len() {
+                for (j, snake_part) in old.snakes[order[i]].body.iter().enumerate() {
+                    let next = if j == 0 {
+                        None
+                    } else {
+                        Some(old.snakes[order[i]].body[j - 1].clone())
+                    };
                     board.set(
                         snake_part.x,
                         snake_part.y,
                         Field::SnakePart {
                             snake_number: i as i32,
-                            next: None, // TODO
+                            next: next,
                         },
                     );
                 }
             }
 
-            for i in 0..order.len() {
+            for i in 0..old.snakes.len() {
                 board.snakes[i] = Some(Snake::from(&old.snakes[order[i]], i as i32));
             }
 
@@ -630,7 +635,7 @@ mod efficient_game_objects {
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Debug, PartialEq)]
     enum Field {
         Empty,
         Food,
@@ -652,6 +657,7 @@ mod efficient_game_objects {
         head: Coord,
         tail: Coord,
         health: i32,
+        length: i32,
     }
 
     impl Snake {
@@ -661,6 +667,7 @@ mod efficient_game_objects {
                 head: snake.head,
                 tail: snake.body.last().unwrap().clone(),
                 health: snake.health,
+                length: snake.length,
             }
         }
     }
@@ -691,6 +698,35 @@ mod efficient_game_objects {
             assert_eq!(board.snakes[1].unwrap().number, 1);
             assert!(board.snakes[2].is_none());
             assert!(board.snakes[3].is_none());
+        }
+
+        #[test]
+        fn snakes_on_board_next() {
+            let file = std::fs::File::open("example_move_request.json").unwrap();
+            let reader = std::io::BufReader::new(file);
+            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let board = Board::from(&game_state.board, &game_state.you);
+            assert_eq!(
+                *board.get(0, 0).unwrap(),
+                Field::SnakePart {
+                    snake_number: 0,
+                    next: None,
+                }
+            );
+            assert_eq!(
+                *board.get(1, 0).unwrap(),
+                Field::SnakePart {
+                    snake_number: 0,
+                    next: Some(Coord { x: 0, y: 0 })
+                }
+            );
+            assert_eq!(
+                *board.get(2, 0).unwrap(),
+                Field::SnakePart {
+                    snake_number: 0,
+                    next: Some(Coord { x: 1, y: 0 })
+                }
+            );
         }
     }
 }
