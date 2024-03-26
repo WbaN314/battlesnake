@@ -677,20 +677,23 @@ mod efficient_game_objects {
         use super::*;
         use crate::GameState;
 
-        #[test]
-        fn print_board() {
-            let file = std::fs::File::open("example_move_request.json").unwrap();
+        fn read_game_state(path: &str) -> GameState {
+            let file = std::fs::File::open(path).unwrap();
             let reader = std::io::BufReader::new(file);
             let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            game_state
+        }
+
+        #[test]
+        fn print_board() {
+            let game_state = read_game_state("example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             println!("{board}")
         }
 
         #[test]
         fn snakes_to_board() {
-            let file = std::fs::File::open("example_move_request.json").unwrap();
-            let reader = std::io::BufReader::new(file);
-            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let game_state = read_game_state("example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(board.snakes[0].unwrap().health, 54);
             assert_eq!(board.snakes[0].unwrap().number, 0);
@@ -702,9 +705,7 @@ mod efficient_game_objects {
 
         #[test]
         fn snakes_on_board_next() {
-            let file = std::fs::File::open("example_move_request.json").unwrap();
-            let reader = std::io::BufReader::new(file);
-            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let game_state = read_game_state("example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(
                 *board.get(0, 0).unwrap(),
