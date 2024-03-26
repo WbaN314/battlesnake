@@ -534,19 +534,24 @@ mod simple_tree_search_snake {
 mod efficient_game_objects {
     use core::fmt;
 
-    use super::Battlesnake as DefaultSnake;
-    use super::Board as DefaultBoard;
+    use crate::Battlesnake as DefaultSnake;
+    use crate::Board as DefaultBoard;
+    use crate::Coord;
 
     const X_SIZE: usize = 11;
     const Y_SIZE: usize = 11;
-    struct Board<'a> {
-        board: [[Field<'a>; Y_SIZE]; X_SIZE],
+    const SNAKES: usize = 4;
+
+    struct Board {
+        board: [[Field; Y_SIZE]; X_SIZE],
+        snakes: [Option<Snake>; SNAKES],
     }
 
-    impl<'a> Board<'a> {
+    impl Board {
         fn new() -> Self {
             Board {
                 board: [[Field::new(); Y_SIZE]; X_SIZE],
+                snakes: [None; SNAKES],
             }
         }
 
@@ -557,20 +562,21 @@ mod efficient_game_objects {
                 board.set(food.x, food.y, Field::Food);
             }
 
-            let mut count = 0;
-            for i in 0..old.snakes.len() {
-                let snake_number = if *old.snakes[i].id == *you.id {
-                    0
-                } else {
-                    count += 1;
-                    count
-                };
-                for snake_part in old.snakes[i].body.iter() {
+            let mut order: Vec<usize> = (0..old.snakes.len()).collect();
+            for i in 0..order.len() {
+                if *old.snakes[i].id == *you.id {
+                    order.swap(0, i);
+                    break;
+                }
+            }
+
+            for i in 0..order.len() {
+                for snake_part in old.snakes[order[i]].body.iter() {
                     board.set(
                         snake_part.x,
                         snake_part.y,
                         Field::SnakePart {
-                            snake_number: snake_number as i32,
+                            snake_number: i as i32,
                             next: None, // TODO
                         },
                     );
@@ -580,7 +586,7 @@ mod efficient_game_objects {
             board
         }
 
-        fn set(&mut self, x: i32, y: i32, state: Field<'a>) -> bool {
+        fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 false
             } else {
@@ -598,7 +604,7 @@ mod efficient_game_objects {
         }
     }
 
-    impl<'a> fmt::Display for Board<'a> {
+    impl fmt::Display for Board {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut output: String = String::with_capacity((X_SIZE + 1) * Y_SIZE);
             for y in (0..Y_SIZE).rev() {
@@ -621,23 +627,27 @@ mod efficient_game_objects {
     }
 
     #[derive(Copy, Clone)]
-    enum Field<'a> {
+    enum Field {
         Empty,
         Food,
         SnakePart {
             snake_number: i32,
-            next: Option<&'a Field<'a>>,
+            next: Option<Coord>,
         },
     }
 
-    impl<'a> Field<'a> {
+    impl Field {
         fn new() -> Self {
             Self::Empty
         }
     }
-    enum Snake {
-        Head,
-        Body,
+
+    #[derive(Copy, Clone)]
+    struct Snake {
+        number: i32,
+        head: Coord,
+        tail: Coord,
+        health: i32,
     }
 
     #[cfg(test)]
@@ -646,7 +656,7 @@ mod efficient_game_objects {
         use crate::GameState;
 
         #[test]
-        fn board() {
+        fn print_board() {
             let file = std::fs::File::open("example_move_request.json").unwrap();
             let reader = std::io::BufReader::new(file);
             let game_state: GameState = serde_json::from_reader(reader).unwrap();
