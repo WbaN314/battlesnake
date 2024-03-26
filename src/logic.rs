@@ -575,10 +575,10 @@ mod efficient_game_objects {
     ];
 
     const DIRECTION_VECTORS: [Coord; 4] = [
-        Coord::from(0, 1),
-        Coord::from(0, -1),
-        Coord::from(-1, 0),
-        Coord::from(1, 0),
+        Coord { x: 0, y: 1 },
+        Coord { x: 0, y: -1 },
+        Coord { x: -1, y: 0 },
+        Coord { x: 1, y: 0 },
     ];
 
     pub struct Board {
@@ -589,7 +589,7 @@ mod efficient_game_objects {
     impl Board {
         pub fn new() -> Self {
             Board {
-                board: [[Field::new(); Y_SIZE]; X_SIZE],
+                board: [[Field::new(); X_SIZE]; Y_SIZE],
                 snakes: [None; SNAKES],
             }
         }
@@ -638,7 +638,7 @@ mod efficient_game_objects {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 false
             } else {
-                self.board[x as usize][y as usize] = state;
+                self.board[y as usize][x as usize] = state;
                 true
             }
         }
@@ -647,11 +647,13 @@ mod efficient_game_objects {
             if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
                 None
             } else {
-                Some(&self.board[x as usize][y as usize])
+                Some(&self.board[y as usize][x as usize])
             }
         }
 
-        pub fn fill(&self) -> [Area; 4] {}
+        pub fn fill(&self) -> [Area; 4] {
+            todo!()
+        }
     }
 
     impl fmt::Display for Board {
