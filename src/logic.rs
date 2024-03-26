@@ -678,6 +678,20 @@ mod efficient_game_objects {
             let board = Board::from(&game_state.board, &game_state.you);
             println!("{board}")
         }
+
+        #[test]
+        fn snakes_to_board() {
+            let file = std::fs::File::open("example_move_request.json").unwrap();
+            let reader = std::io::BufReader::new(file);
+            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let board = Board::from(&game_state.board, &game_state.you);
+            assert_eq!(board.snakes[0].unwrap().health, 54);
+            assert_eq!(board.snakes[0].unwrap().number, 0);
+            assert_eq!(board.snakes[1].unwrap().health, 16);
+            assert_eq!(board.snakes[1].unwrap().number, 1);
+            assert!(board.snakes[2].is_none());
+            assert!(board.snakes[3].is_none());
+        }
     }
 }
 
