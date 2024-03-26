@@ -9,6 +9,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
+use std::ops::Add;
 
 mod logic;
 
@@ -52,6 +53,17 @@ pub struct Coord {
 impl Coord {
     pub fn from(x: i32, y: i32) -> Self {
         Coord { x, y }
+    }
+}
+
+impl Add for Coord {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
     }
 }
 

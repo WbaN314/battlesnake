@@ -652,6 +652,9 @@ mod efficient_game_objects {
         }
 
         pub fn fill(&self) -> [Area; 4] {
+            for d_vec in DIRECTION_VECTORS {
+                let start = self.snakes[0].unwrap().head + d_vec;
+            }
             todo!()
         }
     }
