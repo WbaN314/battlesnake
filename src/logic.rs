@@ -583,6 +583,10 @@ mod efficient_game_objects {
                 }
             }
 
+            for i in 0..order.len() {
+                board.snakes[i] = Some(Snake::from(&old.snakes[order[i]], i as i32));
+            }
+
             board
         }
 
@@ -648,6 +652,17 @@ mod efficient_game_objects {
         head: Coord,
         tail: Coord,
         health: i32,
+    }
+
+    impl Snake {
+        fn from(snake: &DefaultSnake, number: i32) -> Self {
+            Self {
+                number: number,
+                head: snake.head,
+                tail: snake.body.last().unwrap().clone(),
+                health: snake.health,
+            }
+        }
     }
 
     #[cfg(test)]
