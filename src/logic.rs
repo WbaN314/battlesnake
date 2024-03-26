@@ -582,7 +582,7 @@ mod efficient_game_objects {
     ];
 
     pub struct Board {
-        board: [[Field; Y_SIZE]; X_SIZE],
+        board: [[Field; X_SIZE]; Y_SIZE],
         snakes: [Option<Snake>; SNAKES],
     }
 
