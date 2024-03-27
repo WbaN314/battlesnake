@@ -545,6 +545,7 @@ mod smart_snake {
     impl Brain for SmartSnake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
             let board = efficient_game_objects::Board::from(board, you);
+
             Direction::Down
         }
     }
@@ -581,6 +582,7 @@ mod efficient_game_objects {
         Coord { x: 1, y: 0 },
     ];
 
+    #[derive(Clone)]
     pub struct Board {
         board: [[Field; X_SIZE]; Y_SIZE],
         snakes: [Option<Snake>; SNAKES],
@@ -651,11 +653,68 @@ mod efficient_game_objects {
             }
         }
 
-        pub fn fill(&self) -> [Area; 4] {
-            for d_vec in DIRECTION_VECTORS {
-                let start = self.snakes[0].unwrap().head + d_vec;
+        pub fn fill(&mut self, start: &Coord) -> Option<Area> {
+            let mut area = Area::new();
+            let x = start.x;
+            let y = start.y;
+            match self.get(x, y) {
+                Some(&Field::Empty) | Some(&Field::Food) => {
+                    let mut s = Vec::new();
+                    s.push((x, x, y, 1));
+                    s.push((x, x, y - 1, -1));
+                    while let Some((mut x1, x2, y, dy)) = s.pop() {
+                        let mut x = x1;
+                        match self.get(x, y) {
+                            Some(Field::Empty) | Some(Field::Food) => {
+                                let mut candidate = self.get(x - 1, y);
+                                while candidate == Some(&Field::Empty)
+                                    || candidate == Some(&Field::Food)
+                                {
+                                    self.set(x - 1, y, Field::Filled);
+                                    area.area += 1;
+                                    x -= 1;
+                                    candidate = self.get(x - 1, y);
+                                }
+                                if x < x1 {
+                                    s.push((x, x1 - 1, y - dy, -dy))
+                                }
+                            }
+                            _ => (),
+                        }
+                        while x1 <= x2 {
+                            let mut candidate = self.get(x1, y);
+                            while candidate == Some(&Field::Empty)
+                                || candidate == Some(&Field::Food)
+                            {
+                                self.set(x1, y, Field::Filled);
+                                area.area += 1;
+                                x1 += 1;
+                                candidate = self.get(x1, y);
+                            }
+                            if x1 > x {
+                                s.push((x, x1 - 1, y + dy, dy));
+                            }
+                            if x1 - 1 > x2 {
+                                s.push((x2 + 1, x1 - 1, y - dy, -dy));
+                            }
+                            x1 += 1;
+                            loop {
+                                let candidate = self.get(x1, y);
+                                if x1 > x2
+                                    || candidate == Some(&Field::Empty)
+                                    || candidate == Some(&Field::Food)
+                                {
+                                    break;
+                                }
+                                x1 += 1;
+                            }
+                            x = x1;
+                        }
+                    }
+                }
+                _ => return None,
             }
-            todo!()
+            Some(area)
         }
     }
 
@@ -671,6 +730,7 @@ mod efficient_game_objects {
                             Field::SnakePart { snake_number, .. } => {
                                 char::from_digit(snake_number as u32, 10).unwrap_or('?')
                             }
+                            Field::Filled => 'X',
                         });
                         output.push(' ');
                     }
@@ -689,6 +749,7 @@ mod efficient_game_objects {
             snake_number: i32,
             next: Option<Coord>,
         },
+        Filled,
     }
 
     impl Field {
@@ -722,6 +783,12 @@ mod efficient_game_objects {
         area: usize,
     }
 
+    impl Area {
+        fn new() -> Self {
+            Self { area: 0 }
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -736,14 +803,14 @@ mod efficient_game_objects {
 
         #[test]
         fn print_board() {
-            let game_state = read_game_state("example_move_request.json");
+            let game_state = read_game_state("requests/example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             println!("{board}")
         }
 
         #[test]
         fn snakes_to_board() {
-            let game_state = read_game_state("example_move_request.json");
+            let game_state = read_game_state("requests/example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(board.snakes[0].unwrap().health, 54);
             assert_eq!(board.snakes[0].unwrap().number, 0);
@@ -755,7 +822,7 @@ mod efficient_game_objects {
 
         #[test]
         fn snakes_on_board_next() {
-            let game_state = read_game_state("example_move_request.json");
+            let game_state = read_game_state("requests/example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(
                 *board.get(0, 0).unwrap(),
@@ -778,6 +845,24 @@ mod efficient_game_objects {
                     next: Some(Coord { x: 1, y: 0 })
                 }
             );
+        }
+
+        #[test]
+        fn fill_board() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let mut board = Board::from(&game_state.board, &game_state.you);
+            assert!(board.clone().fill(&Coord::from(0, 0)).is_none());
+            assert!(board.clone().fill(&Coord::from(-1, 0)).is_none());
+            assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 114);
+            println!("{board}");
+        }
+
+        #[test]
+        fn fill_board_2() {
+            let game_state = read_game_state("requests/example_move_request_2.json");
+            let mut board = Board::from(&game_state.board, &game_state.you);
+            assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 20);
+            println!("{board}");
         }
     }
 }
