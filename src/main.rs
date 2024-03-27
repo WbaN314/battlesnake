@@ -54,6 +54,10 @@ impl Coord {
     pub fn from(x: i32, y: i32) -> Self {
         Coord { x, y }
     }
+
+    pub fn distance(&self, other: &Coord) -> u32 {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
+    }
 }
 
 impl Add for Coord {

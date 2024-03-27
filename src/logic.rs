@@ -546,6 +546,8 @@ mod smart_snake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
             let board = efficient_game_objects::Board::from(board, you);
 
+            // TODO: Create a relevant board state generator
+
             Direction::Down
         }
     }
@@ -561,6 +563,7 @@ mod efficient_game_objects {
     const Y_SIZE: usize = 11;
     const SNAKES: usize = 4;
 
+    #[derive(Clone, Copy, Debug)]
     enum Direction {
         Up = 0,
         Down = 1,
@@ -716,6 +719,90 @@ mod efficient_game_objects {
             }
             Some(area)
         }
+
+        fn relevant_moves(&self, distance: u32) -> Vec<[Option<Coord>; 4]> {
+            let my_head = self.snakes[0].unwrap().head;
+
+            // Determine relevant snakes based on distance
+            let mut snake_relevant = [false; SNAKES];
+            for i in 1..SNAKES {
+                if let Some(snake) = self.snakes[i] {
+                    if my_head.distance(&snake.head) <= distance {
+                        snake_relevant[i] = true;
+                    }
+                }
+            }
+
+            // Determine "dangerous" move combinations of relevant snakes where they do not do stupid stuff
+            let mut dangerous_moves = [[false; 4]; SNAKES];
+            for snake_index in 1..SNAKES {
+                if snake_relevant[snake_index] {
+                    for d in 0..4 {
+                        let new_head_candidate =
+                            self.snakes[snake_index].unwrap().head + DIRECTION_VECTORS[d];
+                        match self.get(new_head_candidate.x, new_head_candidate.y) {
+                            Some(&Field::Empty) | Some(&Field::Food) => {
+                                dangerous_moves[snake_index][d] = true;
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+
+            // Get the count of actually relevant snake move combinations
+            let mut relevant_count = [0; SNAKES];
+            for i in 1..SNAKES {
+                relevant_count[i] =
+                    dangerous_moves[i]
+                        .iter()
+                        .fold(0, |acc, e| if *e { acc + 1 } else { acc });
+            }
+            let mut relevant_move_found = false;
+            for count in relevant_count {
+                if count != 0 {
+                    relevant_move_found = true;
+                }
+            }
+            if !relevant_move_found {
+                return Vec::new();
+            }
+            let final_count = relevant_count.iter().fold(1, |acc, e| acc * e.max(&1));
+
+            // Generate the relevant move combinations
+            let mut move_combinations = vec![[None, None, None, None]; final_count];
+            let mut pattern_repeat = 1;
+            let mut move_repeat = final_count;
+            for snake_index in 1..SNAKES {
+                if relevant_count[snake_index] == 0 {
+                    continue;
+                }
+                move_repeat /= relevant_count[snake_index];
+                let mut move_index = 0;
+                for p in 0..pattern_repeat {
+                    for current_valid_move_count in 0..relevant_count[snake_index] {
+                        loop {
+                            if dangerous_moves[snake_index][move_index] {
+                                break;
+                            }
+                            move_index += 1;
+                        }
+                        for m in 0..move_repeat {
+                            let final_position = p * move_repeat * relevant_count[snake_index]
+                                + move_repeat * current_valid_move_count
+                                + m;
+                            move_combinations[final_position][snake_index] =
+                                Some(DIRECTION_VECTORS[move_index]);
+                        }
+                        move_index += 1;
+                    }
+                    move_index = 0;
+                }
+                pattern_repeat *= relevant_count[snake_index];
+            }
+
+            move_combinations
+        }
     }
 
     impl fmt::Display for Board {
@@ -821,7 +908,7 @@ mod efficient_game_objects {
         }
 
         #[test]
-        fn snakes_on_board_next() {
+        fn snakeparts_on_board() {
             let game_state = read_game_state("requests/example_move_request.json");
             let board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(
@@ -863,6 +950,26 @@ mod efficient_game_objects {
             let mut board = Board::from(&game_state.board, &game_state.you);
             assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 20);
             println!("{board}");
+        }
+
+        #[test]
+        fn relevant_moves() {
+            let game_state = read_game_state("requests/example_move_request_2.json");
+            let board = Board::from(&game_state.board, &game_state.you);
+            let movesets = board.relevant_moves(u32::MAX);
+            for m in movesets {
+                println!("{:?}", m);
+            }
+        }
+
+        #[test]
+        fn relevant_moves_2() {
+            let game_state = read_game_state("requests/example_move_request_2.json");
+            let board = Board::from(&game_state.board, &game_state.you);
+            let movesets = board.relevant_moves(4);
+            for m in movesets {
+                println!("{:?}", m);
+            }
         }
     }
 }

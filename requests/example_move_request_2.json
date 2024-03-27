@@ -132,6 +132,29 @@
                     "head": "silly",
                     "tail": "curled"
                 }
+            },
+            {
+                "id": "snake-b67f4906-94ae-11ea-1111",
+                "name": "Another Snake",
+                "health": 16,
+                "body": [
+                    {
+                        "x": 8,
+                        "y": 8
+                    }
+                ],
+                "latency": "222",
+                "head": {
+                    "x": 8,
+                    "y": 8
+                },
+                "length": 1,
+                "shout": "I'm not really sure...",
+                "customizations": {
+                    "color": "#26CF04",
+                    "head": "silly",
+                    "tail": "curled"
+                }
             }
         ]
     },
