@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 mod logic;
 
@@ -68,6 +68,12 @@ impl Add for Coord {
             x: self.x + other.x,
             y: self.y + other.y,
         }
+    }
+}
+
+impl AddAssign for Coord {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 

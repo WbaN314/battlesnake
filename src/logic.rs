@@ -544,7 +544,7 @@ mod smart_snake {
 
     impl Brain for SmartSnake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-            let board = efficient_game_objects::Board::from(board, you);
+            let board = efficient_game_objects::GameState::from(board, you);
 
             // TODO: Create a relevant board state generator
 
@@ -554,6 +554,9 @@ mod smart_snake {
 }
 mod efficient_game_objects {
     use core::fmt;
+    use std::cell::Ref;
+    use std::cell::RefCell;
+    use std::cell::RefMut;
 
     use crate::Battlesnake as DefaultSnake;
     use crate::Board as DefaultBoard;
@@ -586,24 +589,25 @@ mod efficient_game_objects {
     ];
 
     #[derive(Clone)]
-    pub struct Board {
-        board: [[Field; X_SIZE]; Y_SIZE],
-        snakes: [Option<Snake>; SNAKES],
+    pub struct GameState {
+        board: Board,
+        snakes: Snakes,
     }
 
-    impl Board {
+    impl GameState {
         pub fn new() -> Self {
-            Board {
-                board: [[Field::new(); X_SIZE]; Y_SIZE],
-                snakes: [None; SNAKES],
+            let snakes: [Option<Snake>; SNAKES] = std::array::from_fn(|_| None);
+            GameState {
+                board: Board::new(),
+                snakes: Snakes::new(),
             }
         }
 
         pub fn from(old: &DefaultBoard, you: &DefaultSnake) -> Self {
-            let mut board = Self::new();
+            let mut gamestate = Self::new();
 
             for food in old.food.iter() {
-                board.set(food.x, food.y, Field::Food);
+                gamestate.board.set(food.x, food.y, Field::Food);
             }
 
             let mut order: Vec<usize> = (0..old.snakes.len()).collect();
@@ -621,11 +625,11 @@ mod efficient_game_objects {
                     } else {
                         Some(old.snakes[order[i]].body[j - 1].clone())
                     };
-                    board.set(
+                    gamestate.board.set(
                         snake_part.x,
                         snake_part.y,
                         Field::SnakePart {
-                            snake_number: i as i32,
+                            snake_number: i,
                             next: next,
                         },
                     );
@@ -633,50 +637,35 @@ mod efficient_game_objects {
             }
 
             for i in 0..old.snakes.len() {
-                board.snakes[i] = Some(Snake::from(&old.snakes[order[i]], i as i32));
+                gamestate
+                    .snakes
+                    .set(i, Some(Snake::from(&old.snakes[order[i]], i as i32)));
             }
 
-            board
-        }
-
-        pub fn set(&mut self, x: i32, y: i32, state: Field) -> bool {
-            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
-                false
-            } else {
-                self.board[y as usize][x as usize] = state;
-                true
-            }
-        }
-
-        pub fn get(&self, x: i32, y: i32) -> Option<&Field> {
-            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
-                None
-            } else {
-                Some(&self.board[y as usize][x as usize])
-            }
+            gamestate
         }
 
         pub fn fill(&mut self, start: &Coord) -> Option<Area> {
             let mut area = Area::new();
             let x = start.x;
             let y = start.y;
-            match self.get(x, y) {
-                Some(&Field::Empty) | Some(&Field::Food) => {
+            match self.board.get(x, y) {
+                Some(Field::Empty) | Some(Field::Food) => {
                     let mut s = Vec::new();
                     s.push((x, x, y, 1));
                     s.push((x, x, y - 1, -1));
                     while let Some((mut x1, x2, y, dy)) = s.pop() {
                         let mut x = x1;
-                        match self.get(x, y) {
+                        match self.board.get(x, y) {
                             Some(Field::Empty) | Some(Field::Food) => {
-                                let mut candidate = self.get(x - 1, y);
-                                while candidate == Some(&Field::Empty)
-                                    || candidate == Some(&Field::Food)
+                                let mut candidate = self.board.get(x - 1, y);
+                                while candidate == Some(Field::Empty)
+                                    || candidate == Some(Field::Food)
                                 {
-                                    self.set(x - 1, y, Field::Filled);
+                                    self.board.set(x - 1, y, Field::Filled);
                                     area.area += 1;
                                     x -= 1;
-                                    candidate = self.get(x - 1, y);
+                                    candidate = self.board.get(x - 1, y);
                                 }
                                 if x < x1 {
                                     s.push((x, x1 - 1, y - dy, -dy))
@@ -685,14 +674,13 @@ mod efficient_game_objects {
                             _ => (),
                         }
                         while x1 <= x2 {
-                            let mut candidate = self.get(x1, y);
-                            while candidate == Some(&Field::Empty)
-                                || candidate == Some(&Field::Food)
+                            let mut candidate = self.board.get(x1, y);
+                            while candidate == Some(Field::Empty) || candidate == Some(Field::Food)
                             {
-                                self.set(x1, y, Field::Filled);
+                                self.board.set(x1, y, Field::Filled);
                                 area.area += 1;
                                 x1 += 1;
-                                candidate = self.get(x1, y);
+                                candidate = self.board.get(x1, y);
                             }
                             if x1 > x {
                                 s.push((x, x1 - 1, y + dy, dy));
@@ -702,10 +690,10 @@ mod efficient_game_objects {
                             }
                             x1 += 1;
                             loop {
-                                let candidate = self.get(x1, y);
+                                let candidate = self.board.get(x1, y);
                                 if x1 > x2
-                                    || candidate == Some(&Field::Empty)
-                                    || candidate == Some(&Field::Food)
+                                    || candidate == Some(Field::Empty)
+                                    || candidate == Some(Field::Food)
                                 {
                                     break;
                                 }
@@ -720,13 +708,13 @@ mod efficient_game_objects {
             Some(area)
         }
 
-        fn relevant_moves(&self, distance: u32) -> Vec<[Option<Coord>; 4]> {
-            let my_head = self.snakes[0].unwrap().head;
+        fn relevant_moves(&self, distance: u32) -> Vec<[Option<Direction>; 4]> {
+            let my_head = self.snakes.get(0).as_ref().unwrap().head;
 
             // Determine relevant snakes based on distance
             let mut snake_relevant = [false; SNAKES];
             for i in 1..SNAKES {
-                if let Some(snake) = self.snakes[i] {
+                if let Some(snake) = self.snakes.get(i).as_ref() {
                     if my_head.distance(&snake.head) <= distance {
                         snake_relevant[i] = true;
                     }
@@ -739,9 +727,10 @@ mod efficient_game_objects {
                 if snake_relevant[snake_index] {
                     for d in 0..4 {
                         let new_head_candidate =
-                            self.snakes[snake_index].unwrap().head + DIRECTION_VECTORS[d];
-                        match self.get(new_head_candidate.x, new_head_candidate.y) {
-                            Some(&Field::Empty) | Some(&Field::Food) => {
+                            self.snakes.get(snake_index).as_ref().unwrap().head
+                                + DIRECTION_VECTORS[d];
+                        match self.board.get(new_head_candidate.x, new_head_candidate.y) {
+                            Some(Field::Empty) | Some(Field::Food) => {
                                 dangerous_moves[snake_index][d] = true;
                             }
                             _ => (),
@@ -770,7 +759,8 @@ mod efficient_game_objects {
             let final_count = relevant_count.iter().fold(1, |acc, e| acc * e.max(&1));
 
             // Generate the relevant move combinations
-            let mut move_combinations = vec![[None, None, None, None]; final_count];
+            let mut move_combinations: Vec<[Option<Direction>; 4]> =
+                vec![[None, None, None, None]; final_count];
             let mut pattern_repeat = 1;
             let mut move_repeat = final_count;
             for snake_index in 1..SNAKES {
@@ -792,7 +782,13 @@ mod efficient_game_objects {
                                 + move_repeat * current_valid_move_count
                                 + m;
                             move_combinations[final_position][snake_index] =
-                                Some(DIRECTION_VECTORS[move_index]);
+                                Some(match move_index {
+                                    0 => Direction::Up,
+                                    1 => Direction::Down,
+                                    2 => Direction::Left,
+                                    3 => Direction::Right,
+                                    _ => unreachable!(),
+                                });
                         }
                         move_index += 1;
                     }
@@ -803,21 +799,219 @@ mod efficient_game_objects {
 
             move_combinations
         }
+
+        fn eliminate_dead_snake(&self, snake_index: usize) {
+            let mut eliminate = false;
+            if let Some(snake) = self.snakes.get(snake_index).as_ref() {
+                if snake.die {
+                    eliminate = true;
+                    let mut x = snake.tail.x;
+                    let mut y = snake.tail.y;
+                    loop {
+                        match self.board.get(x, y) {
+                            Some(Field::SnakePart { next, .. }) => {
+                                let next = next.clone();
+                                self.board.set(x, y, Field::Empty);
+                                match next {
+                                    Some(next) => {
+                                        x = next.x;
+                                        y = next.y;
+                                    }
+                                    None => break,
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                }
+            }
+            if eliminate {
+                self.snakes.get_mut(snake_index).take();
+            }
+        }
+
+        fn move_snakes(&mut self, moveset: [Option<Direction>; 4]) {
+            // Hunger eliminations first
+            for i in 0..SNAKES {
+                if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                    let x = snake.head.x;
+                    let y = snake.head.y;
+                    match self.board.get(x, y) {
+                        Some(Field::Food) => snake.health = 100,
+                        _ => (),
+                    }
+                    snake.health -= 1;
+                    if snake.health <= 0 {
+                        snake.die = true;
+                    };
+                }
+            }
+
+            // Remove snakes that died of hunger
+            for i in 0..SNAKES {
+                self.eliminate_dead_snake(i);
+            }
+
+            // Move snake heads to set contested fields
+            // Set grow on snakes that are potentially on food
+            // Set die on snakes that lose on contested fields
+            for (i, movement) in moveset.iter().enumerate() {
+                if let Some(movement) = movement {
+                    if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                        self.board.set(
+                            snake.head.x,
+                            snake.head.y,
+                            Field::SnakePart {
+                                snake_number: i,
+                                next: Some(snake.head + DIRECTION_VECTORS[*movement as usize]),
+                            },
+                        );
+                        snake.head += DIRECTION_VECTORS[*movement as usize];
+                        let x = snake.head.x;
+                        let y = snake.head.y;
+                        match self.board.get(x, y) {
+                            Some(Field::Empty) => {
+                                self.board.set(
+                                    x,
+                                    y,
+                                    Field::Contested {
+                                        snake_number: i,
+                                        food: false,
+                                    },
+                                );
+                            }
+                            Some(Field::Food) => {
+                                snake.grow = true;
+                                self.board.set(
+                                    x,
+                                    y,
+                                    Field::Contested {
+                                        snake_number: i,
+                                        food: true,
+                                    },
+                                );
+                            }
+                            Some(Field::Contested { snake_number, food }) => {
+                                if food {
+                                    snake.grow = true;
+                                }
+                                if i != snake_number {
+                                    if snake.length
+                                        > self.snakes.get(snake_number).as_ref().unwrap().length
+                                    {
+                                        self.snakes.get_mut(snake_number).as_mut().unwrap().die =
+                                            true;
+                                        self.board.set(
+                                            x,
+                                            y,
+                                            Field::Contested {
+                                                snake_number: i,
+                                                food: food,
+                                            },
+                                        );
+                                    } else if snake.length
+                                        < self.snakes.get(snake_number).as_ref().unwrap().length
+                                    {
+                                        snake.die = true;
+                                        self.board.set(
+                                            x,
+                                            y,
+                                            Field::Contested {
+                                                snake_number: snake_number,
+                                                food: food,
+                                            },
+                                        );
+                                    } else {
+                                        snake.die = true;
+                                        self.snakes.get_mut(snake_number).as_mut().unwrap().die =
+                                            true;
+                                    }
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+
+            // Contested fields resulted in die flags
+            // Contest needs to be set to snakepart of winner
+            // Grow needs to be evaluated for winner and tail handled for all
+            for i in 0..SNAKES {
+                if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                    let x = snake.head.x;
+                    let y = snake.head.y;
+                    let next_tail = match self.board.get(snake.tail.x, snake.tail.y) {
+                        Some(Field::SnakePart { next, .. }) => next.unwrap(),
+                        _ => unreachable!(),
+                    };
+                    match self.board.get(x, y) {
+                        Some(Field::Contested { food, snake_number }) => {
+                            let food = food.clone();
+                            if i != snake_number {
+                                self.board.set(snake.tail.x, snake.tail.y, Field::Empty);
+                            } else {
+                                self.board.set(
+                                    x,
+                                    y,
+                                    Field::SnakePart {
+                                        snake_number: snake_number,
+                                        next: None,
+                                    },
+                                );
+                                if !food {
+                                    self.board.set(snake.tail.x, snake.tail.y, Field::Empty);
+                                }
+                            }
+                        }
+                        _ => {
+                            self.board.set(snake.tail.x, snake.tail.y, Field::Empty);
+                        }
+                    }
+                    if !snake.grow {
+                        snake.tail = next_tail
+                    }
+                }
+            }
+
+            // SnakePart collisions need to be resolved now after tails have been handled
+            for i in 0..SNAKES {
+                if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                    let x = snake.head.x;
+                    let y = snake.head.y;
+                    match self.board.get(x, y) {
+                        Some(Field::SnakePart { snake_number, next }) => {
+                            if snake_number != i || next.is_some() {
+                                snake.die = true;
+                            }
+                        }
+                        None => snake.die = true,
+                        _ => (),
+                    }
+                }
+            }
+
+            // Remove snakes again
+            for i in 0..SNAKES {
+                self.eliminate_dead_snake(i);
+            }
+        }
     }
 
-    impl fmt::Display for Board {
+    impl fmt::Display for GameState {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut output: String = String::with_capacity((X_SIZE + 1) * Y_SIZE);
             for y in (0..Y_SIZE).rev() {
                 for x in 0..X_SIZE {
-                    if let Some(state) = self.get(x as i32, y as i32) {
-                        output.push(match *state {
+                    if let Some(state) = self.board.get(x as i32, y as i32) {
+                        output.push(match state {
                             Field::Empty => '.',
                             Field::Food => 'F',
                             Field::SnakePart { snake_number, .. } => {
                                 char::from_digit(snake_number as u32, 10).unwrap_or('?')
                             }
                             Field::Filled => 'X',
+                            Field::Contested { .. } => 'C',
                         });
                         output.push(' ');
                     }
@@ -828,15 +1022,68 @@ mod efficient_game_objects {
         }
     }
 
+    #[derive(Clone)]
+    struct Snakes([RefCell<Option<Snake>>; SNAKES]);
+
+    impl Snakes {
+        fn new() -> Self {
+            Self(std::array::from_fn(|_| RefCell::new(None)))
+        }
+
+        fn set(&self, i: usize, snake: Option<Snake>) {
+            self.0[i].replace(snake);
+        }
+
+        fn get(&self, i: usize) -> Ref<Option<Snake>> {
+            self.0[i].borrow()
+        }
+
+        fn get_mut(&self, i: usize) -> RefMut<Option<Snake>> {
+            self.0[i].borrow_mut()
+        }
+    }
+
+    #[derive(Clone)]
+    struct Board([RefCell<Field>; X_SIZE * Y_SIZE]);
+
+    impl Board {
+        fn new() -> Self {
+            Self(std::array::from_fn(|_| RefCell::new(Field::new())))
+        }
+
+        pub fn set(&self, x: i32, y: i32, state: Field) -> bool {
+            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
+                false
+            } else {
+                let index = X_SIZE * y as usize + x as usize;
+                self.0[index].replace(state);
+                true
+            }
+        }
+
+        pub fn get(&self, x: i32, y: i32) -> Option<Field> {
+            if x < 0 || x >= X_SIZE as i32 || y < 0 || y >= Y_SIZE as i32 {
+                None
+            } else {
+                let index = X_SIZE * y as usize + x as usize;
+                Some(self.0[index].borrow().clone())
+            }
+        }
+    }
+
     #[derive(Copy, Clone, Debug, PartialEq)]
     pub enum Field {
         Empty,
         Food,
         SnakePart {
-            snake_number: i32,
+            snake_number: usize,
             next: Option<Coord>,
         },
         Filled,
+        Contested {
+            snake_number: usize,
+            food: bool,
+        },
     }
 
     impl Field {
@@ -845,13 +1092,15 @@ mod efficient_game_objects {
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Clone)]
     struct Snake {
         number: i32,
         head: Coord,
         tail: Coord,
         health: i32,
         length: i32,
+        die: bool,
+        grow: bool,
     }
 
     impl Snake {
@@ -862,6 +1111,8 @@ mod efficient_game_objects {
                 tail: snake.body.last().unwrap().clone(),
                 health: snake.health,
                 length: snake.length,
+                die: false,
+                grow: false,
             }
         }
     }
@@ -879,54 +1130,58 @@ mod efficient_game_objects {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::GameState;
 
-        fn read_game_state(path: &str) -> GameState {
+        fn read_game_state(path: &str) -> crate::GameState {
             let file = std::fs::File::open(path).unwrap();
             let reader = std::io::BufReader::new(file);
-            let game_state: GameState = serde_json::from_reader(reader).unwrap();
+            let game_state: crate::GameState = serde_json::from_reader(reader).unwrap();
             game_state
         }
 
         #[test]
-        fn print_board() {
+        fn print_board_1() {
             let game_state = read_game_state("requests/example_move_request.json");
-            let board = Board::from(&game_state.board, &game_state.you);
+            let board = GameState::from(&game_state.board, &game_state.you);
+            println!("{board}")
+        }
+
+        #[test]
+        fn print_board_2() {
+            let game_state = read_game_state("requests/example_move_request_2.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
             println!("{board}")
         }
 
         #[test]
         fn snakes_to_board() {
             let game_state = read_game_state("requests/example_move_request.json");
-            let board = Board::from(&game_state.board, &game_state.you);
-            assert_eq!(board.snakes[0].unwrap().health, 54);
-            assert_eq!(board.snakes[0].unwrap().number, 0);
-            assert_eq!(board.snakes[1].unwrap().health, 16);
-            assert_eq!(board.snakes[1].unwrap().number, 1);
-            assert!(board.snakes[2].is_none());
-            assert!(board.snakes[3].is_none());
+            let gamestate = GameState::from(&game_state.board, &game_state.you);
+            assert_eq!(gamestate.snakes.get(0).as_ref().unwrap().health, 54);
+            assert_eq!(gamestate.snakes.get(1).as_ref().unwrap().health, 16);
+            assert!(gamestate.snakes.get(2).is_none());
+            assert!(gamestate.snakes.get(3).is_none());
         }
 
         #[test]
         fn snakeparts_on_board() {
             let game_state = read_game_state("requests/example_move_request.json");
-            let board = Board::from(&game_state.board, &game_state.you);
+            let gamestate = GameState::from(&game_state.board, &game_state.you);
             assert_eq!(
-                *board.get(0, 0).unwrap(),
+                gamestate.board.get(0, 0).unwrap(),
                 Field::SnakePart {
                     snake_number: 0,
                     next: None,
                 }
             );
             assert_eq!(
-                *board.get(1, 0).unwrap(),
+                gamestate.board.get(1, 0).unwrap(),
                 Field::SnakePart {
                     snake_number: 0,
                     next: Some(Coord { x: 0, y: 0 })
                 }
             );
             assert_eq!(
-                *board.get(2, 0).unwrap(),
+                gamestate.board.get(2, 0).unwrap(),
                 Field::SnakePart {
                     snake_number: 0,
                     next: Some(Coord { x: 1, y: 0 })
@@ -937,7 +1192,7 @@ mod efficient_game_objects {
         #[test]
         fn fill_board() {
             let game_state = read_game_state("requests/example_move_request.json");
-            let mut board = Board::from(&game_state.board, &game_state.you);
+            let mut board = GameState::from(&game_state.board, &game_state.you);
             assert!(board.clone().fill(&Coord::from(0, 0)).is_none());
             assert!(board.clone().fill(&Coord::from(-1, 0)).is_none());
             assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 114);
@@ -947,15 +1202,15 @@ mod efficient_game_objects {
         #[test]
         fn fill_board_2() {
             let game_state = read_game_state("requests/example_move_request_2.json");
-            let mut board = Board::from(&game_state.board, &game_state.you);
+            let mut board = GameState::from(&game_state.board, &game_state.you);
             assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 20);
             println!("{board}");
         }
 
         #[test]
         fn relevant_moves() {
-            let game_state = read_game_state("requests/example_move_request_2.json");
-            let board = Board::from(&game_state.board, &game_state.you);
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
             let movesets = board.relevant_moves(u32::MAX);
             for m in movesets {
                 println!("{:?}", m);
@@ -965,11 +1220,38 @@ mod efficient_game_objects {
         #[test]
         fn relevant_moves_2() {
             let game_state = read_game_state("requests/example_move_request_2.json");
-            let board = Board::from(&game_state.board, &game_state.you);
-            let movesets = board.relevant_moves(4);
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let movesets = board.relevant_moves(u32::MAX);
             for m in movesets {
                 println!("{:?}", m);
             }
+        }
+
+        #[test]
+        fn move_other_snakes_up() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut moved_up = board.clone();
+            moved_up.move_snakes([None, Some(Direction::Up), None, None]);
+            println!("{}", moved_up)
+        }
+
+        #[test]
+        fn move_other_snakes_left() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut moved_up = board.clone();
+            moved_up.move_snakes([None, Some(Direction::Left), None, None]);
+            println!("{}", moved_up)
+        }
+
+        #[test]
+        fn move_other_snakes_down() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut moved_up = board.clone();
+            moved_up.move_snakes([None, Some(Direction::Down), None, None]);
+            println!("{}", moved_up)
         }
     }
 }
