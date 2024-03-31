@@ -89,6 +89,8 @@ pub fn get_move(game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Di
             Box::new(hungry_simple_snake::HungrySimpleSnake::new())
         } else if value == "simple_tree_search" {
             Box::new(simple_tree_search_snake::SimpleTreeSearchSnake::new())
+        } else if value == "smart_snake" {
+            Box::new(smart_snake::SmartSnake::new())
         } else {
             Box::new(hungry_simple_snake::HungrySimpleSnake::new())
         }
@@ -532,12 +534,14 @@ mod simple_tree_search_snake {
 }
 
 mod smart_snake {
+    use self::efficient_game_objects::{DIRECTIONS, DIRECTION_VECTORS};
+
     use super::*;
 
     pub struct SmartSnake {}
 
     impl SmartSnake {
-        fn new() -> Self {
+        pub fn new() -> Self {
             Self {}
         }
     }
@@ -546,15 +550,52 @@ mod smart_snake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
             let board = efficient_game_objects::GameState::from(board, you);
 
-            // TODO: Create a relevant board state generator
+            // Get non stupid directions for move
+            let mut good_moves = [false; 4];
             let relevant_moves = board.relevant_moves(u32::MAX);
-
-            for moveset in relevant_moves {
-                let mut current_board = board.clone();
-                current_board.move_snakes(moveset);
+            for moveset in relevant_moves.iter() {
+                if let Some(my_move) = moveset[0] {
+                    good_moves[my_move as usize] = true
+                }
             }
 
-            Direction::Down
+            // If decisions of other snakes can lead to death for move, mark it as bad
+            for moveset in relevant_moves {
+                let mut current_board = board.clone();
+                match current_board.move_snakes(moveset.clone()) {
+                    Ok(_) => (),
+                    Err(_) => match moveset[0] {
+                        Some(efficient_game_objects::Direction::Up) => good_moves[0] = false,
+                        Some(efficient_game_objects::Direction::Down) => good_moves[1] = false,
+                        Some(efficient_game_objects::Direction::Left) => good_moves[2] = false,
+                        Some(efficient_game_objects::Direction::Right) => good_moves[3] = false,
+                        None => unreachable!(),
+                    },
+                }
+            }
+
+            let mut best_area = 0;
+            let mut direction = 0;
+            for (i, m) in good_moves.iter().enumerate() {
+                if *m {
+                    if let Some(area) = board.clone().fill(&DIRECTION_VECTORS[i]) {
+                        if area.area > best_area {
+                            best_area = area.area;
+                            direction = i;
+                        }
+                    }
+                }
+            }
+
+            // TODO: go towards food / middle if areas are equal
+
+            match direction {
+                0 => Direction::Up,
+                1 => Direction::Down,
+                2 => Direction::Left,
+                3 => Direction::Right,
+                _ => unreachable!(),
+            }
         }
     }
 }
@@ -580,14 +621,14 @@ mod efficient_game_objects {
         Right = 3,
     }
 
-    const DIRECTIONS: [Direction; 4] = [
+    pub const DIRECTIONS: [Direction; 4] = [
         Direction::Up,
         Direction::Down,
         Direction::Left,
         Direction::Right,
     ];
 
-    const DIRECTION_VECTORS: [Coord; 4] = [
+    pub const DIRECTION_VECTORS: [Coord; 4] = [
         Coord { x: 0, y: 1 },
         Coord { x: 0, y: -1 },
         Coord { x: -1, y: 0 },
@@ -757,6 +798,13 @@ mod efficient_game_objects {
                         match self.board.get(new_head_candidate.x, new_head_candidate.y) {
                             Some(Field::Empty) | Some(Field::Food) => {
                                 dangerous_moves[snake_index][d] = true;
+                            }
+                            Some(Field::SnakePart { snake_number, .. }) => {
+                                let tail = self.snakes.get(snake_number).as_ref().unwrap().tail;
+                                if tail.x == new_head_candidate.x && tail.y == new_head_candidate.y
+                                {
+                                    dangerous_moves[snake_index][d] = true;
+                                }
                             }
                             _ => (),
                         }
@@ -1162,11 +1210,11 @@ mod efficient_game_objects {
     }
 
     pub struct Area {
-        area: usize,
+        pub area: usize,
     }
 
     impl Area {
-        fn new() -> Self {
+        pub fn new() -> Self {
             Self { area: 0 }
         }
     }
