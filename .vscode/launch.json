@@ -9,7 +9,7 @@
             "request": "launch",
             "name": "Debug executable 'starter-snake-rust'",
             "env": {
-                "VARIANT": "simple_tree_search"
+                "VARIANT": "smart_snake"
             },
             "cargo": {
                 "args": [
@@ -29,6 +29,9 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug unit tests in executable 'starter-snake-rust'",
+            "env": {
+                "VARIANT": "smart_snake"
+            },
             "cargo": {
                 "args": [
                     "test",

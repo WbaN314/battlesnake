@@ -102,6 +102,43 @@ pub fn get_move(game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Di
     return next_move;
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::logic::Direction;
+
+    use super::get_move;
+
+    fn read_game_state(path: &str) -> crate::GameState {
+        let file = std::fs::File::open(path).unwrap();
+        let reader = std::io::BufReader::new(file);
+        let game_state: crate::GameState = serde_json::from_reader(reader).unwrap();
+        game_state
+    }
+
+    #[test]
+    fn get_move_2() {
+        let game_state = read_game_state("requests/example_move_request_2.json");
+        let chosen_move = get_move(
+            &game_state.game,
+            &game_state.turn,
+            &game_state.board,
+            &game_state.you,
+        );
+        assert_eq!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn get_move_3() {
+        let game_state = read_game_state("requests/example_move_request_3.json");
+        let chosen_move = get_move(
+            &game_state.game,
+            &game_state.turn,
+            &game_state.board,
+            &game_state.you,
+        );
+        assert_eq!(chosen_move, Direction::Down);
+    }
+}
 mod hungry_simple_snake {
     use super::*;
     pub struct HungrySimpleSnake {}
@@ -553,6 +590,7 @@ mod smart_snake {
             // Get non stupid directions for move
             let mut good_moves = [false; 4];
             let relevant_moves = board.relevant_moves(u32::MAX);
+            println!("{:?}", &relevant_moves);
             for moveset in relevant_moves.iter() {
                 if let Some(my_move) = moveset[0] {
                     good_moves[my_move as usize] = true
@@ -564,13 +602,16 @@ mod smart_snake {
                 let mut current_board = board.clone();
                 match current_board.move_snakes(moveset.clone()) {
                     Ok(_) => (),
-                    Err(_) => match moveset[0] {
-                        Some(efficient_game_objects::Direction::Up) => good_moves[0] = false,
-                        Some(efficient_game_objects::Direction::Down) => good_moves[1] = false,
-                        Some(efficient_game_objects::Direction::Left) => good_moves[2] = false,
-                        Some(efficient_game_objects::Direction::Right) => good_moves[3] = false,
-                        None => unreachable!(),
-                    },
+                    Err(_) => {
+                        println!("{:?}", moveset);
+                        match moveset[0] {
+                            Some(efficient_game_objects::Direction::Up) => good_moves[0] = false,
+                            Some(efficient_game_objects::Direction::Down) => good_moves[1] = false,
+                            Some(efficient_game_objects::Direction::Left) => good_moves[2] = false,
+                            Some(efficient_game_objects::Direction::Right) => good_moves[3] = false,
+                            None => unreachable!(),
+                        }
+                    }
                 }
             }
 
@@ -578,7 +619,8 @@ mod smart_snake {
             let mut direction = 0;
             for (i, m) in good_moves.iter().enumerate() {
                 if *m {
-                    if let Some(area) = board.clone().fill(&DIRECTION_VECTORS[i]) {
+                    let start = board.snakes.get(i).as_ref().unwrap().head + DIRECTION_VECTORS[i];
+                    if let Some(area) = board.clone().fill(&start) {
                         if area.area > best_area {
                             best_area = area.area;
                             direction = i;
@@ -656,8 +698,8 @@ mod efficient_game_objects {
 
     #[derive(Clone)]
     pub struct GameState {
-        board: Board,
-        snakes: Snakes,
+        pub board: Board,
+        pub snakes: Snakes,
     }
 
     impl GameState {
@@ -1115,18 +1157,18 @@ mod efficient_game_objects {
     }
 
     #[derive(Clone)]
-    struct Snakes([RefCell<Option<Snake>>; SNAKES]);
+    pub struct Snakes([RefCell<Option<Snake>>; SNAKES]);
 
     impl Snakes {
         fn new() -> Self {
             Self(std::array::from_fn(|_| RefCell::new(None)))
         }
 
-        fn set(&self, i: usize, snake: Option<Snake>) {
+        pub fn set(&self, i: usize, snake: Option<Snake>) {
             self.0[i].replace(snake);
         }
 
-        fn get(&self, i: usize) -> Ref<Option<Snake>> {
+        pub fn get(&self, i: usize) -> Ref<Option<Snake>> {
             self.0[i].borrow()
         }
 
@@ -1136,7 +1178,7 @@ mod efficient_game_objects {
     }
 
     #[derive(Clone)]
-    struct Board([RefCell<Field>; X_SIZE * Y_SIZE]);
+    pub struct Board([RefCell<Field>; X_SIZE * Y_SIZE]);
 
     impl Board {
         fn new() -> Self {
@@ -1185,14 +1227,14 @@ mod efficient_game_objects {
     }
 
     #[derive(Clone)]
-    struct Snake {
-        number: i32,
-        head: Coord,
-        tail: Coord,
-        health: i32,
-        length: i32,
-        die: bool,
-        grow: bool,
+    pub struct Snake {
+        pub number: i32,
+        pub head: Coord,
+        pub tail: Coord,
+        pub health: i32,
+        pub length: i32,
+        pub die: bool,
+        pub grow: bool,
     }
 
     impl Snake {
@@ -1312,6 +1354,16 @@ mod efficient_game_objects {
         #[test]
         fn relevant_moves_2() {
             let game_state = read_game_state("requests/example_move_request_2.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let movesets = board.relevant_moves(u32::MAX);
+            for m in movesets {
+                println!("{:?}", m);
+            }
+        }
+
+        #[test]
+        fn relevant_moves_3() {
+            let game_state = read_game_state("requests/example_move_request_3.json");
             let board = GameState::from(&game_state.board, &game_state.you);
             let movesets = board.relevant_moves(u32::MAX);
             for m in movesets {
