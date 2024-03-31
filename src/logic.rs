@@ -619,7 +619,7 @@ mod smart_snake {
             let mut direction = 0;
             for (i, m) in good_moves.iter().enumerate() {
                 if *m {
-                    let start = board.snakes.get(i).as_ref().unwrap().head + DIRECTION_VECTORS[i];
+                    let start = board.snakes.get(0).as_ref().unwrap().head + DIRECTION_VECTORS[i];
                     if let Some(area) = board.clone().fill(&start) {
                         if area.area > best_area {
                             best_area = area.area;
