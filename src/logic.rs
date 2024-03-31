@@ -547,6 +547,12 @@ mod smart_snake {
             let board = efficient_game_objects::GameState::from(board, you);
 
             // TODO: Create a relevant board state generator
+            let relevant_moves = board.relevant_moves(u32::MAX);
+
+            for moveset in relevant_moves {
+                let mut current_board = board.clone();
+                current_board.move_snakes(moveset);
+            }
 
             Direction::Down
         }
@@ -567,7 +573,7 @@ mod efficient_game_objects {
     const SNAKES: usize = 4;
 
     #[derive(Clone, Copy, Debug)]
-    enum Direction {
+    pub enum Direction {
         Up = 0,
         Down = 1,
         Left = 2,
@@ -587,6 +593,25 @@ mod efficient_game_objects {
         Coord { x: -1, y: 0 },
         Coord { x: 1, y: 0 },
     ];
+
+    type Result<T> = std::result::Result<T, Death>;
+
+    // Define our error types. These may be customized for our error handling cases.
+    // Now we will be able to write our own errors, defer to an underlying error
+    // implementation, or do something in between.
+    #[derive(Debug, Clone)]
+    pub struct Death;
+
+    // Generation of an error is completely separate from how it is displayed.
+    // There's no need to be concerned about cluttering complex logic with the display style.
+    //
+    // Note that we don't store any extra info about the errors. This means we can't state
+    // which string failed to parse without modifying our types to carry that information.
+    impl fmt::Display for Death {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "We die.")
+        }
+    }
 
     #[derive(Clone)]
     pub struct GameState {
@@ -708,12 +733,12 @@ mod efficient_game_objects {
             Some(area)
         }
 
-        fn relevant_moves(&self, distance: u32) -> Vec<[Option<Direction>; 4]> {
+        pub fn relevant_moves(&self, distance: u32) -> Vec<[Option<Direction>; 4]> {
             let my_head = self.snakes.get(0).as_ref().unwrap().head;
 
             // Determine relevant snakes based on distance
             let mut snake_relevant = [false; SNAKES];
-            for i in 1..SNAKES {
+            for i in 0..SNAKES {
                 if let Some(snake) = self.snakes.get(i).as_ref() {
                     if my_head.distance(&snake.head) <= distance {
                         snake_relevant[i] = true;
@@ -723,7 +748,7 @@ mod efficient_game_objects {
 
             // Determine "dangerous" move combinations of relevant snakes where they do not do stupid stuff
             let mut dangerous_moves = [[false; 4]; SNAKES];
-            for snake_index in 1..SNAKES {
+            for snake_index in 0..SNAKES {
                 if snake_relevant[snake_index] {
                     for d in 0..4 {
                         let new_head_candidate =
@@ -741,7 +766,7 @@ mod efficient_game_objects {
 
             // Get the count of actually relevant snake move combinations
             let mut relevant_count = [0; SNAKES];
-            for i in 1..SNAKES {
+            for i in 0..SNAKES {
                 relevant_count[i] =
                     dangerous_moves[i]
                         .iter()
@@ -763,7 +788,7 @@ mod efficient_game_objects {
                 vec![[None, None, None, None]; final_count];
             let mut pattern_repeat = 1;
             let mut move_repeat = final_count;
-            for snake_index in 1..SNAKES {
+            for snake_index in 0..SNAKES {
                 if relevant_count[snake_index] == 0 {
                     continue;
                 }
@@ -830,7 +855,7 @@ mod efficient_game_objects {
             }
         }
 
-        fn move_snakes(&mut self, moveset: [Option<Direction>; 4]) {
+        pub fn move_snakes(&mut self, moveset: [Option<Direction>; 4]) -> Result<()> {
             // Hunger eliminations first
             for i in 0..SNAKES {
                 if let Some(snake) = self.snakes.get_mut(i).as_mut() {
@@ -843,6 +868,9 @@ mod efficient_game_objects {
                     snake.health -= 1;
                     if snake.health <= 0 {
                         snake.die = true;
+                        if i == 0 {
+                            return Result::Err(Death);
+                        }
                     };
                 }
             }
@@ -913,6 +941,9 @@ mod efficient_game_objects {
                                         < self.snakes.get(snake_number).as_ref().unwrap().length
                                     {
                                         snake.die = true;
+                                        if i == 0 {
+                                            return Result::Err(Death);
+                                        }
                                         self.board.set(
                                             x,
                                             y,
@@ -923,6 +954,9 @@ mod efficient_game_objects {
                                         );
                                     } else {
                                         snake.die = true;
+                                        if i == 0 {
+                                            return Result::Err(Death);
+                                        }
                                         self.snakes.get_mut(snake_number).as_mut().unwrap().die =
                                             true;
                                     }
@@ -983,9 +1017,17 @@ mod efficient_game_objects {
                         Some(Field::SnakePart { snake_number, next }) => {
                             if snake_number != i || next.is_some() {
                                 snake.die = true;
+                                if i == 0 {
+                                    return Result::Err(Death);
+                                }
                             }
                         }
-                        None => snake.die = true,
+                        None => {
+                            snake.die = true;
+                            if i == 0 {
+                                return Result::Err(Death);
+                            }
+                        }
                         _ => (),
                     }
                 }
@@ -995,6 +1037,8 @@ mod efficient_game_objects {
             for i in 0..SNAKES {
                 self.eliminate_dead_snake(i);
             }
+
+            Result::Ok(())
         }
     }
 
@@ -1232,8 +1276,10 @@ mod efficient_game_objects {
             let game_state = read_game_state("requests/example_move_request.json");
             let board = GameState::from(&game_state.board, &game_state.you);
             let mut moved_up = board.clone();
-            moved_up.move_snakes([None, Some(Direction::Up), None, None]);
-            println!("{}", moved_up)
+            match moved_up.move_snakes([None, Some(Direction::Up), None, None]) {
+                Ok(_) => println!("{}", moved_up),
+                Err(_) => println!("Death"),
+            }
         }
 
         #[test]
@@ -1241,8 +1287,10 @@ mod efficient_game_objects {
             let game_state = read_game_state("requests/example_move_request.json");
             let board = GameState::from(&game_state.board, &game_state.you);
             let mut moved_up = board.clone();
-            moved_up.move_snakes([None, Some(Direction::Left), None, None]);
-            println!("{}", moved_up)
+            match moved_up.move_snakes([Some(Direction::Left), Some(Direction::Left), None, None]) {
+                Ok(_) => println!("{}", moved_up),
+                Err(_) => println!("Death"),
+            }
         }
 
         #[test]
@@ -1250,8 +1298,10 @@ mod efficient_game_objects {
             let game_state = read_game_state("requests/example_move_request.json");
             let board = GameState::from(&game_state.board, &game_state.you);
             let mut moved_up = board.clone();
-            moved_up.move_snakes([None, Some(Direction::Down), None, None]);
-            println!("{}", moved_up)
+            match moved_up.move_snakes([Some(Direction::Up), Some(Direction::Down), None, None]) {
+                Ok(_) => println!("{}", moved_up),
+                Err(_) => println!("Death"),
+            }
         }
     }
 }
