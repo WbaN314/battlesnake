@@ -104,7 +104,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 #[post("/move", format = "json", data = "<move_req>")]
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     let r = move_req.into_inner();
-    debug!("{}", serde_json::to_string_pretty(&r).unwrap());
+    debug!("{}", serde_json::to_string(&r).unwrap());
     move_req = Json(r);
     let response = logic::get_move(
         &move_req.game,
