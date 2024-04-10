@@ -4,8 +4,7 @@ extern crate rocket;
 use log::info;
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
-use rocket::serde::{json::Json, Deserialize};
-use serde::Serialize;
+use rocket::serde::{json::Json, Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
@@ -103,8 +102,10 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 }
 
 #[post("/move", format = "json", data = "<move_req>")]
-fn handle_move(move_req: Json<GameState>) -> Json<Value> {
-    debug!("{:?}", move_req);
+fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
+    let r = move_req.into_inner();
+    debug!("{}", serde_json::to_string_pretty(&r).unwrap());
+    move_req = Json(r);
     let response = logic::get_move(
         &move_req.game,
         &move_req.turn,
