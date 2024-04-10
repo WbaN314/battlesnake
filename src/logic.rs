@@ -571,9 +571,13 @@ mod simple_tree_search_snake {
 }
 
 mod smart_snake {
-    use self::efficient_game_objects::{DIRECTIONS, DIRECTION_VECTORS};
+    use std::{collections::VecDeque, time::Instant};
 
-    use super::*;
+    use crate::{logic::efficient_game_objects, Battlesnake, Board, Game};
+
+    use self::efficient_game_objects::{DirectionTree, GameState, DIRECTIONS, DIRECTION_VECTORS};
+
+    use super::{Brain, Direction};
 
     pub struct SmartSnake {}
 
@@ -585,82 +589,86 @@ mod smart_snake {
 
     impl Brain for SmartSnake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-            let board = efficient_game_objects::GameState::from(board, you);
-
-            // Get non stupid directions for move
-            let mut good_moves = [false; 4];
-            let relevant_moves = board.relevant_moves(u32::MAX);
-            println!("{:?}", &relevant_moves);
-            for moveset in relevant_moves.iter() {
-                if let Some(my_move) = moveset[0] {
-                    good_moves[my_move as usize] = true
-                }
-            }
-
-            // If decisions of other snakes can lead to death for move, mark it as bad
-            for moveset in relevant_moves {
-                let mut current_board = board.clone();
-                match current_board.move_snakes(moveset.clone()) {
-                    Ok(_) => (),
-                    Err(_) => {
-                        println!("{:?}", moveset);
-                        match moveset[0] {
-                            Some(efficient_game_objects::Direction::Up) => good_moves[0] = false,
-                            Some(efficient_game_objects::Direction::Down) => good_moves[1] = false,
-                            Some(efficient_game_objects::Direction::Left) => good_moves[2] = false,
-                            Some(efficient_game_objects::Direction::Right) => good_moves[3] = false,
-                            None => unreachable!(),
-                        }
+            let game_state = efficient_game_objects::GameState::from(board, you);
+            let mut d_tree = DirectionTree::from(game_state);
+            match d_tree.simulate_timed(u32::MAX, 200) {
+                Ok(res) => {
+                    info!("Evaluated depth: {}", res.len());
+                    match res[0] {
+                        efficient_game_objects::Direction::Up => Direction::Up,
+                        efficient_game_objects::Direction::Down => Direction::Down,
+                        efficient_game_objects::Direction::Left => Direction::Left,
+                        efficient_game_objects::Direction::Right => Direction::Right,
                     }
                 }
-            }
-
-            let mut best_area = 0;
-            let mut direction = 0;
-            for (i, m) in good_moves.iter().enumerate() {
-                if *m {
-                    let start = board.snakes.get(0).as_ref().unwrap().head + DIRECTION_VECTORS[i];
-                    if let Some(area) = board.clone().fill(&start) {
-                        if area.area > best_area {
-                            best_area = area.area;
-                            direction = i;
-                        }
-                    }
-                }
-            }
-
-            // TODO: go towards food / middle if areas are equal
-
-            match direction {
-                0 => Direction::Up,
-                1 => Direction::Down,
-                2 => Direction::Left,
-                3 => Direction::Right,
-                _ => unreachable!(),
+                Err(_) => Direction::Up,
             }
         }
     }
 }
+
 mod efficient_game_objects {
     use core::fmt;
+    use core::panic;
     use std::cell::Ref;
     use std::cell::RefCell;
     use std::cell::RefMut;
+    use std::collections::BTreeMap;
+    use std::collections::HashMap;
+    use std::collections::VecDeque;
+    use std::fmt::Display;
+    use std::ops::Deref;
+    use std::ops::DerefMut;
+    use std::time::Duration;
+    use std::time::Instant;
 
     use crate::Battlesnake as DefaultSnake;
     use crate::Board as DefaultBoard;
     use crate::Coord;
+    use crate::Game;
 
     const X_SIZE: usize = 11;
     const Y_SIZE: usize = 11;
     const SNAKES: usize = 4;
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum Direction {
         Up = 0,
         Down = 1,
         Left = 2,
         Right = 3,
+    }
+
+    impl Direction {
+        pub fn from_usize(u: usize) -> Direction {
+            match u {
+                0 => Direction::Up,
+                1 => Direction::Down,
+                2 => Direction::Left,
+                3 => Direction::Right,
+                _ => panic!("Invalid usize for Direction conversion"),
+            }
+        }
+
+        pub fn to_usize(self) -> usize {
+            match self {
+                Direction::Up => 0,
+                Direction::Down => 1,
+                Direction::Left => 2,
+                Direction::Right => 3,
+            }
+        }
+    }
+
+    impl Display for Direction {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                &Direction::Up => write!(f, "Up"),
+                &Direction::Down => write!(f, "Down"),
+                &Direction::Left => write!(f, "Left"),
+                &Direction::Right => write!(f, "Right"),
+            }
+        }
     }
 
     pub const DIRECTIONS: [Direction; 4] = [
@@ -693,6 +701,249 @@ mod efficient_game_objects {
     impl fmt::Display for Death {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "We die.")
+        }
+    }
+
+    pub struct DirectionTree {
+        map: BTreeMap<DirectionVec, Option<(DirectionNode)>>,
+        current: VecDeque<DirectionVec>,
+    }
+
+    impl Display for DirectionTree {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let mut s = String::new();
+            for (key, value) in self.map.iter() {
+                s.push_str(&format!("{:?}\n", key));
+                match value {
+                    Some(node) => s.push_str(&node.to_string()),
+                    None => s.push_str("Completed"),
+                }
+                s.push_str("\n\n");
+            }
+            write!(f, "{}", s)
+        }
+    }
+
+    struct DirectionNode {
+        pub states: Vec<GameState>,
+        pub evaluated: [bool; 4],
+    }
+
+    impl Display for DirectionNode {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "# states: {} \ndirections: {:?}",
+                self.states.len(),
+                self.evaluated
+            )
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct DirectionVec(Vec<Direction>);
+
+    impl DirectionVec {
+        fn new() -> Self {
+            Self(Vec::new())
+        }
+
+        fn from(v: Vec<Direction>) -> Self {
+            Self(v)
+        }
+    }
+
+    impl Deref for DirectionVec {
+        type Target = Vec<Direction>;
+        fn deref(&self) -> &Vec<Direction> {
+            &self.0
+        }
+    }
+
+    impl DerefMut for DirectionVec {
+        fn deref_mut(&mut self) -> &mut Vec<Direction> {
+            &mut self.0
+        }
+    }
+
+    impl PartialOrd for DirectionVec {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    impl PartialEq for DirectionVec {
+        fn eq(&self, other: &Self) -> bool {
+            if self.cmp(other) == std::cmp::Ordering::Equal {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    impl Eq for DirectionVec {}
+
+    impl Ord for DirectionVec {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            if self.len() > other.len() {
+                std::cmp::Ordering::Greater
+            } else if self.len() < other.len() {
+                std::cmp::Ordering::Less
+            } else {
+                let mut i = 0;
+                loop {
+                    if i >= self.len() {
+                        break std::cmp::Ordering::Equal;
+                    } else if self[i].to_usize() > other[i].to_usize() {
+                        break std::cmp::Ordering::Greater;
+                    } else if self[i].to_usize() < other[i].to_usize() {
+                        break std::cmp::Ordering::Less;
+                    }
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    impl DirectionNode {
+        pub fn new() -> Self {
+            Self {
+                states: Vec::new(),
+                evaluated: [false; 4],
+            }
+        }
+
+        pub fn from(valid_states: Vec<GameState>) -> DirectionNode {
+            Self {
+                states: valid_states,
+                evaluated: [false; 4],
+            }
+        }
+
+        pub fn calc_next(&mut self, to: Direction, distance: u32) -> Result<DirectionNode> {
+            let mut new_valid_states = Vec::new();
+            for state in self.states.iter() {
+                let relevant_moves = state.relevant_moves(distance);
+                for relevant_move in relevant_moves {
+                    if relevant_move[0].unwrap() != to {
+                        continue;
+                    }
+                    let mut new_state = state.clone();
+                    match new_state.move_snakes(relevant_move) {
+                        Ok(_) => new_valid_states.push(new_state),
+                        Err(_) => return Result::Err(Death),
+                    };
+                }
+            }
+            self.evaluated[to.to_usize()] = true;
+            if new_valid_states.len() == 0 {
+                return Result::Err(Death);
+            }
+            Ok(Self::from(new_valid_states))
+        }
+
+        pub fn completely_evaluated(&self) -> bool {
+            for i in self.evaluated {
+                if !i {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    impl DirectionTree {
+        pub fn new() -> Self {
+            Self {
+                map: BTreeMap::new(),
+                current: VecDeque::from(Vec::new()),
+            }
+        }
+
+        pub fn from(state: GameState) -> Self {
+            let mut d_tree = Self::new();
+            let d_node = DirectionNode::from(vec![state]);
+            d_tree.map.insert(DirectionVec::new(), Some(d_node));
+            d_tree.current.push_back(DirectionVec::new());
+            d_tree
+        }
+
+        pub fn calc(&mut self, mut from: DirectionVec, to: Direction, distance: u32) -> Result<()> {
+            let mut delete = false;
+            let mut result;
+            let mut calc_next_result: Option<DirectionNode>;
+            match self.map.get_mut(&from) {
+                Some(Some(node)) => {
+                    match node.calc_next(to, distance) {
+                        Ok(r) => {
+                            calc_next_result = Some(r);
+                            result = Result::Ok(())
+                        }
+                        Err(_) => {
+                            calc_next_result = None;
+                            result = Result::Err(Death)
+                        }
+                    }
+                    if node.completely_evaluated() {
+                        delete = true
+                    }
+                }
+                Some(None) => {
+                    calc_next_result = None;
+                    result = Result::Err(Death)
+                }
+                _ => {
+                    panic!("Invalid access")
+                }
+            }
+            let mut fromto = from.clone();
+            fromto.push(to);
+            self.map.insert(fromto, calc_next_result);
+            if delete {
+                self.map.insert(from, None);
+            }
+            result
+        }
+
+        pub fn calcs(&mut self, from: DirectionVec, distance: u32) -> [bool; 4] {
+            let mut results = [false; 4];
+            for d in 0..4 {
+                match self.calc(from.clone(), Direction::from_usize(d), distance) {
+                    Ok(_) => results[d] = true,
+                    Err(_) => results[d] = false,
+                }
+            }
+            results
+        }
+
+        pub fn simulate_timed(
+            &mut self,
+            distance: u32,
+            milliseconds: u64,
+        ) -> Result<&DirectionVec> {
+            let timer = Instant::now();
+            while timer.elapsed() < Duration::from_millis(milliseconds) {
+                match self.current.pop_front() {
+                    None => return Err(Death),
+                    Some(d_vec) => {
+                        let bools = self.calcs(d_vec.clone(), distance);
+                        for i in 0..4 {
+                            if bools[i] {
+                                let mut new = d_vec.clone();
+                                new.push(Direction::from_usize(i));
+                                self.current.push_back(new);
+                            }
+                        }
+                    }
+                }
+            }
+            for key in self.map.keys().rev() {
+                if let Some(node) = self.map.get(key) {
+                    return Ok(key);
+                }
+            }
+            Err(Death)
         }
     }
 
@@ -1067,7 +1318,11 @@ mod efficient_game_objects {
                     let y = snake.head.y;
                     let next_tail = match self.board.get(snake.tail.x, snake.tail.y) {
                         Some(Field::SnakePart { next, .. }) => next.unwrap(),
-                        _ => unreachable!(),
+                        _ => {
+                            println!("{}", self);
+                            println!("Tail is at {} {}", snake.tail.x, snake.tail.y);
+                            unreachable!()
+                        }
                     };
                     match self.board.get(x, y) {
                         Some(Field::Contested { food, snake_number }) => {
@@ -1094,7 +1349,10 @@ mod efficient_game_objects {
                     }
                     if !snake.grow {
                         snake.tail = next_tail
+                    } else {
+                        snake.length += 1;
                     }
+                    snake.grow = false
                 }
             }
 
@@ -1156,7 +1414,7 @@ mod efficient_game_objects {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct Snakes([RefCell<Option<Snake>>; SNAKES]);
 
     impl Snakes {
@@ -1226,7 +1484,7 @@ mod efficient_game_objects {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct Snake {
         pub number: i32,
         pub head: Coord,
@@ -1276,6 +1534,45 @@ mod efficient_game_objects {
         fn print_board_1() {
             let game_state = read_game_state("requests/example_move_request.json");
             let board = GameState::from(&game_state.board, &game_state.you);
+            println!("{board}")
+        }
+
+        #[test]
+        fn print_board_1_up() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let mut board = GameState::from(&game_state.board, &game_state.you);
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
+            println!("{board}")
+        }
+
+        #[test]
+        fn print_board_1_up_up() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let mut board = GameState::from(&game_state.board, &game_state.you);
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
+            println!("{board}")
+        }
+
+        #[test]
+        fn print_board_1_up_up_up() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let mut board = GameState::from(&game_state.board, &game_state.you);
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
+            board
+                .move_snakes([Some(Direction::Up), Some(Direction::Up), None, None])
+                .unwrap();
             println!("{board}")
         }
 
@@ -1402,6 +1699,47 @@ mod efficient_game_objects {
                 Ok(_) => println!("{}", moved_up),
                 Err(_) => println!("Death"),
             }
+        }
+
+        #[test]
+        fn direction_tree() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut d_tree = DirectionTree::from(board);
+            d_tree.calc(DirectionVec::new(), Direction::Up, u32::MAX);
+            d_tree.calc(DirectionVec::new(), Direction::Down, u32::MAX);
+            d_tree.calc(DirectionVec::new(), Direction::Left, u32::MAX);
+            d_tree.calc(DirectionVec::new(), Direction::Right, u32::MAX);
+            d_tree.calc(
+                DirectionVec::from(vec![Direction::Up]),
+                Direction::Up,
+                u32::MAX,
+            );
+            d_tree.calc(
+                DirectionVec::from(vec![Direction::Up, Direction::Up]),
+                Direction::Up,
+                u32::MAX,
+            );
+            d_tree.calc(
+                DirectionVec::from(vec![Direction::Up, Direction::Up, Direction::Up]),
+                Direction::Up,
+                u32::MAX,
+            );
+            d_tree.calc(
+                DirectionVec::from(vec![Direction::Down]),
+                Direction::Up,
+                u32::MAX,
+            );
+            println!("{}", d_tree)
+        }
+
+        #[test]
+        fn direction_tree_simulate() {
+            let game_state = read_game_state("requests/example_move_request.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut d_tree = DirectionTree::from(board);
+            d_tree.simulate_timed(u32::MAX, 200);
+            println!("{}", d_tree)
         }
     }
 }
