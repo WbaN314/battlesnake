@@ -104,6 +104,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 
 #[post("/move", format = "json", data = "<move_req>")]
 fn handle_move(move_req: Json<GameState>) -> Json<Value> {
+    debug!("{:?}", move_req);
     let response = logic::get_move(
         &move_req.game,
         &move_req.turn,

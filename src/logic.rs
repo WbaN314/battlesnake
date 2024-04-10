@@ -1319,8 +1319,6 @@ mod efficient_game_objects {
                     let next_tail = match self.board.get(snake.tail.x, snake.tail.y) {
                         Some(Field::SnakePart { next, .. }) => next.unwrap(),
                         _ => {
-                            println!("{}", self);
-                            println!("Tail is at {} {}", snake.tail.x, snake.tail.y);
                             unreachable!()
                         }
                     };
@@ -1347,10 +1345,10 @@ mod efficient_game_objects {
                             self.board.set(snake.tail.x, snake.tail.y, Field::Empty);
                         }
                     }
-                    if !snake.grow {
-                        snake.tail = next_tail
-                    } else {
+                    if snake.grow {
                         snake.length += 1;
+                    } else {
+                        snake.tail = next_tail;
                     }
                     snake.grow = false
                 }
