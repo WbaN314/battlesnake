@@ -606,7 +606,7 @@ mod smart_snake {
             // Check for areas
             let mut areas = [0; 4];
             for i in 0..4 {
-                if evaluated_depths[i] >= best_depth - 1 {
+                if evaluated_depths[i] + 1 >= *best_depth {
                     areas[i] = game_state
                         .clone()
                         .fill(&(my_snake.head + DIRECTION_VECTORS[i]))
@@ -990,7 +990,11 @@ mod efficient_game_objects {
                 match self.current.pop_front() {
                     None => break,
                     Some(d_vec) => {
-                        let bools = self.calcs(d_vec.clone(), distance - d_vec.len() as u32);
+                        let bools = self.calcs(
+                            d_vec.clone(),
+                            0.max(distance as i32 - d_vec.len() as i32) as u32,
+                        );
+                        // println!("{:?} {:?}", &d_vec, &bools);
                         for i in 0..4 {
                             if bools[i] {
                                 let mut new = d_vec.clone();
@@ -1003,12 +1007,13 @@ mod efficient_game_objects {
             }
 
             for key in self.map.keys().rev() {
+                // if self.map.get(key).unwrap().is_some() {
+                //    println!("{:?} {}", key, self.map.get(key).unwrap().clone().unwrap())
+                // }
                 if key.len() == 0 {
                     break;
                 } else if result[key[0].to_usize()] < key.len() {
-                    if self.map.get(key).unwrap().is_some() {
-                        result[key[0].to_usize()] = key.len();
-                    }
+                    result[key[0].to_usize()] = key.len();
                 }
             }
             result
@@ -1207,7 +1212,7 @@ mod efficient_game_objects {
                     relevant_move_found = true;
                 }
             }
-            if !relevant_move_found {
+            if !relevant_move_found || relevant_count[0] == 0 {
                 return Vec::new();
             }
             let final_count = relevant_count.iter().fold(1, |acc, e| acc * e.max(&1));
@@ -1956,7 +1961,18 @@ mod efficient_game_objects {
             let board = GameState::from(&game_state.board, &game_state.you);
             println!("{}", &board);
             let mut d_tree = DirectionTree::from(board);
-            d_tree.simulate_timed(u32::MAX, 200);
+            let result = d_tree.simulate_timed(u32::MAX, 200);
+            println!("{:?}", result);
+        }
+
+        #[test]
+        fn failure_4() {
+            let game_state = read_game_state("requests/failure_4.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            println!("{}", &board);
+            let mut d_tree = DirectionTree::from(board);
+            let result = d_tree.simulate_timed(u32::MAX, 200);
+            println!("{:?}", result);
         }
 
         #[test]

@@ -1,15 +1,7 @@
-GET http://localhost:8000/ HTTP/1.1
-
-###
-
-POST http://localhost:8000/move HTTP/1.1
-content-type: application/json
-
 {
     "game": {
-        "id": "526609c4-7151-4508-b9bf-948671d264fb",
+        "id": "242eaa6b-cb22-48f4-aefb-18a568bf3ab0",
         "ruleset": {
-            "version": "v1.2.3",
             "settings": {
                 "foodSpawnChance": 15,
                 "hazardDamagePerTurn": 0,
@@ -26,133 +18,156 @@ content-type: application/json
                     "sharedLength": false
                 }
             },
-            "name": "standard"
+            "name": "standard",
+            "version": "v1.2.3"
         },
         "timeout": 500
     },
-    "turn": 21,
+    "turn": 65,
     "board": {
         "height": 11,
         "width": 11,
         "food": [
             {
-                "x": 4,
-                "y": 9
+                "x": 8,
+                "y": 0
+            },
+            {
+                "x": 5,
+                "y": 1
+            },
+            {
+                "x": 0,
+                "y": 5
+            },
+            {
+                "x": 6,
+                "y": 3
+            },
+            {
+                "x": 9,
+                "y": 6
+            },
+            {
+                "x": 8,
+                "y": 1
             }
         ],
         "snakes": [
             {
-                "id": "gs_M6xtyTRk6PtD4WB8b6djBQcV",
+                "id": "gs_DHbxQ8fXdjq6WSjpcSqkPYwJ",
                 "name": "Simple Hungry",
-                "health": 89,
+                "health": 99,
                 "body": [
                     {
-                        "x": 6,
-                        "y": 7
+                        "x": 3,
+                        "y": 8
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 5,
+                        "y": 8
                     },
                     {
                         "x": 6,
-                        "y": 6
+                        "y": 8
                     },
                     {
                         "x": 6,
-                        "y": 5
+                        "y": 9
                     },
                     {
-                        "x": 6,
-                        "y": 4
+                        "x": 7,
+                        "y": 9
                     },
                     {
-                        "x": 6,
-                        "y": 3
+                        "x": 8,
+                        "y": 9
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    },
+                    {
+                        "x": 10,
+                        "y": 9
+                    },
+                    {
+                        "x": 10,
+                        "y": 10
                     }
                 ],
                 "head": {
-                    "x": 6,
+                    "x": 3,
+                    "y": 8
+                },
+                "length": 10,
+                "latency": "14",
+                "shout": ""
+            },
+            {
+                "id": "gs_pMGxThBKcydTfcGGk9WRv4DX",
+                "name": "Smart Snake",
+                "health": 87,
+                "body": [
+                    {
+                        "x": 0,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 0,
                     "y": 7
                 },
-                "length": 5,
-                "latency": "15",
-                "shout": ""
-            },
-            {
-                "id": "gs_jXvXfGkv3yM6vHT4hhqhbFwV",
-                "name": "Simple Tree Search",
-                "health": 89,
-                "body": [
-                    {
-                        "x": 1,
-                        "y": 8
-                    },
-                    {
-                        "x": 1,
-                        "y": 7
-                    },
-                    {
-                        "x": 1,
-                        "y": 6
-                    },
-                    {
-                        "x": 1,
-                        "y": 5
-                    },
-                    {
-                        "x": 1,
-                        "y": 4
-                    }
-                ],
-                "head": {
-                    "x": 1,
-                    "y": 8
-                },
-                "length": 5,
-                "latency": "17",
-                "shout": ""
-            },
-            {
-                "id": "gs_pKB6ytjBRGphXxFBBxyTHGWX",
-                "name": "Smart Snake",
-                "health": 83,
-                "body": [
-                    {
-                        "x": 5,
-                        "y": 8
-                    },
-                    {
-                        "x": 5,
-                        "y": 7
-                    },
-                    {
-                        "x": 4,
-                        "y": 7
-                    },
-                    {
-                        "x": 4,
-                        "y": 6
-                    }
-                ],
-                "head": {
-                    "x": 5,
-                    "y": 8
-                },
-                "length": 4,
-                "latency": "257",
+                "length": 6,
+                "latency": "22",
                 "shout": ""
             }
         ],
         "hazards": []
     },
     "you": {
-        "id": "gs_pKB6ytjBRGphXxFBBxyTHGWX",
+        "id": "gs_pMGxThBKcydTfcGGk9WRv4DX",
         "name": "Smart Snake",
-        "health": 83,
+        "health": 87,
         "body": [
             {
-                "x": 5,
-                "y": 8
+                "x": 0,
+                "y": 7
             },
             {
-                "x": 5,
+                "x": 1,
+                "y": 7
+            },
+            {
+                "x": 2,
+                "y": 7
+            },
+            {
+                "x": 3,
                 "y": 7
             },
             {
@@ -165,11 +180,11 @@ content-type: application/json
             }
         ],
         "head": {
-            "x": 5,
-            "y": 8
+            "x": 0,
+            "y": 7
         },
-        "length": 4,
-        "latency": "257",
+        "length": 6,
+        "latency": "22",
         "shout": ""
     }
 }
