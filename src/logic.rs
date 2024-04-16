@@ -573,7 +573,12 @@ mod simple_tree_search_snake {
 mod smart_snake {
     use std::{collections::VecDeque, time::Instant};
 
-    use crate::{logic::efficient_game_objects, Battlesnake, Board, Game};
+    use log::{info, warn};
+
+    use crate::{
+        logic::efficient_game_objects::{self, Area},
+        Battlesnake, Board, Game,
+    };
 
     use self::efficient_game_objects::{DirectionTree, GameState, DIRECTIONS, DIRECTION_VECTORS};
 
@@ -590,18 +595,73 @@ mod smart_snake {
     impl Brain for SmartSnake {
         fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
             let game_state = efficient_game_objects::GameState::from(board, you);
-            let mut d_tree = DirectionTree::from(game_state);
-            match d_tree.simulate_timed(u32::MAX, 200) {
-                Ok(res) => {
-                    info!("Evaluated depth: {}", res.len());
-                    match res[0] {
-                        efficient_game_objects::Direction::Up => Direction::Up,
-                        efficient_game_objects::Direction::Down => Direction::Down,
-                        efficient_game_objects::Direction::Left => Direction::Left,
-                        efficient_game_objects::Direction::Right => Direction::Right,
+            let my_snake = game_state.snakes.get(0).clone().unwrap();
+
+            // Simulate future
+            let mut d_tree = DirectionTree::from(game_state.clone());
+            let evaluated_depths = d_tree.simulate_timed(10, 200);
+            info!("Evaluated depths: {:?}", evaluated_depths);
+            let best_depth = evaluated_depths.iter().max().unwrap();
+
+            // Check for areas
+            let mut areas = [0; 4];
+            for i in 0..4 {
+                if evaluated_depths[i] >= best_depth - 1 {
+                    areas[i] = game_state
+                        .clone()
+                        .fill(&(my_snake.head + DIRECTION_VECTORS[i]))
+                        .unwrap()
+                        .area;
+                }
+            }
+            info!("Calculated areas: {:?}", areas);
+            let largest_area = *areas.iter().max().unwrap_or(&0);
+
+            // Select general best direction that remains
+            let mut final_result = efficient_game_objects::Direction::Up;
+            let mut distance_to_optimum = i32::MIN;
+            let middle = game_state.middle();
+            for i in 0..4 {
+                if areas[i] == largest_area {
+                    match i {
+                        0 => {
+                            let d = middle.y - my_snake.head.y;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        1 => {
+                            let d = my_snake.head.y - middle.y;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        2 => {
+                            let d = my_snake.head.x - middle.x;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        3 => {
+                            let d = middle.x - my_snake.head.x;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        _ => unreachable!("Non existing direction"),
                     }
                 }
-                Err(_) => Direction::Up,
+            }
+
+            match final_result {
+                efficient_game_objects::Direction::Up => Direction::Up,
+                efficient_game_objects::Direction::Down => Direction::Down,
+                efficient_game_objects::Direction::Left => Direction::Left,
+                efficient_game_objects::Direction::Right => Direction::Right,
             }
         }
     }
@@ -704,8 +764,9 @@ mod efficient_game_objects {
         }
     }
 
+    #[derive(Clone)]
     pub struct DirectionTree {
-        map: BTreeMap<DirectionVec, Option<(DirectionNode)>>,
+        map: BTreeMap<DirectionVec, Option<DirectionNode>>,
         current: VecDeque<DirectionVec>,
     }
 
@@ -724,6 +785,7 @@ mod efficient_game_objects {
         }
     }
 
+    #[derive(Clone)]
     struct DirectionNode {
         pub states: Vec<GameState>,
         pub evaluated: [bool; 4],
@@ -917,15 +979,13 @@ mod efficient_game_objects {
             results
         }
 
-        pub fn simulate_timed(
-            &mut self,
-            distance: u32,
-            milliseconds: u64,
-        ) -> Result<&DirectionVec> {
+        pub fn simulate_timed(&mut self, distance: u32, milliseconds: u64) -> [usize; 4] {
+            let mut result = [0; 4];
+
             let timer = Instant::now();
             while timer.elapsed() < Duration::from_millis(milliseconds) {
                 match self.current.pop_front() {
-                    None => return Err(Death),
+                    None => break,
                     Some(d_vec) => {
                         let bools = self.calcs(d_vec.clone(), distance);
                         for i in 0..4 {
@@ -938,12 +998,22 @@ mod efficient_game_objects {
                     }
                 }
             }
+
+            let best_len = if let Some(d_vec) = self.map.keys().last() {
+                d_vec.len()
+            } else {
+                0
+            };
             for key in self.map.keys().rev() {
-                if let Some(node) = self.map.get(key) {
-                    return Ok(key);
+                if key.len() < best_len - 1 || key.len() == 0 {
+                    break;
+                } else if result[key[0].to_usize()] < key.len() {
+                    if self.map.get(key).unwrap().is_some() {
+                        result[key[0].to_usize()] = key.len();
+                    }
                 }
             }
-            Err(Death)
+            result
         }
     }
 
@@ -1380,7 +1450,10 @@ mod efficient_game_objects {
                             match stacked {
                                 1 => {
                                     self.board.set(snake.tail.x, snake.tail.y, Field::Empty);
-                                    snake.tail = next.unwrap();
+                                    match next {
+                                        Some(next) => snake.tail = next,
+                                        None => snake.die = true,
+                                    }
                                 }
                                 2.. => {
                                     self.board.set(
@@ -1422,9 +1495,17 @@ mod efficient_game_objects {
                 }
             }
 
+            for i in 0..SNAKES {
+                self.eliminate_dead_snake(i);
+            }
+
             self.validate_state();
 
             Result::Ok(())
+        }
+
+        pub fn middle(&self) -> Coord {
+            Coord::from((X_SIZE / 2) as i32, (Y_SIZE / 2) as i32)
         }
 
         fn validate_state(&self) {
@@ -1605,6 +1686,7 @@ mod efficient_game_objects {
         }
     }
 
+    #[derive(Copy, Clone)]
     pub struct Area {
         pub area: usize,
     }
@@ -1868,6 +1950,18 @@ mod efficient_game_objects {
             let board = GameState::from(&game_state.board, &game_state.you);
             let mut d_tree = DirectionTree::from(board);
             d_tree.simulate_timed(u32::MAX, 200);
+        }
+
+        #[test]
+        fn limit_distance() {
+            let game_state = read_game_state("requests/failure_1.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            let mut d_tree = DirectionTree::from(board);
+            let mut d_tree_2 = d_tree.clone();
+            let result = d_tree.simulate_timed(u32::MAX, 200);
+            println!("{:?}", result);
+            let result_2 = d_tree_2.simulate_timed(4, 200);
+            println!("{:?}", result_2);
         }
     }
 }
