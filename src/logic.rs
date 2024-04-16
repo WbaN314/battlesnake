@@ -884,9 +884,13 @@ mod efficient_game_objects {
         }
 
         pub fn calc_next(&mut self, to: Direction, distance: u32) -> Result<DirectionNode> {
+            self.evaluated[to.to_usize()] = true;
             let mut new_valid_states = Vec::new();
             for state in self.states.iter() {
                 let relevant_moves = state.relevant_moves(distance);
+                if relevant_moves.len() == 0 {
+                    return Result::Err(Death);
+                }
                 for relevant_move in relevant_moves {
                     if relevant_move[0].unwrap() != to {
                         continue;
@@ -898,7 +902,6 @@ mod efficient_game_objects {
                     };
                 }
             }
-            self.evaluated[to.to_usize()] = true;
             if new_valid_states.len() == 0 {
                 return Result::Err(Death);
             }
@@ -987,7 +990,7 @@ mod efficient_game_objects {
                 match self.current.pop_front() {
                     None => break,
                     Some(d_vec) => {
-                        let bools = self.calcs(d_vec.clone(), distance);
+                        let bools = self.calcs(d_vec.clone(), distance - d_vec.len() as u32);
                         for i in 0..4 {
                             if bools[i] {
                                 let mut new = d_vec.clone();
@@ -999,13 +1002,8 @@ mod efficient_game_objects {
                 }
             }
 
-            let best_len = if let Some(d_vec) = self.map.keys().last() {
-                d_vec.len()
-            } else {
-                0
-            };
             for key in self.map.keys().rev() {
-                if key.len() < best_len - 1 || key.len() == 0 {
+                if key.len() == 0 {
                     break;
                 } else if result[key[0].to_usize()] < key.len() {
                     if self.map.get(key).unwrap().is_some() {
@@ -1948,6 +1946,15 @@ mod efficient_game_objects {
         fn failure_1() {
             let game_state = read_game_state("requests/failure_1.json");
             let board = GameState::from(&game_state.board, &game_state.you);
+            let mut d_tree = DirectionTree::from(board);
+            d_tree.simulate_timed(u32::MAX, 200);
+        }
+
+        #[test]
+        fn failure_2() {
+            let game_state = read_game_state("requests/failure_2.json");
+            let board = GameState::from(&game_state.board, &game_state.you);
+            println!("{}", &board);
             let mut d_tree = DirectionTree::from(board);
             d_tree.simulate_timed(u32::MAX, 200);
         }
