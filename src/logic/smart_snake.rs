@@ -33,6 +33,7 @@ impl Brain for SmartSnake {
         for i in 0..4 {
             if evaluated_depths[i] + 1 >= *best_depth {
                 areas[i] = game_state
+                    .board
                     .clone()
                     .fill(&(my_snake.head + DIRECTION_VECTORS[i]))
                     .unwrap()

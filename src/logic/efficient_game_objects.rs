@@ -416,67 +416,6 @@ impl GameState {
         gamestate
     }
 
-    pub fn fill(&mut self, start: &Coord) -> Option<Area> {
-        let mut area = Area::new();
-        let x = start.x;
-        let y = start.y;
-        match self.board.get(x, y) {
-            Some(Field::Empty) | Some(Field::Food) => {
-                let mut s = Vec::new();
-                s.push((x, x, y, 1));
-                s.push((x, x, y - 1, -1));
-                while let Some((mut x1, x2, y, dy)) = s.pop() {
-                    let mut x = x1;
-                    match self.board.get(x, y) {
-                        Some(Field::Empty) | Some(Field::Food) => {
-                            let mut candidate = self.board.get(x - 1, y);
-                            while candidate == Some(Field::Empty) || candidate == Some(Field::Food)
-                            {
-                                self.board.set(x - 1, y, Field::Filled);
-                                area.area += 1;
-                                x -= 1;
-                                candidate = self.board.get(x - 1, y);
-                            }
-                            if x < x1 {
-                                s.push((x, x1 - 1, y - dy, -dy))
-                            }
-                        }
-                        _ => (),
-                    }
-                    while x1 <= x2 {
-                        let mut candidate = self.board.get(x1, y);
-                        while candidate == Some(Field::Empty) || candidate == Some(Field::Food) {
-                            self.board.set(x1, y, Field::Filled);
-                            area.area += 1;
-                            x1 += 1;
-                            candidate = self.board.get(x1, y);
-                        }
-                        if x1 > x {
-                            s.push((x, x1 - 1, y + dy, dy));
-                        }
-                        if x1 - 1 > x2 {
-                            s.push((x2 + 1, x1 - 1, y - dy, -dy));
-                        }
-                        x1 += 1;
-                        loop {
-                            let candidate = self.board.get(x1, y);
-                            if x1 > x2
-                                || candidate == Some(Field::Empty)
-                                || candidate == Some(Field::Food)
-                            {
-                                break;
-                            }
-                            x1 += 1;
-                        }
-                        x = x1;
-                    }
-                }
-            }
-            _ => return None,
-        }
-        Some(area)
-    }
-
     pub fn relevant_moves(&self, distance: u32) -> Vec<[Option<Direction>; 4]> {
         let mut snake_relevant = [false; SNAKES];
         if let Some(my_snake) = self.snakes.get(0).as_ref() {
@@ -953,6 +892,67 @@ impl Board {
             Some(self.0[index].borrow().clone())
         }
     }
+
+    pub fn fill(&mut self, start: &Coord) -> Option<Area> {
+        let mut area = Area::new();
+        let x = start.x;
+        let y = start.y;
+        match self.get(x, y) {
+            Some(Field::Empty) | Some(Field::Food) => {
+                let mut s = Vec::new();
+                s.push((x, x, y, 1));
+                s.push((x, x, y - 1, -1));
+                while let Some((mut x1, x2, y, dy)) = s.pop() {
+                    let mut x = x1;
+                    match self.get(x, y) {
+                        Some(Field::Empty) | Some(Field::Food) => {
+                            let mut candidate = self.get(x - 1, y);
+                            while candidate == Some(Field::Empty) || candidate == Some(Field::Food)
+                            {
+                                self.set(x - 1, y, Field::Filled);
+                                area.area += 1;
+                                x -= 1;
+                                candidate = self.get(x - 1, y);
+                            }
+                            if x < x1 {
+                                s.push((x, x1 - 1, y - dy, -dy))
+                            }
+                        }
+                        _ => (),
+                    }
+                    while x1 <= x2 {
+                        let mut candidate = self.get(x1, y);
+                        while candidate == Some(Field::Empty) || candidate == Some(Field::Food) {
+                            self.set(x1, y, Field::Filled);
+                            area.area += 1;
+                            x1 += 1;
+                            candidate = self.get(x1, y);
+                        }
+                        if x1 > x {
+                            s.push((x, x1 - 1, y + dy, dy));
+                        }
+                        if x1 - 1 > x2 {
+                            s.push((x2 + 1, x1 - 1, y - dy, -dy));
+                        }
+                        x1 += 1;
+                        loop {
+                            let candidate = self.get(x1, y);
+                            if x1 > x2
+                                || candidate == Some(Field::Empty)
+                                || candidate == Some(Field::Food)
+                            {
+                                break;
+                            }
+                            x1 += 1;
+                        }
+                        x = x1;
+                    }
+                }
+            }
+            _ => return None,
+        }
+        Some(area)
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1120,19 +1120,19 @@ mod tests {
     #[test]
     fn fill_board() {
         let game_state = read_game_state("requests/example_move_request.json");
-        let mut board = GameState::from(&game_state.board, &game_state.you);
-        assert!(board.clone().fill(&Coord::from(0, 0)).is_none());
-        assert!(board.clone().fill(&Coord::from(-1, 0)).is_none());
-        assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 114);
-        println!("{board}");
+        let mut state = GameState::from(&game_state.board, &game_state.you);
+        assert!(state.board.clone().fill(&Coord::from(0, 0)).is_none());
+        assert!(state.board.clone().fill(&Coord::from(-1, 0)).is_none());
+        assert_eq!(state.board.fill(&Coord::from(0, 1)).unwrap().area, 114);
+        println!("{state}");
     }
 
     #[test]
     fn fill_board_2() {
         let game_state = read_game_state("requests/example_move_request_2.json");
-        let mut board = GameState::from(&game_state.board, &game_state.you);
-        assert_eq!(board.fill(&Coord::from(0, 1)).unwrap().area, 20);
-        println!("{board}");
+        let mut state = GameState::from(&game_state.board, &game_state.you);
+        assert_eq!(state.board.fill(&Coord::from(0, 1)).unwrap().area, 20);
+        println!("{state}");
     }
 
     #[test]
