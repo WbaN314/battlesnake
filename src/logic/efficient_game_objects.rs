@@ -134,8 +134,13 @@ impl Display for DirectionNode {
 pub struct DirectionVec(Vec<Direction>);
 
 impl DirectionVec {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self(Vec::new())
+    }
+
+    #[allow(dead_code)]
+    pub fn from(v: Vec<Direction>) -> Self {
+        Self(v)
     }
 }
 
@@ -345,7 +350,6 @@ pub struct GameState {
 
 impl GameState {
     pub fn new() -> Self {
-        let snakes: [Option<Snake>; SNAKES] = std::array::from_fn(|_| None);
         GameState {
             board: Board::new(),
             snakes: Snakes::new(),
@@ -353,7 +357,7 @@ impl GameState {
     }
 
     pub fn from(old: &DefaultBoard, you: &DefaultSnake) -> Self {
-        let mut gamestate = Self::new();
+        let gamestate = Self::new();
 
         for food in old.food.iter() {
             gamestate.board.set(food.x, food.y, Field::Food);
@@ -1195,38 +1199,6 @@ mod tests {
     }
 
     #[test]
-    fn direction_tree() {
-        let game_state = read_game_state("requests/example_move_request.json");
-        let board = GameState::from(&game_state.board, &game_state.you);
-        let mut d_tree = DirectionTree::from(board);
-        d_tree.calc(DirectionVec::new(), Direction::Up, u32::MAX);
-        d_tree.calc(DirectionVec::new(), Direction::Down, u32::MAX);
-        d_tree.calc(DirectionVec::new(), Direction::Left, u32::MAX);
-        d_tree.calc(DirectionVec::new(), Direction::Right, u32::MAX);
-        d_tree.calc(
-            DirectionVec::from(vec![Direction::Up]),
-            Direction::Up,
-            u32::MAX,
-        );
-        d_tree.calc(
-            DirectionVec::from(vec![Direction::Up, Direction::Up]),
-            Direction::Up,
-            u32::MAX,
-        );
-        d_tree.calc(
-            DirectionVec::from(vec![Direction::Up, Direction::Up, Direction::Up]),
-            Direction::Up,
-            u32::MAX,
-        );
-        d_tree.calc(
-            DirectionVec::from(vec![Direction::Down]),
-            Direction::Up,
-            u32::MAX,
-        );
-        println!("{}", d_tree)
-    }
-
-    #[test]
     fn direction_tree_simulate() {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = GameState::from(&game_state.board, &game_state.you);
@@ -1238,7 +1210,7 @@ mod tests {
     #[test]
     fn print_board_3() {
         let game_state = read_game_state("requests/failure_1.json");
-        let mut board = GameState::from(&game_state.board, &game_state.you);
+        let board = GameState::from(&game_state.board, &game_state.you);
         println!("{board}");
     }
 
@@ -1247,12 +1219,14 @@ mod tests {
         let game_state = read_game_state("requests/failure_1.json");
         let mut board = GameState::from(&game_state.board, &game_state.you);
         println!("{board}");
-        board.move_snakes([
-            Some(Direction::Down),
-            Some(Direction::Up),
-            Some(Direction::Down),
-            None,
-        ]);
+        board
+            .move_snakes([
+                Some(Direction::Down),
+                Some(Direction::Up),
+                Some(Direction::Down),
+                None,
+            ])
+            .unwrap();
         println!("{board}")
     }
 

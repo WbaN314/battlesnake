@@ -18,6 +18,12 @@ use std::{collections::HashMap, env};
 
 use crate::{Battlesnake, Board, Coord, Game};
 
+mod efficient_game_objects;
+mod hungry_simple_snake;
+mod mocks;
+mod simple_tree_search_snake;
+mod smart_snake;
+
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Direction {
     Up,
@@ -139,13 +145,3 @@ mod tests {
         assert_eq!(chosen_move, Direction::Down);
     }
 }
-
-mod hungry_simple_snake;
-
-mod simple_tree_search_snake;
-
-mod smart_snake;
-
-mod efficient_game_objects;
-
-mod mocks;

@@ -1,11 +1,11 @@
 use log::info;
 
 use crate::{
-    logic::efficient_game_objects::{self, Area},
+    logic::efficient_game_objects::{self},
     Battlesnake, Board, Coord, Game,
 };
 
-use self::efficient_game_objects::{DirectionTree, GameState, DIRECTIONS, DIRECTION_VECTORS};
+use self::efficient_game_objects::{DirectionTree, DIRECTIONS, DIRECTION_VECTORS};
 
 use super::{Brain, Direction};
 
@@ -18,7 +18,7 @@ impl SmartSnake {
 }
 
 impl Brain for SmartSnake {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let game_state = efficient_game_objects::GameState::from(board, you);
         let my_snake = game_state.snakes.get(0).clone().unwrap();
 
