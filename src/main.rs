@@ -57,6 +57,25 @@ impl Coord {
     pub fn distance(&self, other: &Coord) -> u32 {
         self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
     }
+
+    pub fn directions_to(&self, other: &Coord) -> [bool; 4] {
+        if self.distance(other) == 0 {
+            return [true; 4];
+        } else {
+            let mut result = [false; 4];
+            if other.x > self.x {
+                result[3] = true;
+            } else if other.x < self.x {
+                result[2] = true;
+            }
+            if other.y > self.y {
+                result[0] = true;
+            } else if other.y < self.y {
+                result[1] = true
+            }
+            result
+        }
+    }
 }
 
 impl Add for Coord {

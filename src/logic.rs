@@ -577,7 +577,7 @@ mod smart_snake {
 
     use crate::{
         logic::efficient_game_objects::{self, Area},
-        Battlesnake, Board, Game,
+        Battlesnake, Board, Coord, Game,
     };
 
     use self::efficient_game_objects::{DirectionTree, GameState, DIRECTIONS, DIRECTION_VECTORS};
@@ -616,6 +616,20 @@ mod smart_snake {
             }
             info!("Calculated areas: {:?}", areas);
             let largest_area = *areas.iter().max().unwrap_or(&0);
+
+            let mut closest_food_distance = 5;
+            let mut closest_food: Option<Coord> = None;
+            for food in board.food.iter() {
+                if you.head.distance(food) < closest_food_distance {
+                    closest_food = Some(*food);
+                    closest_food_distance = you.head.distance(food);
+                }
+            }
+            let food_directions = if let Some(closest_food) = closest_food {
+                you.head.directions_to(&closest_food)
+            } else {
+                [true; 4]
+            };
 
             // Select general best direction that remains
             let mut final_result = efficient_game_objects::Direction::Up;
@@ -656,6 +670,45 @@ mod smart_snake {
                     }
                 }
             }
+
+            distance_to_optimum = i32::MIN;
+            for i in 0..4 {
+                if areas[i] == largest_area && food_directions[i] {
+                    match i {
+                        0 => {
+                            let d = middle.y - my_snake.head.y;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        1 => {
+                            let d = my_snake.head.y - middle.y;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        2 => {
+                            let d = my_snake.head.x - middle.x;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        3 => {
+                            let d = middle.x - my_snake.head.x;
+                            if d > distance_to_optimum {
+                                distance_to_optimum = d;
+                                final_result = DIRECTIONS[i];
+                            }
+                        }
+                        _ => unreachable!("Non existing direction"),
+                    }
+                }
+            }
+
+            // Build Killer instinct
 
             match final_result {
                 efficient_game_objects::Direction::Up => Direction::Up,
