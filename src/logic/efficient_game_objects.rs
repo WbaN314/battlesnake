@@ -1259,6 +1259,16 @@ mod tests {
     }
 
     #[test]
+    fn failure_5() {
+        let game_state = read_game_state("requests/failure_5.json");
+        let board = GameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        let mut d_tree = DirectionTree::from(board);
+        let result = d_tree.simulate_timed(u32::MAX, 200);
+        println!("{:?}", result);
+    }
+
+    #[test]
     fn limit_distance() {
         let game_state = read_game_state("requests/failure_1.json");
         let board = GameState::from(&game_state.board, &game_state.you);
