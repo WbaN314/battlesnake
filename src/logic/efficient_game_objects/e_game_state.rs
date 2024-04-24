@@ -189,10 +189,20 @@ impl EGameState {
         move_combinations
     }
 
-    fn eliminate_dead_snake(&self, snake_index: u8) {
+    fn eliminate_dead_snakes(&self) -> Result<()> {
+        for i in 0..SNAKES {
+            self.eliminate_dead_snake(i)?
+        }
+        Ok(())
+    }
+
+    fn eliminate_dead_snake(&self, snake_index: u8) -> Result<()> {
         let mut eliminate = false;
         if let Some(snake) = self.snakes.get(snake_index).as_ref() {
             if snake.die {
+                if snake_index == 0 {
+                    return Err(Death);
+                }
                 eliminate = true;
                 let mut x = snake.tail.x;
                 let mut y = snake.tail.y;
@@ -219,6 +229,28 @@ impl EGameState {
         if eliminate {
             self.snakes.get_mut(snake_index).take();
         }
+        Ok(())
+    }
+
+    pub fn grow_snake(&self, snake: &mut ESnake) {
+        snake.health = 100;
+        snake.length += 1;
+        match self.board.get(snake.tail.x, snake.tail.y) {
+            Some(EField::SnakePart {
+                snake_number,
+                stacked,
+                next,
+            }) => self.board.set(
+                snake.tail.x,
+                snake.tail.y,
+                EField::SnakePart {
+                    snake_number,
+                    stacked: stacked + 1,
+                    next,
+                },
+            ),
+            _ => unreachable!("Invalid tail"),
+        };
     }
 
     pub fn move_snakes(&mut self, moveset: [Option<EDirection>; 4]) -> Result<()> {
@@ -239,17 +271,12 @@ impl EGameState {
                 snake.health -= 1;
                 if snake.health <= 0 {
                     snake.die = true;
-                    if i == 0 {
-                        return Result::Err(Death);
-                    }
                 };
             }
         }
 
         // Remove snakes that died of hunger
-        for i in 0..SNAKES {
-            self.eliminate_dead_snake(i);
-        }
+        self.eliminate_dead_snakes()?;
 
         // Handle heads
         for i in 0..SNAKES {
@@ -342,9 +369,7 @@ impl EGameState {
         }
 
         // Remove snakes that died due to bad moves
-        for i in 0..SNAKES {
-            self.eliminate_dead_snake(i);
-        }
+        self.eliminate_dead_snakes()?;
 
         // Make contested EFields to snakeparts again. Only winner snakes should have contested heads, losers should not have contested EFields set anymore.
         // Handle tails of surviving snakes and reset grow
@@ -354,7 +379,7 @@ impl EGameState {
                 match self.board.get(snake.head.x, snake.head.y) {
                     Some(EField::Contested { snake_number, food }) => {
                         if food {
-                            snake.grow = true;
+                            self.grow_snake(snake);
                         }
                         self.board.set(
                             snake.head.x,
@@ -405,36 +430,14 @@ impl EGameState {
                     }
                     _ => unreachable!("Old tail is wrong"),
                 };
-
-                if snake.grow {
-                    match self.board.get(snake.tail.x, snake.tail.y) {
-                        Some(EField::SnakePart {
-                            snake_number,
-                            stacked,
-                            next,
-                        }) => self.board.set(
-                            snake.tail.x,
-                            snake.tail.y,
-                            EField::SnakePart {
-                                snake_number,
-                                stacked: stacked + 1,
-                                next,
-                            },
-                        ),
-                        _ => unreachable!("Invalid tail"),
-                    };
-                    snake.grow = false;
-                }
             }
         }
 
-        for i in 0..SNAKES {
-            self.eliminate_dead_snake(i);
-        }
+        self.eliminate_dead_snakes()?;
 
-        self.validate_state();
+        // self.validate_state();
 
-        Result::Ok(())
+        Ok(())
     }
 
     fn validate_state(&self) {
