@@ -232,8 +232,7 @@ impl EGameState {
         Ok(())
     }
 
-    pub fn grow_snake(&self, snake: &mut ESnake) {
-        snake.health = 100;
+    fn grow_snake(&self, snake: &mut ESnake) {
         snake.length += 1;
         match self.board.get(snake.tail.x, snake.tail.y) {
             Some(EField::SnakePart {
@@ -254,11 +253,6 @@ impl EGameState {
     }
 
     pub fn move_snakes(&mut self, moveset: [Option<EDirection>; 4]) -> Result<()> {
-        // Problem: When eating a new body part is appended immediately on tail such that there are two body parts in the same space
-        // then next turn only one body part moves the other stays behind
-        // similar happends at start when the whole snake is on one square altough it has length 3
-        // TODO: Handle this
-
         // Hunger eliminations first, also health gain and loss due to food or no food
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
