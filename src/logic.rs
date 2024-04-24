@@ -20,7 +20,6 @@ use crate::{Battlesnake, Board, Coord, Game};
 
 mod efficient_game_objects;
 mod hungry_simple_snake;
-mod mocks;
 mod simple_tree_search_snake;
 mod smart_snake;
 

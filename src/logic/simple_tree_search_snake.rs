@@ -12,10 +12,10 @@ fn simulate_snakes_step(board: &Board) -> Vec<Board> {
             let x = board_clone.snakes[snake_index].body[0].x;
             let y = board_clone.snakes[snake_index].body[0].y;
             let new_head = match directions[snake_index] {
-                Direction::Up => Coord::from(x, y + 1),
-                Direction::Down => Coord::from(x, y - 1),
-                Direction::Left => Coord::from(x - 1, y),
-                Direction::Right => Coord::from(x + 1, y),
+                Direction::Up => Coord { x, y: y + 1 },
+                Direction::Down => Coord { x, y: y - 1 },
+                Direction::Left => Coord { x: x - 1, y },
+                Direction::Right => Coord { x: x + 1, y },
             };
             board_clone.snakes[snake_index].head = new_head;
             // leave body untouched yet

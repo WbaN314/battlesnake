@@ -8,7 +8,6 @@ use rocket::serde::{json::Json, Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
-use std::ops::{Add, AddAssign};
 
 mod logic;
 
@@ -49,52 +48,6 @@ pub struct Coord {
     y: i32,
 }
 
-impl Coord {
-    pub fn from(x: i32, y: i32) -> Self {
-        Coord { x, y }
-    }
-
-    pub fn distance(&self, other: &Coord) -> u32 {
-        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
-    }
-
-    pub fn directions_to(&self, other: &Coord) -> [bool; 4] {
-        if self.distance(other) == 0 {
-            return [true; 4];
-        } else {
-            let mut result = [false; 4];
-            if other.x > self.x {
-                result[3] = true;
-            } else if other.x < self.x {
-                result[2] = true;
-            }
-            if other.y > self.y {
-                result[0] = true;
-            } else if other.y < self.y {
-                result[1] = true
-            }
-            result
-        }
-    }
-}
-
-impl Add for Coord {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-impl AddAssign for Coord {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GameState {
     game: Game,
@@ -122,8 +75,10 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 
 #[post("/move", format = "json", data = "<move_req>")]
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
+    // Log request
     let r = move_req.into_inner();
-    debug!("{}", serde_json::to_string(&r).unwrap());
+    info!("{}", serde_json::to_string(&r).unwrap());
+
     move_req = Json(r);
     let response = logic::get_move(
         &move_req.game,
