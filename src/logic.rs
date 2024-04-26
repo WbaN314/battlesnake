@@ -14,7 +14,7 @@ use core::fmt;
 use log::info;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
-use std::{collections::HashMap, env};
+use std::collections::HashMap;
 
 use crate::{Battlesnake, Board, Coord, Game};
 
@@ -87,20 +87,18 @@ pub fn end(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
 // move is called on every turn and returns your next move
 // Valid moves are Move::Up, Move::Down, Move::Left, or Move::Right
 // See https://docs.battlesnake.com/api/example-move for available data
-pub fn get_move(game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-    let brain: Box<dyn Brain> = if let Ok(value) = env::var("VARIANT") {
-        debug!("{}", value);
-        if value == "hungry_simple".to_string() {
-            Box::new(hungry_simple_snake::HungrySimpleSnake::new())
-        } else if value == "simple_tree_search" {
-            Box::new(simple_tree_search_snake::SimpleTreeSearchSnake::new())
-        } else if value == "smart_snake" {
-            Box::new(smart_snake::SmartSnake::new())
-        } else {
-            Box::new(hungry_simple_snake::HungrySimpleSnake::new())
-        }
-    } else {
-        Box::new(hungry_simple_snake::HungrySimpleSnake::new())
+pub fn get_move(
+    game: &Game,
+    turn: &i32,
+    board: &Board,
+    you: &Battlesnake,
+    variant: String,
+) -> Direction {
+    let brain: Box<dyn Brain> = match variant.as_str() {
+        "hungry_simple" => Box::new(hungry_simple_snake::HungrySimpleSnake::new()),
+        "simple_tree_search" => Box::new(simple_tree_search_snake::SimpleTreeSearchSnake::new()),
+        "smart_snake" => Box::new(smart_snake::SmartSnake::new()),
+        _ => panic!("No VARIANT given for snake"),
     };
     let next_move = brain.logic(game, turn, board, you);
     info!("MOVE {}: {}", turn, next_move);
@@ -108,10 +106,14 @@ pub fn get_move(game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Di
 }
 
 #[cfg(test)]
-mod tests {
+mod json_requests {
+    use std::env;
+
     use crate::logic::Direction;
 
-    use super::get_move;
+    use super::{efficient_game_objects::e_game_state::EGameState, get_move};
+
+    const DIR: &str = "requests/";
 
     fn read_game_state(path: &str) -> crate::GameState {
         let file = std::fs::File::open(path).unwrap();
@@ -120,27 +122,74 @@ mod tests {
         game_state
     }
 
-    #[test]
-    fn get_move_2() {
-        let game_state = read_game_state("requests/example_move_request_2.json");
-        let chosen_move = get_move(
+    fn get_move_from_json_file(path: &str) -> Direction {
+        let game_state = read_game_state(&(DIR.to_string() + path));
+        let print = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", print);
+        let m = get_move(
             &game_state.game,
             &game_state.turn,
             &game_state.board,
             &game_state.you,
+            env::var("VARIANT").unwrap(),
         );
+        println!("{}", m);
+        m
+    }
+
+    #[test]
+    fn example_move_request() {
+        let chosen_move = get_move_from_json_file("example_move_request.json");
         assert_eq!(chosen_move, Direction::Up);
     }
 
     #[test]
-    fn get_move_3() {
-        let game_state = read_game_state("requests/example_move_request_3.json");
-        let chosen_move = get_move(
-            &game_state.game,
-            &game_state.turn,
-            &game_state.board,
-            &game_state.you,
-        );
+    fn example_move_request_2() {
+        let chosen_move = get_move_from_json_file("example_move_request_2.json");
+        assert_eq!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn example_move_request_3() {
+        let chosen_move = get_move_from_json_file("example_move_request_3.json");
         assert_eq!(chosen_move, Direction::Down);
+    }
+    #[test]
+    fn failure_1() {
+        let chosen_move = get_move_from_json_file("failure_1.json");
+        assert_ne!(chosen_move, Direction::Down);
+        assert_ne!(chosen_move, Direction::Left);
+    }
+
+    #[test]
+    fn failure_2() {
+        let chosen_move = get_move_from_json_file("failure_2.json");
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_3() {
+        let chosen_move = get_move_from_json_file("failure_3.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_4() {
+        let chosen_move = get_move_from_json_file("failure_4.json");
+        assert_ne!(chosen_move, Direction::Right);
+        assert_ne!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_5() {
+        let chosen_move = get_move_from_json_file("failure_5.json");
+        assert_eq!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn failure_6() {
+        let chosen_move = get_move_from_json_file("failure_6.json");
+        assert_eq!(chosen_move, Direction::Right);
     }
 }
