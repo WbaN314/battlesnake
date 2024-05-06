@@ -163,7 +163,6 @@ mod json_requests {
     #[test]
     fn failure_2() {
         let chosen_move = get_move_from_json_file("failure_2.json");
-        assert_ne!(chosen_move, Direction::Up);
         assert_ne!(chosen_move, Direction::Right);
     }
 

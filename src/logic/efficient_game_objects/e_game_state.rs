@@ -273,6 +273,7 @@ impl EGameState {
         self.eliminate_dead_snakes()?;
 
         // Handle heads
+        let mut move_tails_preemptively: [Option<ECoord>; SNAKES as usize] = [None; 4];
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 if let Some(mv) = moveset[i as usize] {
@@ -352,12 +353,49 @@ impl EGameState {
                                 None => unreachable!("Ghost snake"),
                             }
                         }
-                        Some(EField::SnakePart { .. }) => {
-                            snake.die = true;
+                        Some(EField::SnakePart {
+                            snake_number,
+                            stacked,
+                            next,
+                        }) => {
+                            // TODO this is wrong when the snakepart is tail
+                            if stacked > 1 {
+                                snake.die = true;
+                            } else {
+                                // This if else is required to please the runtime borrow checker
+                                let tail = if i == snake_number {
+                                    snake.tail
+                                } else {
+                                    self.snakes.get(snake_number).as_ref().unwrap().tail
+                                };
+                                if snake.head.x == tail.x && snake.head.y == tail.y {
+                                    // all good, tail will move
+                                    self.board.set(
+                                        snake.head.x,
+                                        snake.head.y,
+                                        EField::Contested {
+                                            snake_number: i,
+                                            food: false,
+                                        },
+                                    );
+                                    // Preemptively move tail so that rest of logic still works
+                                    move_tails_preemptively[snake_number as usize] = next;
+                                } else {
+                                    snake.die = true;
+                                }
+                            }
                         }
                         None => snake.die = true,
                         _ => unreachable!("Old board is broken"),
                     }
+                }
+            }
+        }
+
+        for i in 0..move_tails_preemptively.len() {
+            if let Some(coord) = move_tails_preemptively[i] {
+                if let Some(snake) = self.snakes.get_mut(i as u8).as_mut() {
+                    snake.tail = coord;
                 }
             }
         }

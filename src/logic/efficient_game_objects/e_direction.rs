@@ -51,10 +51,10 @@ impl EDirection {
 impl Display for EDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &EDirection::Up => write!(f, "Up"),
-            &EDirection::Down => write!(f, "Down"),
-            &EDirection::Left => write!(f, "Left"),
-            &EDirection::Right => write!(f, "Right"),
+            &EDirection::Up => write!(f, "U"),
+            &EDirection::Down => write!(f, "D"),
+            &EDirection::Left => write!(f, "L"),
+            &EDirection::Right => write!(f, "R"),
         }
     }
 }
@@ -137,5 +137,14 @@ impl Ord for EDirectionVec {
                 i += 1;
             }
         }
+    }
+}
+
+impl Display for EDirectionVec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for direction in &self.0 {
+            write!(f, "{} ", direction)?;
+        }
+        Ok(())
     }
 }
