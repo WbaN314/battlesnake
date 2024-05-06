@@ -34,7 +34,7 @@ impl Brain for SmartSnake {
         // Check for areas
         let mut areas = [0; 4];
         for i in 0..4 {
-            if evaluated_depths[i] + 1 >= *best_depth {
+            if evaluated_depths[i] >= *best_depth {
                 if let Some(area) = game_state
                     .board
                     .clone()
