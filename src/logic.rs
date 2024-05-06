@@ -198,4 +198,16 @@ mod json_requests {
         assert_ne!(chosen_move, Direction::Up);
         assert_ne!(chosen_move, Direction::Down);
     }
+
+    #[test]
+    fn failure_8() {
+        let chosen_move = get_move_from_json_file("failure_8.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_9() {
+        let chosen_move = get_move_from_json_file("failure_9.json");
+        assert_eq!(chosen_move, Direction::Up);
+    }
 }
