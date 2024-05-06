@@ -131,7 +131,7 @@ mod json_requests {
             &game_state.turn,
             &game_state.board,
             &game_state.you,
-            env::var("VARIANT").unwrap(),
+            env::var("VARIANT").unwrap_or("smart_snake".to_string()),
         );
         println!("{}", m);
         m
@@ -191,5 +191,12 @@ mod json_requests {
     fn failure_6() {
         let chosen_move = get_move_from_json_file("failure_6.json");
         assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_7() {
+        let chosen_move = get_move_from_json_file("failure_7.json");
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Down);
     }
 }
