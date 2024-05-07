@@ -209,4 +209,16 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_9.json");
         assert_eq!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_10() {
+        let chosen_move = get_move_from_json_file("failure_10.json");
+        assert_eq!(chosen_move, Direction::Left);
+    }
+
+    #[test]
+    fn failure_11() {
+        let chosen_move = get_move_from_json_file("failure_11.json");
+        assert_eq!(chosen_move, Direction::Left);
+    }
 }
