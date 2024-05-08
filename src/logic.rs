@@ -221,4 +221,22 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_11.json");
         assert_eq!(chosen_move, Direction::Left);
     }
+
+    #[test]
+    fn failure_12() {
+        let chosen_move = get_move_from_json_file("failure_12.json");
+        assert_eq!(chosen_move, Direction::Left);
+    }
+
+    #[test]
+    fn failure_13() {
+        let chosen_move = get_move_from_json_file("failure_13.json");
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_14() {
+        get_move_from_json_file("failure_14.json");
+    }
 }

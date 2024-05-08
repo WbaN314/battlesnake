@@ -1,0 +1,172 @@
+{
+    "game": {
+        "id": "4a573e57-5676-4382-afa2-2d234f8b8979",
+        "ruleset": {
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "version": "v1.2.3",
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 26,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 6,
+                "y": 10
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_M8TJvSS4qjjpJK9JYSyb8BrK",
+                "name": "Hungry Bot",
+                "health": 93,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 8
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 8,
+                        "y": 6
+                    },
+                    {
+                        "x": 9,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 8
+                },
+                "length": 6,
+                "latency": "1",
+                "shout": ""
+            },
+            {
+                "id": "gs_tWFW3xR7HvPpkg9jDmVVpTJ6",
+                "name": "Loopy Bot",
+                "health": 74,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 0
+                    },
+                    {
+                        "x": 4,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 0
+                },
+                "length": 3,
+                "latency": "1",
+                "shout": ""
+            },
+            {
+                "id": "gs_9kRxrQXxyG34VpKgMhYdTSHJ",
+                "name": "Smart Snake",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 10
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 10
+                },
+                "length": 5,
+                "latency": "225",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_9kRxrQXxyG34VpKgMhYdTSHJ",
+        "name": "Smart Snake",
+        "health": 100,
+        "body": [
+            {
+                "x": 4,
+                "y": 10
+            },
+            {
+                "x": 4,
+                "y": 9
+            },
+            {
+                "x": 4,
+                "y": 8
+            },
+            {
+                "x": 4,
+                "y": 7
+            },
+            {
+                "x": 4,
+                "y": 7
+            }
+        ],
+        "head": {
+            "x": 4,
+            "y": 10
+        },
+        "length": 5,
+        "latency": "225",
+        "shout": ""
+    }
+}
