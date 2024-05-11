@@ -1,0 +1,206 @@
+{
+    "game": {
+        "id": "023330df-eeac-48f9-8e40-731b1ac15463",
+        "ruleset": {
+            "name": "standard",
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 58,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 6,
+                "y": 0
+            },
+            {
+                "x": 9,
+                "y": 1
+            },
+            {
+                "x": 5,
+                "y": 3
+            },
+            {
+                "x": 10,
+                "y": 4
+            },
+            {
+                "x": 8,
+                "y": 1
+            },
+            {
+                "x": 9,
+                "y": 0
+            },
+            {
+                "x": 10,
+                "y": 0
+            },
+            {
+                "x": 0,
+                "y": 2
+            },
+            {
+                "x": 5,
+                "y": 2
+            },
+            {
+                "x": 1,
+                "y": 10
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_tRDT7KTbTXSb9TcYHTydyh9S",
+                "name": "Snaker",
+                "health": 68,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 10
+                    },
+                    {
+                        "x": 6,
+                        "y": 9
+                    },
+                    {
+                        "x": 6,
+                        "y": 8
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 10
+                },
+                "length": 4,
+                "latency": "79",
+                "shout": ""
+            },
+            {
+                "id": "gs_3Q6HbwX46KTBhy8g4RWrh7bT",
+                "name": "Smart Snake",
+                "health": 93,
+                "body": [
+                    {
+                        "x": 2,
+                        "y": 10
+                    },
+                    {
+                        "x": 2,
+                        "y": 9
+                    },
+                    {
+                        "x": 2,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 6
+                    },
+                    {
+                        "x": 2,
+                        "y": 5
+                    },
+                    {
+                        "x": 2,
+                        "y": 4
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 2,
+                    "y": 10
+                },
+                "length": 9,
+                "latency": "219",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_3Q6HbwX46KTBhy8g4RWrh7bT",
+        "name": "Smart Snake",
+        "health": 93,
+        "body": [
+            {
+                "x": 2,
+                "y": 10
+            },
+            {
+                "x": 2,
+                "y": 9
+            },
+            {
+                "x": 2,
+                "y": 8
+            },
+            {
+                "x": 2,
+                "y": 7
+            },
+            {
+                "x": 2,
+                "y": 6
+            },
+            {
+                "x": 2,
+                "y": 5
+            },
+            {
+                "x": 2,
+                "y": 4
+            },
+            {
+                "x": 2,
+                "y": 3
+            },
+            {
+                "x": 3,
+                "y": 3
+            }
+        ],
+        "head": {
+            "x": 2,
+            "y": 10
+        },
+        "length": 9,
+        "latency": "219",
+        "shout": ""
+    }
+}

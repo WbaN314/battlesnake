@@ -12,6 +12,45 @@ use super::{
     e_state_node::EStateNode,
 };
 
+#[derive(Clone, Copy, Debug)]
+pub struct ESimulationState {
+    depth: usize,
+    alive: bool,
+}
+
+impl ESimulationState {
+    pub fn new() -> Self {
+        Self {
+            depth: 0,
+            alive: false,
+        }
+    }
+
+    pub fn from(depth: usize, alive: bool) -> Self {
+        Self { depth, alive }
+    }
+}
+
+impl PartialOrd for ESimulationState {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.depth.partial_cmp(&other.depth)
+    }
+}
+
+impl PartialEq for ESimulationState {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(std::cmp::Ordering::Equal)
+    }
+}
+
+impl Ord for ESimulationState {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl Eq for ESimulationState {}
+
 #[derive(Clone)]
 pub struct EStateTree {
     map: BTreeMap<EDirectionVec, Option<EStateNode>>,
@@ -82,15 +121,51 @@ impl EStateTree {
         results
     }
 
-    pub fn simulate_timed(&mut self, distance: u8, milliseconds: u64) -> [usize; 4] {
-        let mut result = [0; 4];
-
+    pub fn simulate_timed(&mut self, distance: u8, milliseconds: u64) -> [ESimulationState; 4] {
+        let mut result = [ESimulationState::new(); 4];
+        let mut iteration_result: [Option<ESimulationState>; 4] = [None; 4];
         let timer = Instant::now();
+        let mut current_depth = 0;
+        let mut depth_increased;
+
         while timer.elapsed() < Duration::from_millis(milliseconds) {
+            depth_increased = false;
             match self.current.pop_front() {
-                None => break,
+                None => {
+                    // println!("Finished at {}", current_depth);
+                    for i in 0..4 {
+                        if let Some(iteration_result) = iteration_result[i] {
+                            result[i] = iteration_result;
+                        }
+                        iteration_result[i] = None;
+                    }
+                    break;
+                }
                 Some(d_vec) => {
+                    // determine if a new depth is starting to be evaluated
+                    if d_vec.len() > current_depth {
+                        depth_increased = true;
+                    }
+                    current_depth = d_vec.len();
+
+                    // flush iteration results to returned results after new depth has been reached
+                    if depth_increased {
+                        // println!("Depth increased to {}", current_depth);
+                        for i in 0..4 {
+                            if let Some(iteration_result) = iteration_result[i] {
+                                result[i] = iteration_result;
+                            }
+                            iteration_result[i] = None;
+                        }
+                    }
+
+                    if current_depth > 0 && iteration_result[d_vec[0].to_usize()].is_none() {
+                        iteration_result[d_vec[0].to_usize()] =
+                            Some(ESimulationState::from(current_depth, false));
+                    }
+
                     // println!("Pop front: {}", &d_vec);
+
                     let bools = self.calcs(
                         d_vec.clone(),
                         0.max(distance as i32 - d_vec.len() as i32) as u8,
@@ -101,6 +176,11 @@ impl EStateTree {
                             let mut new = d_vec.clone();
                             new.push(EDirection::from_usize(i));
                             // println!("Push back: {}", &new);
+                            if let Some(iteration_result) =
+                                iteration_result[new[0].to_usize()].as_mut()
+                            {
+                                iteration_result.alive = true;
+                            }
                             self.current.push_back(new);
                         }
                     }
@@ -108,16 +188,6 @@ impl EStateTree {
             }
         }
 
-        for key in self.map.keys().rev() {
-            // if self.map.get(key).unwrap().is_some() {
-            //    println!("{:?} {}", key, self.map.get(key).unwrap().clone().unwrap())
-            // }
-            if key.len() == 0 {
-                break;
-            } else if result[key[0].to_usize()] < key.len() {
-                result[key[0].to_usize()] = key.len();
-            }
-        }
         result
     }
 }

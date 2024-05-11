@@ -108,11 +108,7 @@ impl PartialOrd for EDirectionVec {
 
 impl PartialEq for EDirectionVec {
     fn eq(&self, other: &Self) -> bool {
-        if self.cmp(other) == std::cmp::Ordering::Equal {
-            true
-        } else {
-            false
-        }
+        self.cmp(other) == std::cmp::Ordering::Equal
     }
 }
 
