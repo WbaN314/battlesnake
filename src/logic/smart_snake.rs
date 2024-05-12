@@ -2,15 +2,16 @@ use log::info;
 
 use crate::{
     logic::efficient_game_objects::{
-        e_coord::ECoord,
-        e_direction::{EDirection, EDIRECTIONS, EDIRECTION_VECTORS},
-        e_game_state::EGameState,
+        e_coord::ECoord, e_direction::EDIRECTION_VECTORS, e_game_state::EGameState,
         e_state_tree::EStateTree,
     },
     Battlesnake, Board, Game,
 };
 
-use super::{Brain, Direction};
+use super::{
+    efficient_game_objects::{e_direction::EDirection, e_state_tree::ESimulationState},
+    Brain, Direction,
+};
 
 pub struct SmartSnake {}
 
@@ -18,130 +19,93 @@ impl SmartSnake {
     pub fn new() -> Self {
         Self {}
     }
+
+    fn evaluate_states(&self, states: [ESimulationState; 4]) -> EDirection {
+        info!("{:#?}", states);
+        let mut scores: [u64; 4] = [0; 4];
+
+        for d in 0..4 {
+            let s = states[d];
+            let mut v: u64 = 0;
+
+            // movable
+            if s.movable {
+                v += 1_000_000_000;
+            }
+
+            // depth
+            v += 10_000_000 * s.depth as u64;
+
+            // alive
+            if s.alive {
+                v += 1_000_000;
+            }
+
+            // area
+            v += 1_000 * s.area as u64; // area < 1000 -> 1_000 <= v < 1_000_000
+
+            // food
+            if let Some(food) = s.food {
+                v += 999 - food as u64; // 100 < v < 1_000
+            }
+            scores[d] = v;
+        }
+        info!("{:?}", scores);
+
+        EDirection::from_usize(scores.iter().enumerate().max_by_key(|x| x.1).unwrap().0)
+    }
 }
 
 impl Brain for SmartSnake {
     fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let game_state = EGameState::from(board, you);
-        let my_snake = game_state.snakes.get(0).clone().unwrap();
+        let my_snake_clone = game_state.snakes.get(0).clone().unwrap();
 
         // Simulate future
         let mut d_tree = EStateTree::from(game_state.clone());
-        let evaluated_depths = d_tree.simulate_timed(10, 200);
-        info!("Evaluated depths: {:?}", evaluated_depths);
-        let best_depth = evaluated_depths.iter().max().unwrap();
+        let mut simulation_states = d_tree.simulate_timed(10, 200);
 
         // Check for areas
-        let mut areas = [0; 4];
-        for i in 0..4 {
-            if evaluated_depths[i] >= *best_depth {
-                if let Some(area) = game_state
-                    .board
-                    .clone()
-                    .fill(&(my_snake.head + EDIRECTION_VECTORS[i]))
-                {
-                    areas[i] = area.area;
+        let mut moved_tails = game_state.clone();
+        match moved_tails.move_tails() {
+            Ok(_) => {
+                for d in 0..4 {
+                    if let Some(area) = moved_tails
+                        .board
+                        .clone()
+                        .fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
+                    {
+                        simulation_states[d].area = area.area;
+                    }
                 }
             }
+            Err(_) => (),
         }
-        info!("Calculated areas: {:?}", areas);
-        let largest_area = *areas.iter().max().unwrap_or(&0);
 
-        let mut closest_food_distance = 5;
-        let mut closest_food: Option<ECoord> = None;
-        let head = ECoord::from(you.head.x as i8, you.head.y as i8);
-        for food in board.food.iter() {
-            let food = &ECoord::from(food.x as i8, food.y as i8);
-            if head.distance(food) < closest_food_distance {
-                closest_food = Some(*food);
-                closest_food_distance = head.distance(food);
+        // Movable directions
+        for d in 0..4 {
+            if simulation_states[d].area > 0 {
+                simulation_states[d].movable = true;
             }
         }
-        let food_directions = if let Some(closest_food) = closest_food {
-            head.directions_to(&closest_food)
-        } else {
-            [true; 4]
-        };
 
-        // Select general best direction that remains
-        let mut final_result = EDirection::Up;
-        let mut distance_to_optimum = i8::MIN;
-        let middle = game_state.board.middle();
-        for i in 0..4 {
-            if areas[i] == largest_area {
-                match i {
-                    0 => {
-                        let d = middle.y - my_snake.head.y;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
+        // Closest food distance
+        if board.food.len() > 0 {
+            for food in board.food.iter() {
+                for d in 0..4 {
+                    let head_candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
+                    let distance =
+                        head_candidate.distance(&ECoord::from(food.x as i8, food.y as i8));
+                    if let Some(old_food) = simulation_states[d].food {
+                        simulation_states[d].food = Some(distance.min(old_food));
+                    } else {
+                        simulation_states[d].food = Some(distance);
                     }
-                    1 => {
-                        let d = my_snake.head.y - middle.y;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    2 => {
-                        let d = my_snake.head.x - middle.x;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    3 => {
-                        let d = middle.x - my_snake.head.x;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    _ => unreachable!("Non existing direction"),
                 }
             }
         }
 
-        distance_to_optimum = i8::MIN;
-        for i in 0..4 {
-            if areas[i] == largest_area && food_directions[i] {
-                match i {
-                    0 => {
-                        let d = middle.y - my_snake.head.y;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    1 => {
-                        let d = my_snake.head.y - middle.y;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    2 => {
-                        let d = my_snake.head.x - middle.x;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    3 => {
-                        let d = middle.x - my_snake.head.x;
-                        if d > distance_to_optimum {
-                            distance_to_optimum = d;
-                            final_result = EDIRECTIONS[i];
-                        }
-                    }
-                    _ => unreachable!("Non existing direction"),
-                }
-            }
-        }
-
-        // Build Killer instinct
-
-        final_result.to_direction()
+        // Evaluate the results
+        self.evaluate_states(simulation_states).to_direction()
     }
 }

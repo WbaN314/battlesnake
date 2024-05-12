@@ -14,8 +14,11 @@ use super::{
 
 #[derive(Clone, Copy, Debug)]
 pub struct ESimulationState {
-    depth: usize,
-    alive: bool,
+    pub depth: u8,
+    pub alive: bool,
+    pub area: u8,
+    pub food: Option<u8>,
+    pub movable: bool,
 }
 
 impl ESimulationState {
@@ -23,11 +26,17 @@ impl ESimulationState {
         Self {
             depth: 0,
             alive: false,
+            area: 0,
+            food: None,
+            movable: false,
         }
     }
 
-    pub fn from(depth: usize, alive: bool) -> Self {
-        Self { depth, alive }
+    pub fn from(depth: u8, alive: bool) -> Self {
+        let mut n = Self::new();
+        n.depth = depth;
+        n.alive = alive;
+        n
     }
 }
 
@@ -161,7 +170,7 @@ impl EStateTree {
 
                     if current_depth > 0 && iteration_result[d_vec[0].to_usize()].is_none() {
                         iteration_result[d_vec[0].to_usize()] =
-                            Some(ESimulationState::from(current_depth, false));
+                            Some(ESimulationState::from(current_depth as u8, false));
                     }
 
                     // println!("Pop front: {}", &d_vec);
