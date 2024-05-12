@@ -232,6 +232,8 @@ impl EGameState {
         Ok(())
     }
 
+    /// Grows the snake
+    /// No health handling
     fn grow_snake(&self, snake: &mut ESnake) {
         snake.length += 1;
         match self.board.get(snake.tail.x, snake.tail.y) {
@@ -252,56 +254,117 @@ impl EGameState {
         };
     }
 
-    pub fn move_snakes(&mut self, moveset: [Option<EDirection>; 4]) -> Result<()> {
-        // Hunger eliminations first, also health gain and loss due to food or no food
+    pub fn move_snakes(&mut self, moveset: [Option<EDirection>; SNAKES as usize]) -> Result<()> {
+        self.handle_hunger(&moveset)?;
+        self.move_tails()?;
+        self.move_heads(&moveset)?;
+        Ok(())
+    }
+
+    /// handle only hunger eliminations
+    /// growth is not handled
+    /// board afterwards contains snakes as they were before, but snakes that died of hunger are eliminated
+    fn handle_hunger(&mut self, moveset: &[Option<EDirection>; SNAKES as usize]) -> Result<()> {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
-                let x = snake.head.x;
-                let y = snake.head.y;
-                match self.board.get(x, y) {
-                    Some(EField::Food) => snake.health = 100,
-                    _ => (),
+                if snake.health >= 1 {
+                    snake.health -= 1;
                 }
-                snake.health -= 1;
+                if let Some(movement) = moveset[i as usize] {
+                    let new_head = snake.head.move_in_direction(movement);
+                    match self.board.get(new_head.x, new_head.y) {
+                        Some(EField::Food) => {
+                            snake.health = 100;
+                        }
+                        _ => (),
+                    }
+                }
                 if snake.health <= 0 {
                     snake.die = true;
-                };
+                }
             }
         }
-
-        // Remove snakes that died of hunger
         self.eliminate_dead_snakes()?;
+        Ok(())
+    }
 
-        // Handle heads
-        let mut move_tails_preemptively: [Option<ECoord>; SNAKES as usize] = [None; 4];
+    /// move tails
+    /// tail movement is independent of food consumption in the same round
+    /// food consumption will add a stack to new tail later on
+    pub fn move_tails(&mut self) -> Result<()> {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
-                if let Some(mv) = moveset[i as usize] {
-                    let new_head = snake.head + EDIRECTION_VECTORS[mv.to_usize()];
-                    // handle old snake head EField
+                let tail_field = self.board.get(snake.tail.x, snake.tail.y);
+                match tail_field {
+                    Some(EField::SnakePart {
+                        stacked,
+                        next,
+                        snake_number,
+                    }) => {
+                        if stacked > 1 {
+                            self.board.set(
+                                snake.tail.x,
+                                snake.tail.y,
+                                EField::SnakePart {
+                                    snake_number,
+                                    stacked: stacked - 1,
+                                    next,
+                                },
+                            );
+                        } else {
+                            self.board.set(snake.tail.x, snake.tail.y, EField::Empty);
+                            if let Some(next) = next {
+                                snake.tail = next;
+                            } else {
+                                // might be that tail got not moved because there is no next
+                                // then head and tail are equal and point to empty field now
+                                // therefore we eiminate the snake
+                                snake.die = true;
+                            }
+                        }
+                    }
+                    _ => panic!("Invalid tail state"),
+                }
+            }
+        }
+        self.eliminate_dead_snakes()
+    }
+
+    /// responsible for moving heads
+    /// tails and hunger eliminations should be done before
+    /// responsible for handling growth by stacking (already new) tail
+    fn move_heads(&mut self, moveset: &[Option<EDirection>; SNAKES as usize]) -> Result<()> {
+        for i in 0..SNAKES {
+            if let Some(direction) = moveset[i as usize] {
+                if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                    let new_head = snake.head.move_in_direction(direction);
+                    // update old head field's next field
+                    // if it points to weird stuff, kill the snake
                     match self.board.get(snake.head.x, snake.head.y) {
                         Some(EField::SnakePart {
                             snake_number,
                             stacked,
                             ..
-                        }) => self.board.set(
-                            snake.head.x,
-                            snake.head.y,
-                            EField::SnakePart {
-                                snake_number,
-                                stacked: stacked,
-                                next: Some(new_head),
-                            },
-                        ),
-                        _ => unreachable!("Old snake head not on snake part."),
-                    };
-                    // handle new snake head EField
-                    snake.head = new_head;
-                    match self.board.get(snake.head.x, snake.head.y) {
-                        Some(EField::Empty) => {
+                        }) => {
                             self.board.set(
                                 snake.head.x,
                                 snake.head.y,
+                                EField::SnakePart {
+                                    snake_number,
+                                    stacked,
+                                    next: Some(new_head),
+                                },
+                            );
+                        }
+                        _ => snake.die = true,
+                    }
+                    // handle new snake head
+                    // set contested
+                    match self.board.get(new_head.x, new_head.y) {
+                        Some(EField::Empty) => {
+                            self.board.set(
+                                new_head.x,
+                                new_head.y,
                                 EField::Contested {
                                     snake_number: i,
                                     food: false,
@@ -309,166 +372,74 @@ impl EGameState {
                             );
                         }
                         Some(EField::Food) => {
-                            // health is handled before, no handling here
-                            // grow is set on contested EField evaluation
                             self.board.set(
-                                snake.head.x,
-                                snake.head.y,
+                                new_head.x,
+                                new_head.y,
                                 EField::Contested {
                                     snake_number: i,
                                     food: true,
                                 },
                             );
                         }
-                        Some(EField::Contested { snake_number, food }) => {
-                            match self.snakes.get_mut(snake_number).as_mut() {
-                                Some(other_snake) => {
-                                    if snake.length > other_snake.length {
-                                        other_snake.die = true;
-                                        self.board.set(
-                                            snake.head.x,
-                                            snake.head.y,
-                                            EField::Contested {
-                                                snake_number: i,
-                                                food,
-                                            },
-                                        );
-                                    } else if snake.length < other_snake.length {
-                                        snake.die = true;
-                                        self.board.set(
-                                            snake.head.x,
-                                            snake.head.y,
-                                            EField::Contested { snake_number, food },
-                                        );
-                                    } else {
-                                        snake.die = true;
-                                        other_snake.die = true;
-                                        self.board.set(
-                                            snake.head.x,
-                                            snake.head.y,
-                                            EField::Contested { snake_number, food },
-                                        );
-                                    }
-                                }
-                                None => unreachable!("Ghost snake"),
-                            }
+                        Some(EField::SnakePart { .. }) => {
+                            snake.die = true;
                         }
-                        Some(EField::SnakePart {
-                            snake_number,
-                            stacked,
-                            next,
-                        }) => {
-                            // TODO this is wrong when the snakepart is tail
-                            if stacked > 1 {
-                                snake.die = true;
-                            } else {
-                                // This if else is required to please the runtime borrow checker
-                                let tail = if i == snake_number {
-                                    snake.tail
-                                } else {
-                                    self.snakes.get(snake_number).as_ref().unwrap().tail
-                                };
-                                if snake.head.x == tail.x && snake.head.y == tail.y {
-                                    // all good, tail will move
+                        Some(EField::Contested { snake_number, food }) => {
+                            if let Some(other_snake) = self.snakes.get_mut(snake_number).as_mut() {
+                                if snake.length > other_snake.length {
+                                    other_snake.die = true;
                                     self.board.set(
-                                        snake.head.x,
-                                        snake.head.y,
+                                        new_head.x,
+                                        new_head.y,
                                         EField::Contested {
                                             snake_number: i,
-                                            food: false,
+                                            food,
                                         },
                                     );
-                                    // Preemptively move tail so that rest of logic still works
-                                    move_tails_preemptively[snake_number as usize] = next;
+                                } else if snake.length < other_snake.length {
+                                    snake.die = true;
                                 } else {
                                     snake.die = true;
+                                    other_snake.die = true;
                                 }
                             }
                         }
                         None => snake.die = true,
-                        _ => unreachable!("Old board is broken"),
+                        _ => panic!("Invalid state while moving heads"),
                     }
+                    snake.head = new_head;
                 }
             }
         }
 
-        for i in 0..move_tails_preemptively.len() {
-            if let Some(coord) = move_tails_preemptively[i] {
-                if let Some(snake) = self.snakes.get_mut(i as u8).as_mut() {
-                    snake.tail = coord;
-                }
-            }
-        }
-
-        // Remove snakes that died due to bad moves
         self.eliminate_dead_snakes()?;
 
-        // Make contested EFields to snakeparts again. Only winner snakes should have contested heads, losers should not have contested EFields set anymore.
-        // Handle tails of surviving snakes and reset grow
         for i in 0..SNAKES {
-            // Handle contested EFields
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 match self.board.get(snake.head.x, snake.head.y) {
                     Some(EField::Contested { snake_number, food }) => {
-                        if food {
-                            self.grow_snake(snake);
+                        if snake_number == i {
+                            if food {
+                                self.grow_snake(snake);
+                            }
+                            self.board.set(
+                                snake.head.x,
+                                snake.head.y,
+                                EField::SnakePart {
+                                    snake_number: i,
+                                    stacked: 1,
+                                    next: None,
+                                },
+                            );
+                        } else {
+                            panic!("Contested field does not match the snake")
                         }
-                        self.board.set(
-                            snake.head.x,
-                            snake.head.y,
-                            EField::SnakePart {
-                                snake_number,
-                                stacked: 1,
-                                next: None,
-                            },
-                        );
                     }
-                    Some(EField::SnakePart { .. }) => {
-                        // might happen if snakes have no moves processed (i.e. tofar away)
-                        ()
-                    }
-                    _ => unreachable!("Invalid board state"),
-                };
-
-                // Handle tail
-                match self.board.get(snake.tail.x, snake.tail.y) {
-                    Some(EField::SnakePart {
-                        snake_number,
-                        stacked,
-                        next,
-                    }) => {
-                        match stacked {
-                            1 => {
-                                self.board.set(snake.tail.x, snake.tail.y, EField::Empty);
-                                match next {
-                                    Some(next) => snake.tail = next,
-                                    None => snake.die = true,
-                                }
-                            }
-                            2.. => {
-                                self.board.set(
-                                    snake.tail.x,
-                                    snake.tail.y,
-                                    EField::SnakePart {
-                                        snake_number,
-                                        stacked: stacked - 1,
-                                        next,
-                                    },
-                                );
-                                ()
-                            }
-                            v => unreachable!("Invalid stacked value {}", v),
-                        };
-                    }
-                    _ => unreachable!("Old tail is wrong"),
-                };
+                    Some(EField::SnakePart { .. }) => (), // Snake did not get moved because too far away
+                    _ => panic!("Snake head on invalid field"),
+                }
             }
         }
-
-        self.eliminate_dead_snakes()?;
-
-        // self.validate_state();
-
         Ok(())
     }
 

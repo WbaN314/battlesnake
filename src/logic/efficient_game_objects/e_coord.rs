@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign};
 
-use super::e_direction::EBoolDirections;
+use super::e_direction::{EBoolDirections, EDirection, EDIRECTION_VECTORS};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ECoord {
@@ -35,6 +35,10 @@ impl ECoord {
             }
             result
         }
+    }
+
+    pub fn move_in_direction(self, direction: EDirection) -> ECoord {
+        self + EDIRECTION_VECTORS[direction.to_usize()]
     }
 }
 
