@@ -8,6 +8,8 @@ pub mod e_state_tree;
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::logic::efficient_game_objects::{
         e_board::EField, e_coord::ECoord, e_direction::EDirection, e_game_state::EGameState,
         e_state_tree::EStateTree,
@@ -199,7 +201,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
-        d_tree.simulate_timed(u8::MAX, 200);
+        d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{}", d_tree)
     }
 
@@ -231,7 +233,7 @@ mod tests {
         let game_state = read_game_state("requests/failure_1.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, 200);
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{:?}", result);
     }
 
@@ -241,7 +243,7 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, 200);
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{:?}", result);
     }
 
@@ -251,7 +253,7 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, 200);
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{:?}", result);
     }
 
@@ -261,7 +263,7 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, 200);
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{:?}", result);
     }
 
@@ -271,9 +273,9 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
         let mut d_tree_2 = d_tree.clone();
-        let result = d_tree.simulate_timed(u8::MAX, 200);
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
         println!("{:?}", result);
-        let result_2 = d_tree_2.simulate_timed(4, 200);
+        let result_2 = d_tree_2.simulate_timed(4, Duration::from_millis(200));
         println!("{:?}", result_2);
     }
 }

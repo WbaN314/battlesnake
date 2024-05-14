@@ -8,7 +8,7 @@ use std::{
 use super::{
     e_direction::{EBoolDirections, EDirection, EDirectionVec},
     e_game_state::EGameState,
-    e_snakes::{Death, Result},
+    e_snakes::{Death, ESimulationError, Result},
     e_state_node::EStateNode,
 };
 
@@ -64,6 +64,8 @@ impl Eq for ESimulationState {}
 pub struct EStateTree {
     map: BTreeMap<EDirectionVec, Option<EStateNode>>,
     current: VecDeque<EDirectionVec>,
+    duration: Duration,
+    start: Instant,
 }
 
 impl EStateTree {
@@ -71,6 +73,8 @@ impl EStateTree {
         Self {
             map: BTreeMap::new(),
             current: VecDeque::from(Vec::new()),
+            duration: Duration::new(0, 0),
+            start: Instant::now(),
         }
     }
 
@@ -88,15 +92,16 @@ impl EStateTree {
         let calc_next_result: Option<EStateNode>;
         match self.map.get_mut(&from) {
             Some(Some(node)) => {
-                match node.calc_next(to, distance) {
+                match node.calc_next(to, distance, &self.start, &self.duration) {
                     Ok(r) => {
                         calc_next_result = Some(r);
                         result = Result::Ok(())
                     }
-                    Err(_) => {
+                    Err(ESimulationError::Death) => {
                         calc_next_result = None;
-                        result = Result::Err(Death)
+                        result = Result::Err(ESimulationError::Death)
                     }
+                    Err(ESimulationError::Timer) => return Err(ESimulationError::Timer),
                 }
                 if node.completely_evaluated() {
                     delete = true
@@ -104,7 +109,7 @@ impl EStateTree {
             }
             Some(None) => {
                 calc_next_result = None;
-                result = Result::Err(Death)
+                result = Result::Err(ESimulationError::Death)
             }
             _ => {
                 panic!("Invalid access")
@@ -124,20 +129,25 @@ impl EStateTree {
         for d in 0..4 {
             match self.calc(from.clone(), EDirection::from_usize(d), distance) {
                 Ok(_) => results[d] = true,
-                Err(_) => results[d] = false,
+                Err(ESimulationError::Death) => results[d] = false,
+                Err(ESimulationError::Timer) => {
+                    results[d] = false;
+                    break;
+                }
             }
         }
         results
     }
 
-    pub fn simulate_timed(&mut self, distance: u8, milliseconds: u64) -> [ESimulationState; 4] {
+    pub fn simulate_timed(&mut self, distance: u8, duration: Duration) -> [ESimulationState; 4] {
+        self.duration = duration;
+        self.start = Instant::now();
         let mut result = [ESimulationState::new(); 4];
         let mut iteration_result: [Option<ESimulationState>; 4] = [None; 4];
-        let timer = Instant::now();
         let mut current_depth = 0;
         let mut depth_increased;
 
-        while timer.elapsed() < Duration::from_millis(milliseconds) {
+        while self.start.elapsed() < self.duration {
             depth_increased = false;
             match self.current.pop_front() {
                 None => {
@@ -196,7 +206,7 @@ impl EStateTree {
                 }
             }
         }
-
+        info!("Total simulation time: {:?}", self.start.elapsed());
         result
     }
 }

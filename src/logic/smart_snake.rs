@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use log::info;
 
 use crate::{
@@ -63,7 +65,7 @@ impl Brain for SmartSnake {
 
         // Simulate future
         let mut d_tree = EStateTree::from(game_state.clone());
-        let mut simulation_states = d_tree.simulate_timed(10, 200);
+        let mut simulation_states = d_tree.simulate_timed(10, Duration::from_millis(200));
 
         // Check for areas
         let mut moved_tails = game_state.clone();

@@ -6,7 +6,7 @@ use super::{
     e_board::{EBoard, EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::{EDirection, EDIRECTION_VECTORS},
-    e_snakes::{Death, ESnake, ESnakes, Result, SNAKES},
+    e_snakes::{Death, ESimulationError, ESnake, ESnakes, Result, SNAKES},
 };
 
 #[derive(Clone)]
@@ -201,7 +201,7 @@ impl EGameState {
         if let Some(snake) = self.snakes.get(snake_index).as_ref() {
             if snake.die {
                 if snake_index == 0 {
-                    return Err(Death);
+                    return Err(ESimulationError::Death);
                 }
                 eliminate = true;
                 let mut x = snake.tail.x;
