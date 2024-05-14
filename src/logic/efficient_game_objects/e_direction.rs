@@ -4,6 +4,8 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+//
+
 use crate::logic::Direction;
 
 use super::e_coord::ECoord;
