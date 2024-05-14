@@ -59,13 +59,6 @@ impl Display for EDirection {
     }
 }
 
-pub const EDIRECTIONS: [EDirection; 4] = [
-    EDirection::Up,
-    EDirection::Down,
-    EDirection::Left,
-    EDirection::Right,
-];
-
 pub const EDIRECTION_VECTORS: [ECoord; 4] = [
     ECoord { x: 0, y: 1 },
     ECoord { x: 0, y: -1 },

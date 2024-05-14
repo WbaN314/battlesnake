@@ -7,7 +7,7 @@ use std::{
 use super::{
     e_direction::{EBoolDirections, EDirection},
     e_game_state::EGameState,
-    e_snakes::{Death, ESimulationError, Result},
+    e_snakes::{ESimulationError, Result},
 };
 
 #[derive(Clone)]

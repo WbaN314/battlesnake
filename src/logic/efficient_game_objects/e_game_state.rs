@@ -6,7 +6,7 @@ use super::{
     e_board::{EBoard, EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::{EDirection, EDIRECTION_VECTORS},
-    e_snakes::{Death, ESimulationError, ESnake, ESnakes, Result, SNAKES},
+    e_snakes::{ESimulationError, ESnake, ESnakes, Result, SNAKES},
 };
 
 #[derive(Clone)]
