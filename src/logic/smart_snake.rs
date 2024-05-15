@@ -60,12 +60,16 @@ impl SmartSnake {
 
 impl Brain for SmartSnake {
     fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+        let distance = 8;
+        let duration = 300;
+
         let game_state = EGameState::from(board, you);
         let my_snake_clone = game_state.snakes.get(0).clone().unwrap();
 
         // Simulate future
         let mut d_tree = EStateTree::from(game_state.clone());
-        let mut simulation_states = d_tree.simulate_timed(10, Duration::from_millis(200));
+        let mut simulation_states =
+            d_tree.simulate_timed(distance, Duration::from_millis(duration));
 
         // Check for areas
         let mut moved_tails = game_state.clone();
