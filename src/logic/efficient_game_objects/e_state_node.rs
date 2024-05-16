@@ -35,9 +35,7 @@ impl EStateNode {
         let mut new_valid_states = Vec::new();
         for state in self.states.iter() {
             let relevant_moves = state.relevant_moves(distance);
-            if relevant_moves.len() == 0 {
-                return Result::Err(ESimulationError::Death);
-            }
+            let mut found_valid_move = false;
             for relevant_move in relevant_moves {
                 if relevant_move[0].unwrap() != to {
                     continue;
@@ -50,10 +48,11 @@ impl EStateNode {
                     Ok(_) => new_valid_states.push(new_state),
                     Err(_) => return Result::Err(ESimulationError::Death),
                 };
+                found_valid_move = true
             }
-        }
-        if new_valid_states.len() == 0 {
-            return Result::Err(ESimulationError::Death);
+            if !found_valid_move {
+                return Result::Err(ESimulationError::Death);
+            }
         }
         Ok(Self::from(new_valid_states))
     }

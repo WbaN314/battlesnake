@@ -183,18 +183,14 @@ impl EStateTree {
                             Some(ESimulationState::from(current_depth as u8, false));
                     }
 
-                    // println!("Pop front: {}", &d_vec);
-
                     let bools = self.calcs(
                         d_vec.clone(),
                         0.max(distance as i32 - d_vec.len() as i32) as u8,
                     );
-                    // println!("{} {:?}", &d_vec, &bools);
                     for i in 0..4 {
                         if bools[i] {
                             let mut new = d_vec.clone();
                             new.push(EDirection::from_usize(i));
-                            // println!("Push back: {}", &new);
                             if let Some(iteration_result) =
                                 iteration_result[new[0].to_usize()].as_mut()
                             {
