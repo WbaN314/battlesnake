@@ -9,6 +9,28 @@ use super::{
     e_snakes::{ESimulationError, ESnake, ESnakes, Result, SNAKES},
 };
 
+#[derive(Clone, Copy)]
+pub struct EStateRating {
+    pub snakes: u8,
+}
+
+impl EStateRating {
+    pub fn new() -> Self {
+        Self { snakes: u8::MAX }
+    }
+
+    pub fn from(state: &EGameState) -> Self {
+        let mut rating = Self::new();
+        rating.snakes = 0;
+        for i in 0..SNAKES {
+            if state.snakes.get(i).as_ref().is_some() {
+                rating.snakes += 1;
+            }
+        }
+        rating
+    }
+}
+
 #[derive(Clone)]
 pub struct EGameState {
     pub board: EBoard,
@@ -88,6 +110,10 @@ impl EGameState {
         gamestate.validate_state();
 
         gamestate
+    }
+
+    pub fn rate_state(&self) -> EStateRating {
+        EStateRating::from(self)
     }
 
     pub fn relevant_moves(&self, distance: u8) -> Vec<[Option<EDirection>; SNAKES as usize]> {

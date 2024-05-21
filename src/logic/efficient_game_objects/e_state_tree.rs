@@ -7,7 +7,7 @@ use std::{
 
 use super::{
     e_direction::{EBoolDirections, EDirection, EDirectionVec},
-    e_game_state::EGameState,
+    e_game_state::{EGameState, EStateRating},
     e_snakes::{ESimulationError, Result},
     e_state_node::EStateNode,
 };
@@ -86,7 +86,12 @@ impl EStateTree {
         d_tree
     }
 
-    pub fn calc(&mut self, from: EDirectionVec, to: EDirection, distance: u8) -> Result<()> {
+    pub fn calc(
+        &mut self,
+        from: EDirectionVec,
+        to: EDirection,
+        distance: u8,
+    ) -> Result<EStateRating> {
         let mut delete = false;
         let result;
         let calc_next_result: Option<EStateNode>;
@@ -94,8 +99,9 @@ impl EStateTree {
             Some(Some(node)) => {
                 match node.calc_next(to, distance, &self.start, &self.duration) {
                     Ok(r) => {
+                        let rating = r.rating;
                         calc_next_result = Some(r);
-                        result = Result::Ok(())
+                        result = Result::Ok(rating)
                     }
                     Err(ESimulationError::Death) => {
                         calc_next_result = None;
@@ -128,7 +134,7 @@ impl EStateTree {
         let mut results = [false; 4];
         for d in 0..4 {
             match self.calc(from.clone(), EDirection::from_usize(d), distance) {
-                Ok(_) => results[d] = true,
+                Ok(_) => results[d] = true, //TODO: Handle EStateRating
                 Err(ESimulationError::Death) => results[d] = false,
                 Err(ESimulationError::Timer) => {
                     results[d] = false;

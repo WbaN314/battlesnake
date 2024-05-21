@@ -6,7 +6,7 @@ use std::{
 
 use super::{
     e_direction::{EBoolDirections, EDirection},
-    e_game_state::EGameState,
+    e_game_state::{EGameState, EStateRating},
     e_snakes::{ESimulationError, Result},
 };
 
@@ -14,14 +14,27 @@ use super::{
 pub struct EStateNode {
     pub states: Vec<EGameState>,
     pub evaluated: EBoolDirections,
+    pub rating: EStateRating,
 }
 
 impl EStateNode {
     pub fn from(valid_states: Vec<EGameState>) -> EStateNode {
-        Self {
+        let mut s = Self {
             states: valid_states,
             evaluated: [false; 4],
+            rating: EStateRating::new(),
+        };
+        s.rating = s.rate_states();
+        s
+    }
+
+    fn rate_states(&self) -> EStateRating {
+        let mut rating = EStateRating::new();
+        for state in self.states.iter() {
+            let current = state.rate_state();
+            rating.snakes = current.snakes.max(rating.snakes);
         }
+        rating
     }
 
     pub fn calc_next(
