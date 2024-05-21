@@ -258,13 +258,13 @@ mod tests {
     }
 
     #[test]
-    fn failure_5() {
-        let game_state = read_game_state("requests/failure_5.json");
+    fn print_state_tree() {
+        let game_state = read_game_state("requests/failure_4.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{:?}", result);
+        d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
+        println!("{}", d_tree);
     }
 
     #[test]

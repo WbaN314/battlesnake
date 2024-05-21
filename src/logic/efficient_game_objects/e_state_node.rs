@@ -11,10 +11,31 @@ use super::{
 };
 
 #[derive(Clone)]
+pub struct ENodeRating {
+    snakes: u8,
+}
+
+impl ENodeRating {
+    pub fn new() -> Self {
+        Self { snakes: 0 }
+    }
+
+    pub fn update(&mut self, state: &EStateRating) {
+        self.snakes = state.snakes.max(self.snakes);
+    }
+}
+
+impl Display for ENodeRating {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Snakes: {}", self.snakes)
+    }
+}
+
+#[derive(Clone)]
 pub struct EStateNode {
     pub states: Vec<EGameState>,
     pub evaluated: EBoolDirections,
-    pub rating: EStateRating,
+    pub rating: ENodeRating,
 }
 
 impl EStateNode {
@@ -22,17 +43,17 @@ impl EStateNode {
         let mut s = Self {
             states: valid_states,
             evaluated: [false; 4],
-            rating: EStateRating::new(),
+            rating: ENodeRating::new(),
         };
-        s.rating = s.rate_states();
+        s.rating = s.rate_node();
         s
     }
 
-    fn rate_states(&self) -> EStateRating {
-        let mut rating = EStateRating::new();
+    fn rate_node(&self) -> ENodeRating {
+        let mut rating = ENodeRating::new();
         for state in self.states.iter() {
             let current = state.rate_state();
-            rating.snakes = current.snakes.max(rating.snakes);
+            rating.update(&current);
         }
         rating
     }

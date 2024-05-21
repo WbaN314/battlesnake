@@ -9,7 +9,7 @@ use super::{
     e_direction::{EBoolDirections, EDirection, EDirectionVec},
     e_game_state::{EGameState, EStateRating},
     e_snakes::{ESimulationError, Result},
-    e_state_node::EStateNode,
+    e_state_node::{ENodeRating, EStateNode},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -61,8 +61,15 @@ impl Ord for ESimulationState {
 impl Eq for ESimulationState {}
 
 #[derive(Clone)]
+enum EStateTreeNode {
+    EStateNode(EStateNode),
+    ENodeRating(ENodeRating),
+    EDeath,
+}
+
+#[derive(Clone)]
 pub struct EStateTree {
-    map: BTreeMap<EDirectionVec, Option<EStateNode>>,
+    map: BTreeMap<EDirectionVec, EStateTreeNode>,
     current: VecDeque<EDirectionVec>,
     duration: Duration,
     start: Instant,
@@ -81,7 +88,9 @@ impl EStateTree {
     pub fn from(state: EGameState) -> Self {
         let mut d_tree = Self::new();
         let d_node = EStateNode::from(vec![state]);
-        d_tree.map.insert(EDirectionVec::new(), Some(d_node));
+        d_tree
+            .map
+            .insert(EDirectionVec::new(), EStateTreeNode::EStateNode(d_node));
         d_tree.current.push_back(EDirectionVec::new());
         d_tree
     }
@@ -91,20 +100,20 @@ impl EStateTree {
         from: EDirectionVec,
         to: EDirection,
         distance: u8,
-    ) -> Result<EStateRating> {
+    ) -> Result<ENodeRating> {
         let mut delete = false;
         let result;
-        let calc_next_result: Option<EStateNode>;
+        let calc_next_result: EStateTreeNode;
         match self.map.get_mut(&from) {
-            Some(Some(node)) => {
+            Some(EStateTreeNode::EStateNode(node)) => {
                 match node.calc_next(to, distance, &self.start, &self.duration) {
                     Ok(r) => {
-                        let rating = r.rating;
-                        calc_next_result = Some(r);
+                        let rating = r.rating.clone();
+                        calc_next_result = EStateTreeNode::EStateNode(r);
                         result = Result::Ok(rating)
                     }
                     Err(ESimulationError::Death) => {
-                        calc_next_result = None;
+                        calc_next_result = EStateTreeNode::EDeath;
                         result = Result::Err(ESimulationError::Death)
                     }
                     Err(ESimulationError::Timer) => return Err(ESimulationError::Timer),
@@ -113,19 +122,19 @@ impl EStateTree {
                     delete = true
                 }
             }
-            Some(None) => {
-                calc_next_result = None;
-                result = Result::Err(ESimulationError::Death)
-            }
-            _ => {
-                panic!("Invalid access")
-            }
+            Some(EStateTreeNode::ENodeRating(_)) => panic!("Accessing rating in calc"),
+            Some(EStateTreeNode::EDeath) => panic!("Accessing death in calc"),
+            None => panic!("Accessing non existing node"),
         }
         let mut fromto = from.clone();
         fromto.push(to);
         self.map.insert(fromto, calc_next_result);
         if delete {
-            self.map.insert(from, None);
+            let rating = match self.map.remove(&from) {
+                Some(EStateTreeNode::EStateNode(node)) => EStateTreeNode::ENodeRating(node.rating),
+                _ => panic!("Removed non node from tree"),
+            };
+            self.map.insert(from, rating);
         }
         result
     }
@@ -219,8 +228,9 @@ impl Display for EStateTree {
         for (key, value) in self.map.iter() {
             s.push_str(&format!("{:?}\n", key));
             match value {
-                Some(node) => s.push_str(&node.to_string()),
-                None => s.push_str("Completed"),
+                EStateTreeNode::EStateNode(node) => s.push_str(&node.to_string()),
+                EStateTreeNode::ENodeRating(rating) => s.push_str(&rating.to_string()),
+                EStateTreeNode::EDeath => s.push_str("Death"),
             }
             s.push_str("\n\n");
         }
