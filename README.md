@@ -2,9 +2,6 @@
 
 Competing at [play.battlesnake.com](https://play.battlesnake.com). Each participant provides the brain of his own snake on a self hosted server to survive the longest on the playing field. Games run daily and a leaderboard of the smartest snakes is created. [Here](https://play.battlesnake.com/profile/wban314) is the current ranking of this snake.
 
-
-![Battlesnake Logo](https://media.battlesnake.com/social/StarterSnakeGitHubRepos_Rust.png)
-
 ## Technologies Used
 
 This project uses [Rust](https://www.rust-lang.org/) and [Rocket](https://rocket.rs) for performance reasons (simulating future gamestates scales exponentially so optimization is key). It also comes with an [Dockerfile](https://docs.docker.com/engine/reference/builder/) that is used for easy Google Could Run deployment.
