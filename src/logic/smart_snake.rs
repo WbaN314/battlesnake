@@ -27,7 +27,7 @@ impl SmartSnake {
         let mut scores: [u64; 4] = [0; 4];
 
         for d in 0..4 {
-            let s = states[d];
+            let s = &states[d];
             let mut v: u64 = 0;
 
             // movable

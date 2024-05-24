@@ -204,8 +204,9 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request_3.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
-        d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{}", d_tree)
+        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
+        println!("{}", d_tree);
+        println!("{:#?}", result);
     }
 
     #[test]

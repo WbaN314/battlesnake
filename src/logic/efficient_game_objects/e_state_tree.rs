@@ -12,13 +12,14 @@ use super::{
     e_state_node::{ENodeRating, EStateNode},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ESimulationState {
     pub depth: u8,
     pub alive: bool,
     pub area: u8,
     pub food: Option<u8>,
     pub movable: bool,
+    pub snake_count: Vec<u8>,
 }
 
 impl ESimulationState {
@@ -29,14 +30,28 @@ impl ESimulationState {
             area: 0,
             food: None,
             movable: false,
+            snake_count: Vec::new(),
         }
     }
 
-    pub fn from(depth: u8, alive: bool) -> Self {
+    pub fn from(node_rating: &Option<ENodeRating>) -> Self {
         let mut n = Self::new();
-        n.depth = depth;
-        n.alive = alive;
+        n.depth = 1;
+        if let Some(node_rating) = node_rating {
+            n.alive = true;
+            n.snake_count.push(node_rating.highest_snake_count)
+        }
         n
+    }
+
+    pub fn update(&mut self, iteration_result: &Option<EIterationState>) {
+        if let Some(iteration_result) = iteration_result {
+            self.snake_count.push(iteration_result.highest_snakes_count);
+            self.alive = true;
+            self.depth += 1;
+        } else {
+            self.alive = false;
+        }
     }
 }
 
@@ -59,6 +74,52 @@ impl Ord for ESimulationState {
 }
 
 impl Eq for ESimulationState {}
+
+struct EIterationState {
+    highest_snakes_count: u8,
+}
+
+impl EIterationState {
+    pub fn new() -> Self {
+        Self {
+            highest_snakes_count: u8::MAX,
+        }
+    }
+
+    /// Creates a iteration state option from a node rating option
+    /// Used at the first depth level
+    /// If none then this is an invalid direction
+    pub fn from_ratings(node_ratings: &[Option<ENodeRating>; 4]) -> Option<Self> {
+        for i in 0..4 {
+            if let Some(node_rating) = node_ratings[i].as_ref() {
+                let mut n = Self::new();
+                n.highest_snakes_count = node_rating.highest_snake_count;
+                n.update(node_ratings);
+                return Some(n);
+            }
+        }
+        None
+    }
+
+    pub fn from_rating(node_rating: &Option<ENodeRating>) -> Option<Self> {
+        if let Some(node_rating) = node_rating {
+            let mut n = Self::new();
+            n.highest_snakes_count = node_rating.highest_snake_count;
+            return Some(n);
+        }
+        None
+    }
+
+    pub fn update(&mut self, node_ratings: &[Option<ENodeRating>; 4]) {
+        for i in 0..4 {
+            if let Some(node_rating) = &node_ratings[i] {
+                self.highest_snakes_count = node_rating
+                    .highest_snake_count
+                    .max(self.highest_snakes_count);
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 enum EStateTreeNode {
@@ -139,14 +200,13 @@ impl EStateTree {
         result
     }
 
-    pub fn calcs(&mut self, from: EDirectionVec, distance: u8) -> EBoolDirections {
-        let mut results = [false; 4];
+    pub fn calcs(&mut self, from: EDirectionVec, distance: u8) -> [Option<ENodeRating>; 4] {
+        let mut results = [None, None, None, None];
         for d in 0..4 {
-            match self.calc(from.clone(), EDirection::from_usize(d), distance) {
-                Ok(_) => results[d] = true, //TODO: Handle EStateRating
-                Err(ESimulationError::Death) => results[d] = false,
+            results[d] = match self.calc(from.clone(), EDirection::from_usize(d), distance) {
+                Ok(node_rating) => Some(node_rating),
+                Err(ESimulationError::Death) => None,
                 Err(ESimulationError::Timer) => {
-                    results[d] = false;
                     break;
                 }
             }
@@ -157,8 +217,13 @@ impl EStateTree {
     pub fn simulate_timed(&mut self, distance: u8, duration: Duration) -> [ESimulationState; 4] {
         self.duration = duration;
         self.start = Instant::now();
-        let mut result = [ESimulationState::new(); 4];
-        let mut iteration_result: [Option<ESimulationState>; 4] = [None; 4];
+        let mut result: [ESimulationState; 4] = [
+            ESimulationState::new(),
+            ESimulationState::new(),
+            ESimulationState::new(),
+            ESimulationState::new(),
+        ];
+        let mut iteration_result: [Option<EIterationState>; 4] = [None, None, None, None];
         let mut current_depth = 0;
         let mut depth_increased;
 
@@ -166,52 +231,58 @@ impl EStateTree {
             depth_increased = false;
             match self.current.pop_front() {
                 None => {
-                    // println!("Finished at {}", current_depth);
+                    // flush iteration results to returned results after processing que is emptied
                     for i in 0..4 {
-                        if let Some(iteration_result) = iteration_result[i] {
-                            result[i] = iteration_result;
-                        }
-                        iteration_result[i] = None;
+                        result[i].update(&iteration_result[i]);
                     }
                     break;
                 }
                 Some(d_vec) => {
-                    // determine if a new depth is starting to be evaluated
+                    // determine if a new depth is starting to be evaluated and set current depth
                     if d_vec.len() > current_depth {
                         depth_increased = true;
+                        current_depth = d_vec.len();
                     }
-                    current_depth = d_vec.len();
 
                     // flush iteration results to returned results after new depth has been reached
                     if depth_increased {
-                        // println!("Depth increased to {}", current_depth);
                         for i in 0..4 {
-                            if let Some(iteration_result) = iteration_result[i] {
-                                result[i] = iteration_result;
-                            }
+                            result[i].update(&iteration_result[i]);
                             iteration_result[i] = None;
                         }
                     }
 
-                    if current_depth > 0 && iteration_result[d_vec[0].to_usize()].is_none() {
-                        iteration_result[d_vec[0].to_usize()] =
-                            Some(ESimulationState::from(current_depth as u8, false));
-                    }
-
-                    let bools = self.calcs(
+                    // Calculate the 4 child nodes for the current node and return ratings
+                    let node_ratings = self.calcs(
                         d_vec.clone(),
-                        0.max(distance as i32 - d_vec.len() as i32) as u8,
+                        0.max(distance as i32 - current_depth as i32) as u8,
                     );
+
+                    // Push keys to new generated nodes to end of processing queue
                     for i in 0..4 {
-                        if bools[i] {
+                        if node_ratings[i].is_some() {
                             let mut new = d_vec.clone();
                             new.push(EDirection::from_usize(i));
-                            if let Some(iteration_result) =
-                                iteration_result[new[0].to_usize()].as_mut()
-                            {
-                                iteration_result.alive = true;
-                            }
                             self.current.push_back(new);
+                        }
+                    }
+
+                    // If current depth is not zero all 4 new nodes belong to the same root direction
+                    if current_depth != 0 {
+                        // If the current depth contains already an iteration result for this root direction, update it
+                        if let Some(iteration_result) =
+                            iteration_result[d_vec[0].to_usize()].as_mut()
+                        {
+                            iteration_result.update(&node_ratings);
+                        // If the current depth has no iteration result yet, create it from all 4 child nodes
+                        } else {
+                            iteration_result[d_vec[0].to_usize()] =
+                                EIterationState::from_ratings(&node_ratings);
+                        }
+                    // If current depth is zero each of the 4 nodes is the root direction
+                    } else {
+                        for i in 0..4 {
+                            iteration_result[i] = EIterationState::from_rating(&node_ratings[i])
                         }
                     }
                 }

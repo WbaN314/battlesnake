@@ -12,22 +12,24 @@ use super::{
 
 #[derive(Clone)]
 pub struct ENodeRating {
-    snakes: u8,
+    pub highest_snake_count: u8,
 }
 
 impl ENodeRating {
     pub fn new() -> Self {
-        Self { snakes: 0 }
+        Self {
+            highest_snake_count: 0,
+        }
     }
 
     pub fn update(&mut self, state: &EStateRating) {
-        self.snakes = state.snakes.max(self.snakes);
+        self.highest_snake_count = state.snakes.max(self.highest_snake_count);
     }
 }
 
 impl Display for ENodeRating {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Snakes: {}", self.snakes)
+        write!(f, "Snakes: {}", self.highest_snake_count)
     }
 }
 
