@@ -5,7 +5,7 @@ use log::info;
 use crate::{
     logic::efficient_game_objects::{
         e_coord::ECoord, e_direction::EDIRECTION_VECTORS, e_game_state::EGameState,
-        e_state_tree::EStateTree,
+        e_snakes::SNAKES, e_state_tree::EStateTree,
     },
     Battlesnake, Board, Game,
 };
@@ -43,12 +43,15 @@ impl SmartSnake {
                 v += 1_000_000;
             }
 
+            // snakes
+            v += 100_000 * (SNAKES - s.snake_count.last().unwrap_or(&SNAKES)) as u64;
+
             // area
-            v += 1_000 * s.area as u64; // area < 1000 -> 1_000 <= v < 1_000_000
+            v += 100 * s.area as u64; // area < 1000 -> 100 <= v < 100_000
 
             // food
             if let Some(food) = s.food {
-                v += 999 - food as u64; // 100 < v < 1_000
+                v += 99 - food as u64; // 10 < v < 100
             }
             scores[d] = v;
         }
