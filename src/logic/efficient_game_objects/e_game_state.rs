@@ -154,6 +154,22 @@ impl EGameState {
             }
         }
 
+        // Set at least one move to dangerous for relevant snakes if they do not have any
+        // This guarantees that the snake dies in the simulations
+        for i in 0..SNAKES {
+            if snake_relevant[i as usize] {
+                let mut has_valid_move = false;
+                for mve in dangerous_moves[i as usize] {
+                    if mve {
+                        has_valid_move = true;
+                    }
+                }
+                if !has_valid_move {
+                    dangerous_moves[i as usize][0] = true;
+                }
+            }
+        }
+
         // Get the count of actually relevant snake move combinations
         let mut relevant_count = [0; SNAKES as usize];
         for i in 0..SNAKES {
@@ -342,9 +358,7 @@ impl EGameState {
                             if let Some(next) = next {
                                 snake.tail = next;
                             } else {
-                                // might be that tail got not moved because there is no next
-                                // then head and tail are equal and point to empty field now
-                                // therefore we eiminate the snake
+                                // Snakes is invalid, just kill it
                                 snake.die = true;
                             }
                         }

@@ -138,6 +138,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let movesets = board.relevant_moves(u8::MAX);
+        println!("{}", board);
         for m in movesets {
             println!("{:?}", m);
         }
@@ -148,6 +149,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request_2.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let movesets = board.relevant_moves(u8::MAX);
+        println!("{}", board);
         for m in movesets {
             println!("{:?}", m);
         }
@@ -158,6 +160,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request_3.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let movesets = board.relevant_moves(u8::MAX);
+        println!("{}", board);
         for m in movesets {
             println!("{:?}", m);
         }
@@ -198,7 +201,7 @@ mod tests {
 
     #[test]
     fn direction_tree_simulate() {
-        let game_state = read_game_state("requests/example_move_request.json");
+        let game_state = read_game_state("requests/example_move_request_3.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
         d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
@@ -214,15 +217,15 @@ mod tests {
 
     #[test]
     fn print_board_3_after_move() {
-        let game_state = read_game_state("requests/failure_1.json");
+        let game_state = read_game_state("requests/example_move_request_3.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{board}");
         board
             .move_snakes([
                 Some(EDirection::Down),
-                Some(EDirection::Up),
-                Some(EDirection::Down),
                 None,
+                Some(EDirection::Up),
+                Some(EDirection::Up),
             ])
             .unwrap();
         println!("{board}")

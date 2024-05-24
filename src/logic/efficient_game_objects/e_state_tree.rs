@@ -7,7 +7,7 @@ use std::{
 
 use super::{
     e_direction::{EBoolDirections, EDirection, EDirectionVec},
-    e_game_state::{EGameState, EStateRating},
+    e_game_state::EGameState,
     e_snakes::{ESimulationError, Result},
     e_state_node::{ENodeRating, EStateNode},
 };
