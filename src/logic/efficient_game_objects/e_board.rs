@@ -93,10 +93,6 @@ impl EBoard {
         }
         Some(area)
     }
-
-    pub fn middle(&self) -> ECoord {
-        ECoord::from(X_SIZE / 2, Y_SIZE / 2)
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

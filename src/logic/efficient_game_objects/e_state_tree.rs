@@ -6,7 +6,7 @@ use std::{
 };
 
 use super::{
-    e_direction::{EBoolDirections, EDirection, EDirectionVec},
+    e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
     e_snakes::{ESimulationError, Result},
     e_state_node::{ENodeRating, EStateNode},
@@ -32,16 +32,6 @@ impl ESimulationState {
             movable: false,
             snake_count: Vec::new(),
         }
-    }
-
-    pub fn from(node_rating: &Option<ENodeRating>) -> Self {
-        let mut n = Self::new();
-        n.depth = 1;
-        if let Some(node_rating) = node_rating {
-            n.alive = true;
-            n.snake_count.push(node_rating.highest_snake_count)
-        }
-        n
     }
 
     pub fn update(&mut self, iteration_result: &Option<EIterationState>) {
@@ -75,7 +65,7 @@ impl Ord for ESimulationState {
 
 impl Eq for ESimulationState {}
 
-struct EIterationState {
+pub struct EIterationState {
     highest_snakes_count: u8,
 }
 
