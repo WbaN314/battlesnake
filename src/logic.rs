@@ -260,4 +260,16 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_17.json");
         assert_eq!(chosen_move, Direction::Down);
     }
+
+    #[test]
+    fn failure_18() {
+        let chosen_move = get_move_from_json_file("failure_18.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_19() {
+        let chosen_move = get_move_from_json_file("failure_19.json");
+        assert_eq!(chosen_move, Direction::Up);
+    }
 }
