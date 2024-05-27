@@ -80,7 +80,7 @@ impl EStateNode {
                 if start.elapsed() > *duration {
                     return Result::Err(ESimulationError::Timer);
                 }
-                match new_state.move_snakes(relevant_move) {
+                match new_state.move_snakes(relevant_move, distance) {
                     Ok(_) => new_valid_states.push(new_state),
                     Err(_) => return Result::Err(ESimulationError::Death),
                 };

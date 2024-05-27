@@ -34,7 +34,10 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         println!("{board}")
     }
@@ -44,10 +47,16 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         println!("{board}")
     }
@@ -57,13 +66,22 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         board
-            .move_snakes([Some(EDirection::Up), Some(EDirection::Up), None, None])
+            .move_snakes(
+                [Some(EDirection::Up), Some(EDirection::Up), None, None],
+                u8::MAX,
+            )
             .unwrap();
         println!("{board}")
     }
@@ -171,7 +189,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut moved_up = board.clone();
-        match moved_up.move_snakes([None, Some(EDirection::Up), None, None]) {
+        match moved_up.move_snakes([None, Some(EDirection::Up), None, None], u8::MAX) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
         }
@@ -182,7 +200,10 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut moved_up = board.clone();
-        match moved_up.move_snakes([Some(EDirection::Left), Some(EDirection::Left), None, None]) {
+        match moved_up.move_snakes(
+            [Some(EDirection::Left), Some(EDirection::Left), None, None],
+            u8::MAX,
+        ) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
         }
@@ -193,7 +214,10 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut moved_up = board.clone();
-        match moved_up.move_snakes([Some(EDirection::Up), Some(EDirection::Down), None, None]) {
+        match moved_up.move_snakes(
+            [Some(EDirection::Up), Some(EDirection::Down), None, None],
+            u8::MAX,
+        ) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
         }
@@ -204,7 +228,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request_3.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
+        let result = d_tree.simulate_timed(10, Duration::from_millis(200));
         println!("{}", d_tree);
         println!("{:#?}", result);
     }
@@ -222,12 +246,15 @@ mod tests {
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{board}");
         board
-            .move_snakes([
-                Some(EDirection::Down),
-                None,
-                Some(EDirection::Up),
-                Some(EDirection::Up),
-            ])
+            .move_snakes(
+                [
+                    Some(EDirection::Down),
+                    None,
+                    Some(EDirection::Up),
+                    Some(EDirection::Up),
+                ],
+                u8::MAX,
+            )
             .unwrap();
         println!("{board}")
     }
@@ -281,5 +308,45 @@ mod tests {
         println!("{:?}", result);
         let result_2 = d_tree_2.simulate_timed(4, Duration::from_millis(200));
         println!("{:?}", result_2);
+    }
+
+    #[test]
+    fn testing_kill_evaluation() {
+        let game_state = read_game_state("requests/failure_18.json");
+        let mut board = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        let mut d_tree = EStateTree::from(board.clone());
+        let simulation_result_1 = d_tree.clone().simulate_timed(8, Duration::from_millis(300));
+        let simulation_result_2 = d_tree.simulate_timed(100, Duration::from_millis(300));
+        assert_eq!(
+            simulation_result_1[0].snake_count,
+            simulation_result_2[0].snake_count
+        );
+        println!("{:#?}", &simulation_result_1);
+        println!("{:#?}", &simulation_result_2);
+        board
+            .move_snakes([Some(EDirection::Left), None, None, None], 10)
+            .unwrap();
+        println!("{}", &board);
+        assert!(board.snakes.get(0).as_ref().is_some());
+        assert!(board.snakes.get(1).as_ref().is_some());
+        board
+            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .unwrap();
+        println!("{}", &board);
+        assert!(board.snakes.get(0).as_ref().is_some());
+        assert!(board.snakes.get(1).as_ref().is_some());
+        board
+            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .unwrap();
+        println!("{}", &board);
+        assert!(board.snakes.get(0).as_ref().is_some());
+        assert!(board.snakes.get(1).as_ref().is_some());
+        board
+            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .unwrap();
+        println!("{}", &board);
+        assert!(board.snakes.get(0).as_ref().is_some());
+        assert!(board.snakes.get(1).as_ref().is_some());
     }
 }

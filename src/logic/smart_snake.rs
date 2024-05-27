@@ -63,7 +63,7 @@ impl SmartSnake {
 
 impl Brain for SmartSnake {
     fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-        let distance = 8;
+        let distance = 10;
         let duration = 300;
 
         let game_state = EGameState::from(board, you);

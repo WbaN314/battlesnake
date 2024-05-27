@@ -241,7 +241,7 @@ impl EGameState {
     fn eliminate_dead_snake(&self, snake_index: u8) -> Result<()> {
         let mut eliminate = false;
         if let Some(snake) = self.snakes.get(snake_index).as_ref() {
-            if snake.die {
+            if snake.die && !snake.far_away {
                 if snake_index == 0 {
                     return Err(ESimulationError::Death);
                 }
@@ -296,11 +296,31 @@ impl EGameState {
         };
     }
 
-    pub fn move_snakes(&mut self, moveset: [Option<EDirection>; SNAKES as usize]) -> Result<()> {
+    pub fn move_snakes(
+        &mut self,
+        moveset: [Option<EDirection>; SNAKES as usize],
+        distance: u8,
+    ) -> Result<()> {
+        self.set_snakes_far_away(distance, true);
         self.handle_hunger(&moveset)?;
         self.move_tails()?;
         self.move_heads(&moveset)?;
+        self.set_snakes_far_away(distance, false);
         Ok(())
+    }
+
+    fn set_snakes_far_away(&mut self, distance: u8, far_away: bool) {
+        let my_head = self.snakes.get(0).as_ref().unwrap().head;
+
+        for i in 0..SNAKES {
+            if let Some(snake) = self.snakes.get_mut(i).as_mut() {
+                if far_away && my_head.distance(&snake.head) > distance {
+                    snake.far_away = true;
+                } else {
+                    snake.far_away = false;
+                }
+            }
+        }
     }
 
     /// handle only hunger eliminations
@@ -363,7 +383,7 @@ impl EGameState {
                             }
                         }
                     }
-                    _ => panic!("Invalid tail state"),
+                    _ => (),
                 }
             }
         }
@@ -456,27 +476,29 @@ impl EGameState {
 
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
-                match self.board.get(snake.head.x, snake.head.y) {
-                    Some(EField::Contested { snake_number, food }) => {
-                        if snake_number == i {
-                            if food {
-                                self.grow_snake(snake);
+                if !snake.far_away {
+                    match self.board.get(snake.head.x, snake.head.y) {
+                        Some(EField::Contested { snake_number, food }) => {
+                            if snake_number == i {
+                                if food {
+                                    self.grow_snake(snake);
+                                }
+                                self.board.set(
+                                    snake.head.x,
+                                    snake.head.y,
+                                    EField::SnakePart {
+                                        snake_number: i,
+                                        stacked: 1,
+                                        next: None,
+                                    },
+                                );
+                            } else {
+                                panic!("Contested field does not match the snake")
                             }
-                            self.board.set(
-                                snake.head.x,
-                                snake.head.y,
-                                EField::SnakePart {
-                                    snake_number: i,
-                                    stacked: 1,
-                                    next: None,
-                                },
-                            );
-                        } else {
-                            panic!("Contested field does not match the snake")
                         }
+                        Some(EField::SnakePart { .. }) => (), // Snake did not get moved because too far away
+                        _ => panic!("Snake head on invalid field"),
                     }
-                    Some(EField::SnakePart { .. }) => (), // Snake did not get moved because too far away
-                    _ => panic!("Snake head on invalid field"),
                 }
             }
         }
@@ -545,7 +567,7 @@ impl fmt::Display for EGameState {
             if let Some(snake) = self.snakes.get(i).as_ref() {
                 let next_tail = match self.board.get(snake.tail.x, snake.tail.y) {
                     Some(EField::SnakePart { next, .. }) => next.unwrap_or(ECoord { x: -1, y: -1 }),
-                    _ => panic!("Invalid tail state"),
+                    _ => ECoord { x: -1, y: -1 },
                 };
                 output.push_str(&format!(
                     "Snake {} -> head: {} {} tail: {} {} next_tail: {} {} \n",
