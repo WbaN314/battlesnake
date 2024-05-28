@@ -121,6 +121,11 @@ impl EField {
 pub struct EArea {
     pub area: u8,
 }
+// TODO: Make sophisticated area decisions on decision points
+// Check if a tail is in the areas -> area basically infinite by following tail (except for food shenanigans)
+// If no tail in the area, calculate "opening time" and compare to entering snakes size
+// Try to enclose enemy in areas where opening time > oponent length and size < opponent length
+// Evaluate area for own and enemy snake head
 
 impl EArea {
     pub fn new() -> Self {

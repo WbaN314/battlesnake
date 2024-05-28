@@ -272,4 +272,10 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_19.json");
         assert_eq!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_20() {
+        let chosen_move = get_move_from_json_file("failure_20_for_improved_area_evaluation.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
 }
