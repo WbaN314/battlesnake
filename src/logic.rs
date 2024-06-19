@@ -274,8 +274,27 @@ mod json_requests {
     }
 
     #[test]
-    fn failure_20() {
+    fn failure_20_for_improved_area_evaluation() {
         let chosen_move = get_move_from_json_file("failure_20_for_improved_area_evaluation.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_21_bait_into_trap_with_top_wall() {
+        let chosen_move = get_move_from_json_file("failure_21_bait_into_trap_with_top_wall.json");
+        assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_22_bait_into_trap_with_top_wall() {
+        let chosen_move =
+            get_move_from_json_file("failure_22_bait_into_trap_with_top_wall_modified.json");
+        assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_23_go_for_kill_here() {
+        let chosen_move = get_move_from_json_file("failure_23_go_for_kill_here.json");
         assert_eq!(chosen_move, Direction::Down);
     }
 }
