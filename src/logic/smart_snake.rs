@@ -15,6 +15,48 @@ use super::{
     Brain, Direction,
 };
 
+#[derive(Debug)]
+pub struct Score {
+    scores: Vec<u32>,
+}
+
+impl Score {
+    fn new() -> Self {
+        Score { scores: Vec::new() }
+    }
+}
+
+impl Ord for Score {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.scores.len() != other.scores.len() {
+            panic!("Vectors have different lengths")
+        } else {
+            for i in 0..self.scores.len() {
+                if self.scores[i] > other.scores[i] {
+                    return std::cmp::Ordering::Greater;
+                } else if self.scores[i] < other.scores[i] {
+                    return std::cmp::Ordering::Less;
+                }
+            }
+            return std::cmp::Ordering::Equal;
+        }
+    }
+}
+
+impl PartialOrd for Score {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Score {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for Score {}
+
 pub struct SmartSnake {}
 
 impl SmartSnake {
@@ -24,36 +66,37 @@ impl SmartSnake {
 
     fn evaluate_states(&self, states: [ESimulationState; 4]) -> EDirection {
         info!("{:#?}", states);
-        let mut scores: [u64; 4] = [0; 4];
+        let mut scores: [Score; 4] = [Score::new(), Score::new(), Score::new(), Score::new()];
 
         for d in 0..4 {
             let s = &states[d];
-            let mut v: u64 = 0;
+            let t = &mut scores[d].scores;
 
             // movable
-            if s.movable {
-                v += 1_000_000_000;
-            }
+            t.push(s.movable as u32);
 
             // depth
-            v += 10_000_000 * s.depth as u64;
+            t.push(s.depth as u32);
 
             // alive
-            if s.alive {
-                v += 1_000_000;
-            }
+            t.push(s.alive as u32);
 
             // snakes
-            v += 100_000 * (SNAKES - s.snake_count.last().unwrap_or(&SNAKES)) as u64;
+            let mut x = 0;
+            for i in 0..s.snake_count.len() {
+                x += SNAKES - s.snake_count[i];
+            }
+            t.push(x as u32);
 
             // area
-            v += 100 * s.area as u64; // area < 1000 -> 100 <= v < 100_000
+            t.push(s.area as u32);
 
             // food
             if let Some(food) = s.food {
-                v += 99 - food as u64; // 10 < v < 100
+                t.push(100 - food as u32);
+            } else {
+                t.push(0);
             }
-            scores[d] = v;
         }
         info!("{:?}", scores);
 
