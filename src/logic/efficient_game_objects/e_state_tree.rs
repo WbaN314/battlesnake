@@ -105,7 +105,7 @@ impl EIterationState {
             if let Some(node_rating) = &node_ratings[i] {
                 self.highest_snakes_count = node_rating
                     .highest_snake_count
-                    .max(self.highest_snakes_count);
+                    .min(self.highest_snakes_count);
             }
         }
     }
