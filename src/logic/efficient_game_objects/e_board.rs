@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use super::e_coord::ECoord;
+use super::{e_coord::ECoord, e_snakes::SNAKES};
 
 pub const X_SIZE: i8 = 11;
 pub const Y_SIZE: i8 = 11;
@@ -117,18 +117,20 @@ impl EField {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct EArea {
     pub area: u8,
+    pub opening_times_by_snake: [Option<u8>; SNAKES as usize],
 }
-// TODO: Make sophisticated area decisions on decision points
-// Check if a tail is in the areas -> area basically infinite by following tail (except for food shenanigans)
-// If no tail in the area, calculate "opening time" and compare to entering snakes size
-// Try to enclose enemy in areas where opening time > oponent length and size < opponent length
+
+// TODO: Try to enclose enemy in areas where opening time > oponent length and size < opponent length
 // Evaluate area for own and enemy snake head
 
 impl EArea {
     pub fn new() -> Self {
-        Self { area: 0 }
+        Self {
+            area: 0,
+            opening_times_by_snake: [None; SNAKES as usize],
+        }
     }
 }

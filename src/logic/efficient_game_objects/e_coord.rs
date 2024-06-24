@@ -1,8 +1,11 @@
-use std::ops::{Add, AddAssign};
+use std::{
+    hash::Hash,
+    ops::{Add, AddAssign},
+};
 
 use super::e_direction::{EDirection, EDIRECTION_VECTORS};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
 pub struct ECoord {
     pub x: i8,
     pub y: i8,
@@ -21,6 +24,8 @@ impl ECoord {
         self + EDIRECTION_VECTORS[direction.to_usize()]
     }
 }
+
+impl Eq for ECoord {}
 
 impl Add for ECoord {
     type Output = Self;

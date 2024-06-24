@@ -348,6 +348,5 @@ mod tests {
         println!("{}", &board);
         assert!(board.snakes.get(0).as_ref().is_some());
         assert!(board.snakes.get(1).as_ref().is_some());
-        // TODO: Make far_away handling better. snake.head should be an option on far_away snakes as it can not be known where head is
     }
 }

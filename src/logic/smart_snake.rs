@@ -89,7 +89,20 @@ impl SmartSnake {
             t.push(x as u32);
 
             // area
-            t.push(s.area as u32);
+            let mut area_score: usize = s.area.area as usize;
+            for x in 1..s.area.opening_times_by_snake.len() {
+                match s.area.opening_times_by_snake[x] {
+                    Some(opening_time) => {
+                        area_score += 3 * (10 - opening_time as isize).max(0) as usize;
+                        // Rate areas that open up higher to focus on tail chasing
+                        // opening time is 0 if tail is in area, otherwise +1 for each step it takes for tail to reach area
+                    }
+                    _ => (),
+                }
+            }
+            t.push(area_score as u32);
+
+            // TODO: Value general board position
 
             // food
             if let Some(food) = s.food {
@@ -123,11 +136,10 @@ impl Brain for SmartSnake {
             Ok(_) => {
                 for d in 0..4 {
                     if let Some(area) = moved_tails
-                        .board
                         .clone()
-                        .fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
+                        .advanced_fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
                     {
-                        simulation_states[d].area = area.area;
+                        simulation_states[d].area = area;
                     }
                 }
             }
@@ -136,7 +148,7 @@ impl Brain for SmartSnake {
 
         // Movable directions
         for d in 0..4 {
-            if simulation_states[d].area > 0 {
+            if simulation_states[d].area.area > 0 {
                 simulation_states[d].movable = true;
             }
         }
