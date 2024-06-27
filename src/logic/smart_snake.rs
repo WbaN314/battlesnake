@@ -222,7 +222,7 @@ impl SmartSnake {
             if s.space[0].0 < s.space[0].1 {
                 t.push(-1);
             } else {
-                t.push(s.space.iter().map(|x| (x.0 < x.1) as i64).sum::<i64>());
+                t.push(0);
             }
 
             // area
