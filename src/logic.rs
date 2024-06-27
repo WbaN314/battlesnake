@@ -115,7 +115,7 @@ mod json_requests {
 
     const DIR: &str = "requests/";
 
-    fn read_game_state(path: &str) -> crate::GameState {
+    pub fn read_game_state(path: &str) -> crate::GameState {
         let file = std::fs::File::open(path).unwrap();
         let reader = std::io::BufReader::new(file);
         let game_state: crate::GameState = serde_json::from_reader(reader).unwrap();

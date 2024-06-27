@@ -2,6 +2,7 @@ pub mod e_board;
 pub mod e_coord;
 pub mod e_direction;
 pub mod e_game_state;
+pub mod e_score_board;
 pub mod e_snakes;
 pub mod e_state_node;
 pub mod e_state_tree;

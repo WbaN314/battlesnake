@@ -21,6 +21,8 @@ pub struct ESimulationState {
     pub food: Option<u8>,
     pub movable: bool,
     pub snake_count: Vec<u8>,
+    pub weight_close: f64,
+    pub weight_far: f64,
 }
 
 impl ESimulationState {
@@ -32,6 +34,8 @@ impl ESimulationState {
             food: None,
             movable: false,
             snake_count: Vec::new(),
+            weight_close: 0.0,
+            weight_far: 0.0,
         }
     }
 

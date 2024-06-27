@@ -11,13 +11,18 @@ use crate::{
 };
 
 use super::{
-    efficient_game_objects::{e_direction::EDirection, e_state_tree::ESimulationState},
+    efficient_game_objects::{
+        e_board::{EField, X_SIZE, Y_SIZE},
+        e_direction::EDirection,
+        e_score_board::EScoreBoard,
+        e_state_tree::ESimulationState,
+    },
     Brain, Direction,
 };
 
 #[derive(Debug)]
 pub struct Score {
-    scores: Vec<u32>,
+    scores: Vec<i64>,
 }
 
 impl Score {
@@ -64,6 +69,87 @@ impl SmartSnake {
         Self {}
     }
 
+    fn board_weights(&self, game_state: &EGameState) -> EScoreBoard {
+        let mut weights = EScoreBoard::new();
+
+        // food
+        let food_bonus =
+            (100.0 - game_state.snakes.get(0).as_ref().unwrap().health as f64).max(0.0) + 1.0;
+
+        // snake
+        let snake_malus = -1.0;
+
+        for y in 0..Y_SIZE {
+            for x in 0..X_SIZE {
+                match game_state.board.get(x, y) {
+                    Some(EField::Food) => {
+                        weights.update(x, y, food_bonus);
+                    }
+                    Some(EField::SnakePart { .. }) => {
+                        weights.update(x, y, snake_malus);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        for osi in 1..SNAKES {
+            match game_state.snakes.get(osi).as_ref() {
+                Some(snake) => {
+                    let head = snake.head;
+                    if head.x <= 4 && head.y >= 6 {
+                        // Top Left
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![-100.0, -50.0, 0.0],
+                                vec![-50.0, 0.0, 50.0],
+                                vec![0.0, 50.0, 100.0],
+                            ],
+                        );
+                    } else if head.x >= 6 && head.y >= 6 {
+                        // Top Right
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![0.0, -50.0, -100.0],
+                                vec![50.0, 0.0, -50.0],
+                                vec![100.0, 50.0, 0.0],
+                            ],
+                        );
+                    } else if head.x <= 4 && head.y <= 4 {
+                        // Bottom Left
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![0.0, 50.0, 100.0],
+                                vec![-50.0, 0.0, 50.0],
+                                vec![-100.0, -50.0, 0.0],
+                            ],
+                        );
+                    } else if head.x >= 6 && head.y <= 4 {
+                        // Bottom Right
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![100.0, 50.0, 0.0],
+                                vec![50.0, 0.0, -50.0],
+                                vec![0.0, -50.0, -100.0],
+                            ],
+                        );
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        weights
+    }
+
     fn evaluate_states(&self, states: [ESimulationState; 4]) -> EDirection {
         info!("{:#?}", states);
         let mut scores: [Score; 4] = [Score::new(), Score::new(), Score::new(), Score::new()];
@@ -73,20 +159,20 @@ impl SmartSnake {
             let t = &mut scores[d].scores;
 
             // movable
-            t.push(s.movable as u32);
+            t.push(s.movable as i64);
 
             // depth
-            t.push(s.depth as u32);
+            t.push(s.depth as i64);
 
             // alive
-            t.push(s.alive as u32);
+            t.push(s.alive as i64);
 
             // snakes
             let mut x = 0;
             for i in 0..s.snake_count.len() {
                 x += SNAKES - s.snake_count[i];
             }
-            t.push(x as u32);
+            t.push(x as i64);
 
             // area
             let mut area_score: usize = s.area.area as usize;
@@ -100,13 +186,17 @@ impl SmartSnake {
                     _ => (),
                 }
             }
-            t.push(area_score as u32);
+            t.push(area_score as i64);
 
-            // TODO: Value general board position
+            // board weight close
+            t.push(f64::round(s.weight_close * 10.0) as i64);
+
+            // board weight far
+            t.push(f64::round(s.weight_far * 10.0) as i64);
 
             // food
             if let Some(food) = s.food {
-                t.push(100 - food as u32);
+                t.push(100 - food as i64);
             } else {
                 t.push(0);
             }
@@ -169,7 +259,76 @@ impl Brain for SmartSnake {
             }
         }
 
+        // Board weights close evaluation
+        let mut moved_tails_again = game_state.clone();
+        moved_tails_again.move_tails().unwrap();
+        let mut board_weights = self.board_weights(&moved_tails_again);
+        board_weights = board_weights.convolution(
+            vec![
+                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                vec![1.0, 2.0, 4.0, 2.0, 1.0],
+                vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+            true,
+        );
+        for d in 0..4 {
+            let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
+            simulation_states[d].weight_close =
+                board_weights.get(candidate.x, candidate.y).unwrap_or(0.0);
+        }
+
+        //board weights far evaluation
+        for _ in 0..3 {
+            board_weights = board_weights.convolution(
+                vec![
+                    vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                    vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                    vec![1.0, 2.0, 4.0, 2.0, 1.0],
+                    vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                    vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                ],
+                true,
+            );
+        }
+        for d in 0..4 {
+            let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
+            simulation_states[d].weight_far =
+                board_weights.get(candidate.x, candidate.y).unwrap_or(0.0);
+        }
+
         // Evaluate the results
         self.evaluate_states(simulation_states).to_direction()
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::logic::{
+        efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_print_gravity() {
+        let game_state = read_game_state("requests/failure_17.json");
+        let board = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        let smart_snake = SmartSnake::new();
+        let score_board = smart_snake.board_weights(&board);
+        println!("{}", &score_board);
+        println!("{:?}", &score_board.center_of_gravity());
+    }
+
+    #[test]
+    fn test_print_convolution() {
+        let game_state = read_game_state("requests/failure_9.json");
+        let mut board = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        let smart_snake = SmartSnake::new();
+        board.move_tails().unwrap();
+        let score_board = smart_snake.board_weights(&board);
+        println!("{}", &score_board);
     }
 }
