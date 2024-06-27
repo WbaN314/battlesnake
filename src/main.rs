@@ -112,11 +112,7 @@ fn rocket() -> _ {
     // We default to 'info' level logging. But if the `RUST_LOG` environment variable is set,
     // we keep that value instead.
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
-    }
-
-    if env::var("ROCKET_LOG").is_err() {
-        env::set_var("ROCKET_LOG", "critical");
+        env::set_var("RUST_LOG", "warn,starter_snake_rust=info");
     }
 
     env_logger::init();
