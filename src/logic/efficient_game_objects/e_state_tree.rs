@@ -23,6 +23,7 @@ pub struct ESimulationState {
     pub snake_count: Vec<u8>,
     pub weight_close: f64,
     pub weight_far: f64,
+    pub scores: Vec<i64>,
 }
 
 impl ESimulationState {
@@ -36,6 +37,7 @@ impl ESimulationState {
             snake_count: Vec::new(),
             weight_close: 0.0,
             weight_far: 0.0,
+            scores: Vec::new(),
         }
     }
 
@@ -283,7 +285,7 @@ impl EStateTree {
                 }
             }
         }
-        info!("Total simulation time: {:?}", self.start.elapsed());
+        // info!("Total simulation time: {:?}", self.start.elapsed());
         result
     }
 }

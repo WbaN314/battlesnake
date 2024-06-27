@@ -101,7 +101,7 @@ pub fn get_move(
         _ => panic!("No VARIANT given for snake"),
     };
     let next_move = brain.logic(game, turn, board, you);
-    info!("MOVE {}: {}", turn, next_move);
+    // info!("MOVE {}: {}", turn, next_move);
     return next_move;
 }
 

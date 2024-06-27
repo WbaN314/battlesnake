@@ -77,7 +77,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
-    info!("{}", serde_json::to_string(&r).unwrap());
+    error!("{}", serde_json::to_string(&r).unwrap());
 
     let variant = env::var("VARIANT").unwrap_or(String::from("smart_snake"));
 

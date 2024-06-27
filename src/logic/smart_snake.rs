@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use log::info;
+use rocket::form;
 
 use crate::{
     logic::efficient_game_objects::{
@@ -150,8 +151,8 @@ impl SmartSnake {
         weights
     }
 
-    fn evaluate_states(&self, states: [ESimulationState; 4]) -> EDirection {
-        info!("{:#?}", states);
+    fn evaluate_states(&self, states: &mut [ESimulationState; 4]) -> EDirection {
+        // info!("{:#?}", states);
         let mut scores: [Score; 4] = [Score::new(), Score::new(), Score::new(), Score::new()];
 
         for d in 0..4 {
@@ -200,15 +201,16 @@ impl SmartSnake {
             } else {
                 t.push(0);
             }
+
+            states[d].scores = scores[d].scores.clone();
         }
-        info!("{:?}", scores);
 
         EDirection::from_usize(scores.iter().enumerate().max_by_key(|x| x.1).unwrap().0)
     }
 }
 
 impl Brain for SmartSnake {
-    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let distance = 10;
         let duration = 300;
 
@@ -299,7 +301,24 @@ impl Brain for SmartSnake {
         }
 
         // Evaluate the results
-        self.evaluate_states(simulation_states).to_direction()
+        let result = self.evaluate_states(&mut simulation_states).to_direction();
+
+        let mut s = String::new();
+        s.push_str(&format!(
+            "Game {} Turn {} Result {} Scores ",
+            game.id, turn, result
+        ));
+        for i in 0..simulation_states[0].scores.len() {
+            for d in 0..4 {
+                s.push_str(&format!("{} ", simulation_states[d].scores[i]));
+            }
+            if i < simulation_states[0].scores.len() - 1 {
+                s.push_str(format!("| ").as_str());
+            }
+        }
+        error!("{}", s);
+
+        result
     }
 }
 #[cfg(test)]
