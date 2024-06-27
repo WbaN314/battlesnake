@@ -103,9 +103,9 @@ impl SmartSnake {
                             head.x,
                             head.y,
                             vec![
-                                vec![-100.0, -50.0, 0.0],
-                                vec![-50.0, 0.0, 50.0],
-                                vec![0.0, 50.0, 100.0],
+                                vec![-100.0, -50.0, 50.0],
+                                vec![-50.0, 0.0, 75.0],
+                                vec![50.0, 75.0, 100.0],
                             ],
                         );
                     } else if head.x >= 6 && head.y >= 6 {
@@ -114,9 +114,9 @@ impl SmartSnake {
                             head.x,
                             head.y,
                             vec![
-                                vec![0.0, -50.0, -100.0],
-                                vec![50.0, 0.0, -50.0],
-                                vec![100.0, 50.0, 0.0],
+                                vec![50.0, -50.0, -100.0],
+                                vec![75.0, 0.0, -50.0],
+                                vec![100.0, 75.0, 50.0],
                             ],
                         );
                     } else if head.x <= 4 && head.y <= 4 {
@@ -125,9 +125,9 @@ impl SmartSnake {
                             head.x,
                             head.y,
                             vec![
-                                vec![0.0, 50.0, 100.0],
-                                vec![-50.0, 0.0, 50.0],
-                                vec![-100.0, -50.0, 0.0],
+                                vec![50.0, 75.0, 100.0],
+                                vec![-50.0, 0.0, 75.0],
+                                vec![-100.0, -50.0, 50.0],
                             ],
                         );
                     } else if head.x >= 6 && head.y <= 4 {
@@ -136,9 +136,53 @@ impl SmartSnake {
                             head.x,
                             head.y,
                             vec![
-                                vec![100.0, 50.0, 0.0],
+                                vec![100.0, 75.0, 50.0],
+                                vec![75.0, 0.0, -50.0],
+                                vec![50.0, -50.0, -100.0],
+                            ],
+                        );
+                    } else if head.x <= 4 {
+                        // Left
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![-50.0, 0.0, 50.0],
+                                vec![-50.0, 0.0, 50.0],
+                                vec![-50.0, 0.0, 50.0],
+                            ],
+                        );
+                    } else if head.x >= 6 {
+                        // Right
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
                                 vec![50.0, 0.0, -50.0],
-                                vec![0.0, -50.0, -100.0],
+                                vec![50.0, 0.0, -50.0],
+                                vec![50.0, 0.0, -50.0],
+                            ],
+                        );
+                    } else if head.y <= 4 {
+                        // Bottom
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![50.0, 50.0, 50.0],
+                                vec![0.0, 0.0, 0.0],
+                                vec![-50.0, -50.0, -50.0],
+                            ],
+                        );
+                    } else if head.y >= 6 {
+                        // Top
+                        weights.update_around(
+                            head.x,
+                            head.y,
+                            vec![
+                                vec![-50.0, -50.0, -50.0],
+                                vec![0.0, 0.0, 0.0],
+                                vec![50.0, 50.0, 50.0],
                             ],
                         );
                     }
