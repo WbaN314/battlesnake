@@ -109,6 +109,10 @@ pub enum EField {
         snake_number: u8,
         food: bool,
     },
+    Capture {
+        snake_number: Option<u8>,
+        length: u8,
+    },
 }
 
 impl EField {

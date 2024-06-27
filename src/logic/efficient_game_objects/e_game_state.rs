@@ -609,6 +609,207 @@ impl EGameState {
             }
         }
     }
+
+    pub fn capture(&mut self, direction: EDirection) -> [usize; SNAKES as usize] {
+        let mut snake_captures = [0; SNAKES as usize];
+        let mut squeezed = [false; SNAKES as usize];
+
+        // Initial captures
+        // Own capture
+        if let Some(own_snake) = self.snakes.get(0).as_ref() {
+            let start = own_snake.head + EDIRECTION_VECTORS[direction.to_usize()];
+            match self.board.get(start.x, start.y) {
+                Some(EField::Empty) | Some(EField::Food) => {
+                    self.board.set(
+                        start.x,
+                        start.y,
+                        EField::Capture {
+                            snake_number: Some(0),
+                            length: own_snake.length,
+                        },
+                    );
+                    snake_captures[0] += 1;
+                }
+                _ => return snake_captures,
+            }
+        } else {
+            panic!("No own snake found")
+        }
+        // Other captures
+        for i in 1..SNAKES {
+            if let Some(snake) = self.snakes.get(i).as_ref() {
+                for d in 0..4 {
+                    let start = snake.head + EDIRECTION_VECTORS[d];
+                    match self.board.get(start.x, start.y) {
+                        Some(EField::Empty) | Some(EField::Food) => {
+                            self.board.set(
+                                start.x,
+                                start.y,
+                                EField::Capture {
+                                    snake_number: Some(i),
+                                    length: snake.length,
+                                },
+                            );
+                            snake_captures[i as usize] += 1;
+                        }
+                        Some(EField::Capture {
+                            length,
+                            snake_number,
+                        }) => {
+                            if length < snake.length {
+                                self.board.set(
+                                    start.x,
+                                    start.y,
+                                    EField::Capture {
+                                        snake_number: Some(i),
+                                        length: snake.length,
+                                    },
+                                );
+                                snake_captures[i as usize] += 1;
+                                if let Some(n) = snake_number {
+                                    snake_captures[n as usize] -= 1;
+                                }
+                            } else if length == snake.length {
+                                self.board.set(
+                                    start.x,
+                                    start.y,
+                                    EField::Capture {
+                                        snake_number: None,
+                                        length,
+                                    },
+                                );
+                                if let Some(n) = snake_number {
+                                    snake_captures[n as usize] -= 1;
+                                }
+                            } // else: no change
+                        }
+                        _ => (),
+                    }
+                }
+            }
+        }
+        // println!("{}", self);
+        // println!("{} {:?}", 1, snake_captures);
+        for j in 0..SNAKES {
+            if snake_captures[j as usize] < 1 as usize {
+                squeezed[j as usize] = true;
+                if j == 0 {
+                    return snake_captures;
+                }
+            }
+        }
+
+        // Get max snake length for loop count
+        let mut max_length = 0;
+        for i in 0..SNAKES {
+            if let Some(snake) = self.snakes.get(i).as_ref() {
+                if snake.length > max_length {
+                    max_length = snake.length;
+                }
+            }
+        }
+
+        // Iterative captures
+        for i in 2..max_length + 1 {
+            if self.move_tails().is_ok() {
+                let new_board = self.board.clone();
+                for y in 0..Y_SIZE {
+                    for x in 0..X_SIZE {
+                        match self.board.get(x, y) {
+                            Some(EField::Empty) | Some(EField::Food) => {
+                                for d in 0..4 {
+                                    let neighbor = ECoord::from(x, y) + EDIRECTION_VECTORS[d];
+                                    match self.board.get(neighbor.x, neighbor.y) {
+                                        Some(EField::Capture {
+                                            snake_number,
+                                            length,
+                                        }) => {
+                                            match new_board.get(x, y) {
+                                                Some(EField::Capture {
+                                                    length: already_captured_length,
+                                                    snake_number: already_captured_snake_number,
+                                                }) => {
+                                                    if already_captured_snake_number != snake_number
+                                                    {
+                                                        if already_captured_length < length {
+                                                            new_board.set(
+                                                                x,
+                                                                y,
+                                                                EField::Capture {
+                                                                    snake_number,
+                                                                    length,
+                                                                },
+                                                            );
+                                                            if let Some(n) = snake_number {
+                                                                snake_captures[n as usize] += 1;
+                                                            }
+                                                            if let Some(n) =
+                                                                already_captured_snake_number
+                                                            {
+                                                                snake_captures[n as usize] -= 1;
+                                                            }
+                                                        } else if already_captured_length == length
+                                                        {
+                                                            new_board.set(
+                                                                x,
+                                                                y,
+                                                                EField::Capture {
+                                                                    snake_number: None,
+                                                                    length,
+                                                                },
+                                                            );
+                                                            if let Some(n) =
+                                                                already_captured_snake_number
+                                                            {
+                                                                snake_captures[n as usize] -= 1;
+                                                            }
+                                                        } // else: no change
+                                                    }
+                                                }
+                                                Some(EField::Empty) | Some(EField::Food) => {
+                                                    new_board.set(
+                                                        x,
+                                                        y,
+                                                        EField::Capture {
+                                                            snake_number,
+                                                            length,
+                                                        },
+                                                    );
+                                                    if let Some(n) = snake_number {
+                                                        snake_captures[n as usize] += 1;
+                                                    }
+                                                }
+                                                _ => (),
+                                            }
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                self.board = new_board;
+                // println!("{}", self);
+                // println!("{} {:?}", i, snake_captures);
+                for j in 0..SNAKES {
+                    if snake_captures[j as usize] < i as usize {
+                        squeezed[j as usize] = true;
+                        if j == 0 {
+                            return snake_captures;
+                        }
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        // println!("{:?}", snake_captures);
+
+        snake_captures
+    }
 }
 
 impl fmt::Display for EGameState {
@@ -619,12 +820,25 @@ impl fmt::Display for EGameState {
                 if let Some(state) = self.board.get(x as i8, y as i8) {
                     output.push(match state {
                         EField::Empty => '.',
-                        EField::Food => 'F',
-                        EField::SnakePart { snake_number, .. } => {
-                            char::from_digit(snake_number as u32, 10).unwrap_or('?')
+                        EField::Food => '+',
+                        EField::SnakePart {
+                            snake_number, next, ..
+                        } => {
+                            if next.is_some() {
+                                char::from_u32(snake_number as u32 + 97).unwrap_or('?')
+                            } else {
+                                char::from_u32(snake_number as u32 + 65).unwrap_or('?')
+                            }
                         }
                         EField::Filled => 'X',
-                        EField::Contested { .. } => 'C',
+                        EField::Contested { .. } => '&',
+                        EField::Capture { snake_number, .. } => {
+                            if snake_number.is_some() {
+                                char::from_digit(snake_number.unwrap() as u32, 10).unwrap_or('?')
+                            } else {
+                                'X'
+                            }
+                        }
                     });
                     output.push(' ');
                 }
@@ -650,5 +864,23 @@ impl fmt::Display for EGameState {
             }
         }
         write!(f, "{}", output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::logic::{
+        efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_print_capture() {
+        let game_state = read_game_state("requests/failure_17.json");
+        let mut board = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        board.capture(EDirection::Down);
+        println!("{}", &board);
     }
 }
