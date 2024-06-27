@@ -615,6 +615,7 @@ impl EGameState {
         let mut squeezed = [false; SNAKES as usize];
 
         // Initial captures
+        self.move_tails().unwrap();
         // Own capture
         if let Some(own_snake) = self.snakes.get(0).as_ref() {
             let start = own_snake.head + EDIRECTION_VECTORS[direction.to_usize()];
@@ -626,6 +627,7 @@ impl EGameState {
                         EField::Capture {
                             snake_number: Some(0),
                             length: own_snake.length,
+                            changeable: true,
                         },
                     );
                     snake_captures[0] += 1;
@@ -648,6 +650,7 @@ impl EGameState {
                                 EField::Capture {
                                     snake_number: Some(i),
                                     length: snake.length,
+                                    changeable: true,
                                 },
                             );
                             snake_captures[i as usize] += 1;
@@ -655,6 +658,7 @@ impl EGameState {
                         Some(EField::Capture {
                             length,
                             snake_number,
+                            changeable: true,
                         }) => {
                             if length < snake.length {
                                 self.board.set(
@@ -663,6 +667,7 @@ impl EGameState {
                                     EField::Capture {
                                         snake_number: Some(i),
                                         length: snake.length,
+                                        changeable: true,
                                     },
                                 );
                                 snake_captures[i as usize] += 1;
@@ -676,6 +681,7 @@ impl EGameState {
                                     EField::Capture {
                                         snake_number: None,
                                         length,
+                                        changeable: true,
                                     },
                                 );
                                 if let Some(n) = snake_number {
@@ -723,11 +729,13 @@ impl EGameState {
                                         Some(EField::Capture {
                                             snake_number,
                                             length,
+                                            ..
                                         }) => {
                                             match new_board.get(x, y) {
                                                 Some(EField::Capture {
                                                     length: already_captured_length,
                                                     snake_number: already_captured_snake_number,
+                                                    changeable: true,
                                                 }) => {
                                                     if already_captured_snake_number != snake_number
                                                     {
@@ -738,6 +746,7 @@ impl EGameState {
                                                                 EField::Capture {
                                                                     snake_number,
                                                                     length,
+                                                                    changeable: true,
                                                                 },
                                                             );
                                                             if let Some(n) = snake_number {
@@ -756,6 +765,7 @@ impl EGameState {
                                                                 EField::Capture {
                                                                     snake_number: None,
                                                                     length,
+                                                                    changeable: true,
                                                                 },
                                                             );
                                                             if let Some(n) =
@@ -773,6 +783,7 @@ impl EGameState {
                                                         EField::Capture {
                                                             snake_number,
                                                             length,
+                                                            changeable: true,
                                                         },
                                                     );
                                                     if let Some(n) = snake_number {
@@ -798,6 +809,29 @@ impl EGameState {
                         squeezed[j as usize] = true;
                         if j == 0 {
                             return snake_captures;
+                        }
+                    }
+                }
+                // set changeable to false
+                for y in 0..Y_SIZE {
+                    for x in 0..X_SIZE {
+                        match self.board.get(x, y) {
+                            Some(EField::Capture {
+                                snake_number,
+                                length,
+                                ..
+                            }) => {
+                                self.board.set(
+                                    x,
+                                    y,
+                                    EField::Capture {
+                                        snake_number,
+                                        length,
+                                        changeable: false,
+                                    },
+                                );
+                            }
+                            _ => (),
                         }
                     }
                 }
@@ -878,9 +912,14 @@ mod tests {
     #[test]
     fn test_print_capture() {
         let game_state = read_game_state("requests/failure_17.json");
-        let mut board = EGameState::from(&game_state.board, &game_state.you);
+        let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
-        board.capture(EDirection::Down);
-        println!("{}", &board);
+        // Space evaluation
+        for d in 0..4 {
+            let mut clone_state = board.clone();
+            let captures = clone_state.capture(EDirection::from_usize(d));
+            println!("{}", &clone_state);
+            println!("{:?}", &captures);
+        }
     }
 }

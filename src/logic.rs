@@ -297,4 +297,10 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_23_go_for_kill_here.json");
         assert_eq!(chosen_move, Direction::Down);
     }
+
+    #[test]
+    fn failure_24_debug_space() {
+        let chosen_move = get_move_from_json_file("failure_24_debug_space.json");
+        assert_ne!(chosen_move, Direction::Up);
+    }
 }

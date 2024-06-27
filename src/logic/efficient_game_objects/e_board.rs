@@ -112,6 +112,7 @@ pub enum EField {
     Capture {
         snake_number: Option<u8>,
         length: u8,
+        changeable: bool,
     },
 }
 

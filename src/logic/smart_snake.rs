@@ -220,7 +220,7 @@ impl SmartSnake {
 
             // space
             if s.space[0].0 < s.space[0].1 {
-                t.push(-1);
+                t.push(1);
             } else {
                 t.push(0);
             }
