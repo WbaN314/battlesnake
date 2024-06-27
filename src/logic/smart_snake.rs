@@ -336,7 +336,7 @@ mod tests {
         let smart_snake = SmartSnake::new();
         let score_board = smart_snake.board_weights(&board);
         println!("{}", &score_board);
-        println!("{:?}", &score_board.center_of_gravity());
+        println!("{:?}", &score_board._center_of_gravity());
     }
 
     #[test]

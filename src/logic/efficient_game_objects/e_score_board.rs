@@ -23,7 +23,7 @@ impl EScoreBoard {
         ])
     }
 
-    pub fn from(i: f64) -> Self {
+    pub fn _from(i: f64) -> Self {
         Self([i; X_SIZE as usize * Y_SIZE as usize])
     }
 
@@ -73,7 +73,7 @@ impl EScoreBoard {
         }
     }
 
-    pub fn center_of_gravity(&self) -> ECoord {
+    pub fn _center_of_gravity(&self) -> ECoord {
         let mut sum_x: i64 = 0;
         let mut sum_y: i64 = 0;
         let mut sum: i64 = 0;
@@ -154,10 +154,10 @@ mod tests {
     fn test_print_gravity() {
         let mut score_board = EScoreBoard::new();
         println!("{}", &score_board);
-        println!("{:?}", score_board.center_of_gravity());
+        println!("{:?}", score_board._center_of_gravity());
         score_board.update(1, 1, 1000.0);
         println!("{}", &score_board);
-        println!("{:?}", score_board.center_of_gravity());
+        println!("{:?}", score_board._center_of_gravity());
         score_board.update_around(
             1,
             1,
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_print_convolution() {
-        let mut score_board = EScoreBoard::from(0.0);
+        let mut score_board = EScoreBoard::_from(0.0);
         score_board.set(0, 0, 10.0);
         println!("{}", &score_board);
         score_board = score_board.convolution(
