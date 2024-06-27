@@ -174,6 +174,13 @@ impl SmartSnake {
             }
             t.push(x as i64);
 
+            // space
+            if s.space[0].0 < s.space[0].1 {
+                t.push(-1);
+            } else {
+                t.push(s.space.iter().map(|x| (x.0 < x.1) as i64).sum::<i64>());
+            }
+
             // area
             let mut area_score: usize = s.area.area as usize;
             for x in 1..s.area.opening_times_by_snake.len() {
@@ -299,9 +306,22 @@ impl Brain for SmartSnake {
                 board_weights.get(candidate.x, candidate.y).unwrap_or(0.0);
         }
 
+        // Space evaluation
+        for d in 0..4 {
+            let mut clone_state = game_state.clone();
+            let captures = clone_state.capture(EDirection::from_usize(d));
+            for j in 0..SNAKES {
+                if let Some(snake) = clone_state.snakes.get(j).as_ref() {
+                    simulation_states[d].space[j as usize] =
+                        (snake.length, captures[j as usize] as u8);
+                }
+            }
+        }
+
         // Evaluate the results
         let result = self.evaluate_states(&mut simulation_states).to_direction();
 
+        // Print the results
         let mut s = String::new();
         s.push_str(&format!(
             "Game {} Turn {} Result {} Scores ",
