@@ -77,7 +77,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
-    error!("{}", serde_json::to_string(&r).unwrap());
+    info!("{}", serde_json::to_string(&r).unwrap());
 
     let variant = env::var("VARIANT").unwrap_or(String::from("smart_snake"));
 
@@ -113,6 +113,10 @@ fn rocket() -> _ {
     // we keep that value instead.
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info");
+    }
+
+    if env::var("ROCKET_LOG").is_err() {
+        env::set_var("ROCKET_LOG", "critical");
     }
 
     env_logger::init();

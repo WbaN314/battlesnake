@@ -8,6 +8,8 @@ use crate::{
     Battlesnake, Board, Game,
 };
 
+use log::info;
+
 use super::{
     efficient_game_objects::{
         e_board::{EField, X_SIZE, Y_SIZE},
@@ -313,7 +315,7 @@ impl Brain for SmartSnake {
                 s.push_str(format!("| ").as_str());
             }
         }
-        error!("{}", s);
+        info!("{}", s);
 
         result
     }
