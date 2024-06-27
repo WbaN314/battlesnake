@@ -73,8 +73,13 @@ impl SmartSnake {
         let mut weights = EScoreBoard::new();
 
         // food
-        let food_bonus =
-            (100.0 - game_state.snakes.get(0).as_ref().unwrap().health as f64).max(0.0) + 1.0;
+        let health = game_state.snakes.get(0).as_ref().unwrap().health;
+        let mut food_bonus = (100.0 - health as f64).max(0.0) + 1.0;
+        if health < 15 {
+            food_bonus *= 10.0
+        } else if health < 10 {
+            food_bonus *= 100.0
+        }
 
         // snake
         let snake_malus = -1.0;
