@@ -321,4 +321,10 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_27_grab_food.json");
         assert_eq!(chosen_move, Direction::Left);
     }
+
+    #[test]
+    fn failure_28_grab_food() {
+        let chosen_move = get_move_from_json_file("failure_28_grab_food.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
 }

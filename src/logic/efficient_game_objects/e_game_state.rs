@@ -911,7 +911,7 @@ mod tests {
 
     #[test]
     fn test_print_capture() {
-        let game_state = read_game_state("requests/failure_27_grab_food.json");
+        let game_state = read_game_state("requests/failure_28_grab_food.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         // Space evaluation

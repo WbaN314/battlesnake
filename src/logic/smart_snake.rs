@@ -105,9 +105,7 @@ impl SmartSnake {
         Self {}
     }
 
-    fn board_weights(&self, game_state: &EGameState) -> EScoreBoard {
-        let mut weights = EScoreBoard::new();
-
+    fn board_weights(&self, game_state: &EGameState, mut weights: EScoreBoard) -> EScoreBoard {
         // food
         let health = game_state.snakes.get(0).as_ref().unwrap().health;
         let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
@@ -242,10 +240,10 @@ impl SmartSnake {
             t.push(area_score as i64);
 
             // board weight close
-            t.push(f64::round(s.weight_close * 10.0) as i64);
+            t.push(f64::round(s.weight_close) as i64);
 
             // board weight far
-            t.push(f64::round(s.weight_far * 10.0) as i64);
+            t.push(f64::round(s.weight_far) as i64);
 
             // food
             if let Some(food) = s.food {
@@ -316,14 +314,12 @@ impl Brain for SmartSnake {
         // Board weights close evaluation
         let mut moved_tails_again = game_state.clone();
         moved_tails_again.move_tails().unwrap();
-        let mut board_weights = self.board_weights(&moved_tails_again);
+        let mut board_weights = self.board_weights(&moved_tails_again, EScoreBoard::from(0.0));
         board_weights = board_weights.convolution(
             &vec![
-                vec![0.0, 0.0, 1.0, 0.0, 0.0],
-                vec![0.0, 1.0, 2.0, 1.0, 0.0],
-                vec![1.0, 2.0, 4.0, 2.0, 1.0],
-                vec![0.0, 1.0, 2.0, 1.0, 0.0],
-                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![1.0, 4.0, 1.0],
+                vec![0.0, 1.0, 0.0],
             ],
             true,
         );
@@ -334,8 +330,9 @@ impl Brain for SmartSnake {
         }
 
         //board weights far evaluation
+        let mut board_weights_far = self.board_weights(&game_state, EScoreBoard::new());
         for _ in 0..3 {
-            board_weights = board_weights.convolution(
+            board_weights_far = board_weights_far.convolution(
                 &vec![
                     vec![0.0, 0.0, 1.0, 0.0, 0.0],
                     vec![0.0, 1.0, 2.0, 1.0, 0.0],
@@ -348,8 +345,9 @@ impl Brain for SmartSnake {
         }
         for d in 0..4 {
             let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
-            simulation_states[d].weight_far =
-                board_weights.get(candidate.x, candidate.y).unwrap_or(0.0);
+            simulation_states[d].weight_far = board_weights_far
+                .get(candidate.x, candidate.y)
+                .unwrap_or(0.0);
         }
 
         // Space evaluation
@@ -405,29 +403,27 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
-        let score_board = smart_snake.board_weights(&board);
+        let score_board = smart_snake.board_weights(&board, EScoreBoard::from(0.0));
         println!("{}", &score_board);
         println!("{:?}", &score_board._center_of_gravity());
     }
 
     #[test]
     fn test_print_convolution() {
-        let game_state = read_game_state("requests/failure_25_continue_down_for_kill.json");
+        let game_state = read_game_state("requests/failure_28_grab_food.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
         board.move_tails().unwrap();
-        let mut score_board = smart_snake.board_weights(&board);
+        let mut score_board = smart_snake.board_weights(&board, EScoreBoard::from(0.0));
         println!("{}", &score_board);
         score_board = score_board.convolution(
             &vec![
-                vec![0.0, 0.0, 1.0, 0.0, 0.0],
-                vec![0.0, 1.0, 2.0, 1.0, 0.0],
-                vec![1.0, 2.0, 4.0, 2.0, 1.0],
-                vec![0.0, 1.0, 2.0, 1.0, 0.0],
-                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![1.0, 4.0, 1.0],
+                vec![0.0, 1.0, 0.0],
             ],
-            true,
+            false,
         );
         println!("{}", &score_board);
     }
