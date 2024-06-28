@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use crate::{
     logic::efficient_game_objects::{
@@ -381,7 +381,12 @@ impl Brain for SmartSnake {
                 s.push_str(format!("| ").as_str());
             }
         }
-        info!("{}", s);
+
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("{}", s);
+        } else {
+            info!("{}", s);
+        }
 
         result
     }

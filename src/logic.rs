@@ -126,6 +126,7 @@ mod json_requests {
         let game_state = read_game_state(&(DIR.to_string() + path));
         let print = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", print);
+        env::set_var("MODE", "test");
         let m = get_move(
             &game_state.game,
             &game_state.turn,
@@ -133,7 +134,6 @@ mod json_requests {
             &game_state.you,
             env::var("VARIANT").unwrap_or("smart_snake".to_string()),
         );
-        println!("{}", m);
         m
     }
 
@@ -314,5 +314,11 @@ mod json_requests {
     fn failure_26_continue_down_for_kill() {
         let chosen_move = get_move_from_json_file("failure_26_continue_down_for_kill.json");
         assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_27_grab_food() {
+        let chosen_move = get_move_from_json_file("failure_27_grab_food.json");
+        assert_eq!(chosen_move, Direction::Left);
     }
 }
