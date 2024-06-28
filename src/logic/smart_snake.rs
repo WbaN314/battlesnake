@@ -124,7 +124,7 @@ impl SmartSnake {
             }
 
             // if I am longest and have enough health, don't go for food
-            if length_diff > 3 && my_snake.health > 40 {
+            if length_diff > 1 && my_snake.health > 40 {
                 return weights;
             }
 
@@ -133,7 +133,9 @@ impl SmartSnake {
                 match uncontested_food[d] {
                     Some((_, distance)) => {
                         let new_head = my_snake.head + EDIRECTION_VECTORS[d];
-                        let weight = (20 - distance).max(0) as f64;
+                        let weight = (100.0 - my_snake.health as f64).max(0.0)
+                            + (25.0 - distance as f64).max(0.0)
+                            + (25.0 - my_snake.length as f64).max(0.0);
                         weights.update(new_head.x, new_head.y, weight);
                     }
                     _ => (),
