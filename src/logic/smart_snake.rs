@@ -110,7 +110,7 @@ impl SmartSnake {
 
         // food
         let health = game_state.snakes.get(0).as_ref().unwrap().health;
-        let mut food_bonus = (100.0 - health as f64).max(0.0) + 1.0;
+        let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
         if health < 15 {
             food_bonus *= 10.0
         } else if health < 10 {
@@ -221,7 +221,7 @@ impl SmartSnake {
             t.push(x as i64);
 
             // space
-            if s.space[0].0 < s.space[0].1 {
+            if s.space[0].0 <= s.space[0].1 {
                 t.push(1);
             } else {
                 t.push(0);
