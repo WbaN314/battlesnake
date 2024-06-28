@@ -303,4 +303,16 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_24_debug_space.json");
         assert_ne!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_25_continue_down_for_kill() {
+        let chosen_move = get_move_from_json_file("failure_25_continue_down_for_kill.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_26_continue_down_for_kill() {
+        let chosen_move = get_move_from_json_file("failure_26_continue_down_for_kill.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
 }

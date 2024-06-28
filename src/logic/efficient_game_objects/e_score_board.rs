@@ -56,7 +56,7 @@ impl EScoreBoard {
         }
     }
 
-    pub fn update_around(&mut self, x: i8, y: i8, values: Vec<Vec<f64>>) {
+    pub fn update_around(&mut self, x: i8, y: i8, values: &Vec<Vec<f64>>) {
         if values.len() % 2 == 0 || values[0].len() % 2 == 0 {
             panic!("Values must have an odd number of rows and columns");
         }
@@ -93,7 +93,7 @@ impl EScoreBoard {
         )
     }
 
-    pub fn convolution(&self, kernel: Vec<Vec<f64>>, normalize: bool) -> Self {
+    pub fn convolution(&self, kernel: &Vec<Vec<f64>>, normalize: bool) -> Self {
         let mut new_score_board = (*self).clone();
         if kernel.len() % 2 == 0 || kernel[0].len() % 2 == 0 {
             panic!("Kernel must have an odd number of rows and columns");
@@ -161,7 +161,7 @@ mod tests {
         score_board.update_around(
             1,
             1,
-            vec![
+            &vec![
                 vec![1.0, 2.0, 3.0],
                 vec![4.0, 5.0, 6.0],
                 vec![7.0, 8.0, 9.0],
@@ -176,7 +176,7 @@ mod tests {
         score_board.set(0, 0, 10.0);
         println!("{}", &score_board);
         score_board = score_board.convolution(
-            vec![
+            &vec![
                 vec![0.0, 0.0, 1.0, 0.0, 0.0],
                 vec![0.0, 1.0, 2.0, 1.0, 0.0],
                 vec![1.0, 2.0, 4.0, 2.0, 1.0],
@@ -187,7 +187,7 @@ mod tests {
         );
         println!("{}", &score_board);
         score_board = score_board.convolution(
-            vec![
+            &vec![
                 vec![0.0, 0.0, 1.0, 0.0, 0.0],
                 vec![0.0, 1.0, 2.0, 1.0, 0.0],
                 vec![1.0, 2.0, 4.0, 2.0, 1.0],

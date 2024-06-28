@@ -62,6 +62,42 @@ impl PartialEq for Score {
 
 impl Eq for Score {}
 
+pub fn mirror_h(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[i][v[i].len() - j - 1]);
+        }
+        result.push(row);
+    }
+    result
+}
+
+pub fn mirror_v(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[v.len() - i - 1][j]);
+        }
+        result.push(row);
+    }
+    result
+}
+
+pub fn mirror_m(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[v.len() - i - 1][v[i].len() - j - 1]);
+        }
+        result.push(row);
+    }
+    result
+}
+
 pub struct SmartSnake {}
 
 impl SmartSnake {
@@ -98,98 +134,59 @@ impl SmartSnake {
             }
         }
 
+        // Other Snake Head Proximity Weights
+        let top_left = vec![
+            vec![0.000, 0.000, 0.000, 0.000, 0.000],
+            vec![0.000, -99.0, -50.0, 50.00, 0.000],
+            vec![0.000, -50.0, 0.000, 75.00, 0.000],
+            vec![0.000, 50.00, 75.00, 99.00, 0.000],
+            vec![0.000, 0.000, 0.000, 50.00, 0.000],
+        ];
+        let top_right = mirror_h(&top_left);
+        let bottom_left = mirror_v(&top_left);
+        let bottom_right = mirror_m(&top_left);
+        let left = vec![
+            vec![-50.0, 0.0, 50.0],
+            vec![-50.0, 0.0, 50.0],
+            vec![-50.0, 0.0, 50.0],
+            vec![-50.0, 0.0, 50.0],
+            vec![-50.0, 0.0, 50.0],
+        ];
+        let right = mirror_h(&left);
+        let bottom = vec![
+            vec![50.00, 50.00, 50.00, 50.00, 50.00],
+            vec![0.000, 0.000, 0.000, 0.000, 0.000],
+            vec![-50.0, -50.0, -50.0, -50.0, -50.0],
+        ];
+        let top = mirror_v(&bottom);
         for osi in 1..SNAKES {
             match game_state.snakes.get(osi).as_ref() {
                 Some(snake) => {
                     let head = snake.head;
                     if head.x <= 4 && head.y >= 6 {
                         // Top Left
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![-100.0, -50.0, 50.0],
-                                vec![-50.0, 0.0, 75.0],
-                                vec![50.0, 75.0, 100.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &top_left);
                     } else if head.x >= 6 && head.y >= 6 {
                         // Top Right
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![50.0, -50.0, -100.0],
-                                vec![75.0, 0.0, -50.0],
-                                vec![100.0, 75.0, 50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &top_right);
                     } else if head.x <= 4 && head.y <= 4 {
                         // Bottom Left
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![50.0, 75.0, 100.0],
-                                vec![-50.0, 0.0, 75.0],
-                                vec![-100.0, -50.0, 50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &bottom_left);
                     } else if head.x >= 6 && head.y <= 4 {
                         // Bottom Right
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![100.0, 75.0, 50.0],
-                                vec![75.0, 0.0, -50.0],
-                                vec![50.0, -50.0, -100.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &bottom_right);
                     } else if head.x <= 4 {
                         // Left
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![-50.0, 0.0, 50.0],
-                                vec![-50.0, 0.0, 50.0],
-                                vec![-50.0, 0.0, 50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &left);
                     } else if head.x >= 6 {
                         // Right
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![50.0, 0.0, -50.0],
-                                vec![50.0, 0.0, -50.0],
-                                vec![50.0, 0.0, -50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &right);
                     } else if head.y <= 4 {
                         // Bottom
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![50.0, 50.0, 50.0],
-                                vec![0.0, 0.0, 0.0],
-                                vec![-50.0, -50.0, -50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &bottom);
                     } else if head.y >= 6 {
                         // Top
-                        weights.update_around(
-                            head.x,
-                            head.y,
-                            vec![
-                                vec![-50.0, -50.0, -50.0],
-                                vec![0.0, 0.0, 0.0],
-                                vec![50.0, 50.0, 50.0],
-                            ],
-                        );
+                        weights.update_around(head.x, head.y, &top);
                     }
                 }
                 _ => (),
@@ -321,7 +318,7 @@ impl Brain for SmartSnake {
         moved_tails_again.move_tails().unwrap();
         let mut board_weights = self.board_weights(&moved_tails_again);
         board_weights = board_weights.convolution(
-            vec![
+            &vec![
                 vec![0.0, 0.0, 1.0, 0.0, 0.0],
                 vec![0.0, 1.0, 2.0, 1.0, 0.0],
                 vec![1.0, 2.0, 4.0, 2.0, 1.0],
@@ -339,7 +336,7 @@ impl Brain for SmartSnake {
         //board weights far evaluation
         for _ in 0..3 {
             board_weights = board_weights.convolution(
-                vec![
+                &vec![
                     vec![0.0, 0.0, 1.0, 0.0, 0.0],
                     vec![0.0, 1.0, 2.0, 1.0, 0.0],
                     vec![1.0, 2.0, 4.0, 2.0, 1.0],
@@ -410,12 +407,43 @@ mod tests {
 
     #[test]
     fn test_print_convolution() {
-        let game_state = read_game_state("requests/failure_9.json");
+        let game_state = read_game_state("requests/failure_25_continue_down_for_kill.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
         board.move_tails().unwrap();
-        let score_board = smart_snake.board_weights(&board);
+        let mut score_board = smart_snake.board_weights(&board);
         println!("{}", &score_board);
+        score_board = score_board.convolution(
+            &vec![
+                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                vec![1.0, 2.0, 4.0, 2.0, 1.0],
+                vec![0.0, 1.0, 2.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+            true,
+        );
+        println!("{}", &score_board);
+    }
+
+    #[test]
+    fn mirrors() {
+        let v = vec![
+            vec![1.0, 2.0, 3.0],
+            vec![4.0, 5.0, 6.0],
+            vec![7.0, 8.0, 9.0],
+        ];
+        let v_mirrored_h = mirror_h(&v);
+        let v_mirrored_v = mirror_v(&v);
+        println!("{:?}", v);
+        println!("{:?}", v_mirrored_h);
+        println!("{:?}", v_mirrored_v);
+        let v_mirrored_h_mirrored_v = mirror_v(&v_mirrored_h);
+        let v_mirrored_v_mirrored_h = mirror_h(&v_mirrored_v);
+        let v_mirrored_m = mirror_m(&v);
+        println!("{:?}", v_mirrored_m);
+        assert_eq!(v_mirrored_h_mirrored_v, v_mirrored_v_mirrored_h);
+        assert_eq!(v_mirrored_m, v_mirrored_h_mirrored_v);
     }
 }
