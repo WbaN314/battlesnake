@@ -105,7 +105,45 @@ impl SmartSnake {
         Self {}
     }
 
-    fn board_weights(&self, game_state: &EGameState, mut weights: EScoreBoard) -> EScoreBoard {
+    fn add_food_weights(
+        &self,
+        mut weights: EScoreBoard,
+        game_state: &EGameState,
+        uncontested_food: [Option<(ECoord, u8)>; 4],
+    ) -> EScoreBoard {
+        // calculate length difference to longest snake
+        if let Some(my_snake) = game_state.snakes.get(0).as_ref() {
+            let mut length_diff = 0; // positive means mine is longest
+            for s in 1..SNAKES {
+                if let Some(snake) = game_state.snakes.get(s).as_ref() {
+                    let diff = my_snake.length as i32 - snake.length as i32;
+                    if diff < length_diff {
+                        length_diff = diff;
+                    }
+                }
+            }
+
+            // if I am longest and have enough health, don't go for food
+            if length_diff > 3 && my_snake.health > 40 {
+                return weights;
+            }
+
+            // change weights
+            for d in 0..4 {
+                match uncontested_food[d] {
+                    Some((_, distance)) => {
+                        let new_head = my_snake.head + EDIRECTION_VECTORS[d];
+                        let weight = (20 - distance).max(0) as f64;
+                        weights.update(new_head.x, new_head.y, weight);
+                    }
+                    _ => (),
+                }
+            }
+        }
+        weights
+    }
+
+    fn board_weights(&self, mut weights: EScoreBoard, game_state: &EGameState) -> EScoreBoard {
         // food
         let health = game_state.snakes.get(0).as_ref().unwrap().health;
         let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
@@ -243,14 +281,7 @@ impl SmartSnake {
             t.push(f64::round(s.weight_close) as i64);
 
             // board weight far
-            t.push(f64::round(s.weight_far) as i64);
-
-            // food
-            if let Some(food) = s.food {
-                t.push(100 - food as i64);
-            } else {
-                t.push(0);
-            }
+            t.push(f64::round(s.weight_far * 100.0) as i64);
 
             states[d].scores = scores[d].scores.clone();
         }
@@ -295,26 +326,54 @@ impl Brain for SmartSnake {
             }
         }
 
-        // Closest food distance
+        // Closest food distance that can be reached first
         if board.food.len() > 0 {
-            for food in board.food.iter() {
-                for d in 0..4 {
-                    let head_candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
-                    let distance =
-                        head_candidate.distance(&ECoord::from(food.x as i8, food.y as i8));
-                    if let Some(old_food) = simulation_states[d].food {
-                        simulation_states[d].food = Some(distance.min(old_food));
-                    } else {
-                        simulation_states[d].food = Some(distance);
+            for d in 0..4 {
+                let mut closest_uncontested_food_and_distance: Option<(ECoord, u8)> = None;
+                let mut e_food_and_distances = Vec::new();
+                let start = my_snake_clone.head + EDIRECTION_VECTORS[d];
+                for food in board.food.iter() {
+                    let e_food = ECoord::from(food.x as i8, food.y as i8);
+                    let distance = start.distance(&e_food);
+                    e_food_and_distances.push((e_food, distance));
+                }
+                e_food_and_distances.sort_by(|a, b| a.1.cmp(&b.1));
+                for (e_food, distance) in e_food_and_distances {
+                    let mut contested = false;
+                    for s in 1..SNAKES {
+                        if let Some(snake) = game_state.snakes.get(s).as_ref() {
+                            let other_distance = snake.head.distance(&e_food) - 1;
+                            if (snake.length < my_snake_clone.length && other_distance < distance)
+                                || snake.length >= my_snake_clone.length
+                                    && other_distance <= distance
+                            {
+                                contested = true;
+                            }
+                        }
+                    }
+                    if !contested {
+                        closest_uncontested_food_and_distance = Some((e_food, distance));
+                        break;
                     }
                 }
+                simulation_states[d].food = closest_uncontested_food_and_distance;
             }
         }
 
         // Board weights close evaluation
-        let mut moved_tails_again = game_state.clone();
-        moved_tails_again.move_tails().unwrap();
-        let mut board_weights = self.board_weights(&moved_tails_again, EScoreBoard::from(0.0));
+        let mut moved_tails = game_state.clone();
+        moved_tails.move_tails().unwrap();
+        let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails);
+        board_weights = self.add_food_weights(
+            board_weights,
+            &game_state,
+            [
+                simulation_states[0].food,
+                simulation_states[1].food,
+                simulation_states[2].food,
+                simulation_states[3].food,
+            ],
+        );
         board_weights = board_weights.convolution(
             &vec![
                 vec![0.0, 1.0, 0.0],
@@ -323,6 +382,7 @@ impl Brain for SmartSnake {
             ],
             true,
         );
+        // println!("{}", &board_weights);
         for d in 0..4 {
             let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
             simulation_states[d].weight_close =
@@ -330,7 +390,7 @@ impl Brain for SmartSnake {
         }
 
         //board weights far evaluation
-        let mut board_weights_far = self.board_weights(&game_state, EScoreBoard::new());
+        let mut board_weights_far = self.board_weights(EScoreBoard::new(), &game_state);
         for _ in 0..3 {
             board_weights_far = board_weights_far.convolution(
                 &vec![
@@ -403,7 +463,7 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
-        let score_board = smart_snake.board_weights(&board, EScoreBoard::from(0.0));
+        let score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board);
         println!("{}", &score_board);
         println!("{:?}", &score_board._center_of_gravity());
     }
@@ -415,7 +475,7 @@ mod tests {
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
         board.move_tails().unwrap();
-        let mut score_board = smart_snake.board_weights(&board, EScoreBoard::from(0.0));
+        let mut score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board);
         println!("{}", &score_board);
         score_board = score_board.convolution(
             &vec![

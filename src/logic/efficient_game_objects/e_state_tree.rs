@@ -7,6 +7,7 @@ use std::{
 
 use super::{
     e_board::EArea,
+    e_coord::ECoord,
     e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
     e_snakes::{ESimulationError, Result, SNAKES},
@@ -18,7 +19,7 @@ pub struct ESimulationState {
     pub depth: u8,
     pub alive: bool,
     pub area: EArea,
-    pub food: Option<u8>,
+    pub food: Option<(ECoord, u8)>,
     pub movable: bool,
     pub snake_count: Vec<u8>,
     pub weight_close: f64,
