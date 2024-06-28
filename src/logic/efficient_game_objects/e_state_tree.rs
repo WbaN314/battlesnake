@@ -25,7 +25,7 @@ pub struct ESimulationState {
     pub weight_close: f64,
     pub weight_far: f64,
     pub scores: Vec<i64>,
-    pub space: [(u8, u8); SNAKES as usize],
+    pub space: [(u8, bool); SNAKES as usize],
 }
 
 impl ESimulationState {
@@ -40,7 +40,7 @@ impl ESimulationState {
             weight_close: 0.0,
             weight_far: 0.0,
             scores: Vec::new(),
-            space: [(0, 0); SNAKES as usize],
+            space: [(0, true); SNAKES as usize],
         }
     }
 

@@ -257,10 +257,10 @@ impl SmartSnake {
             t.push(x as i64);
 
             // space
-            if s.space[0].0 <= s.space[0].1 {
-                t.push(1);
+            if s.space[0].1 {
+                t.push(-1);
             } else {
-                t.push(0);
+                t.push(s.space.iter().map(|x| x.1 as i64).sum::<i64>());
             }
 
             // area
@@ -305,18 +305,15 @@ impl Brain for SmartSnake {
 
         // Check for areas
         let mut moved_tails = game_state.clone();
-        match moved_tails.move_tails() {
-            Ok(_) => {
-                for d in 0..4 {
-                    if let Some(area) = moved_tails
-                        .clone()
-                        .advanced_fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
-                    {
-                        simulation_states[d].area = area;
-                    }
-                }
+        moved_tails.move_tails();
+
+        for d in 0..4 {
+            if let Some(area) = moved_tails
+                .clone()
+                .advanced_fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
+            {
+                simulation_states[d].area = area;
             }
-            Err(_) => (),
         }
 
         // Movable directions
@@ -362,7 +359,7 @@ impl Brain for SmartSnake {
 
         // Board weights close evaluation
         let mut moved_tails = game_state.clone();
-        moved_tails.move_tails().unwrap();
+        moved_tails.move_tails();
         let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails);
         board_weights = self.add_food_weights(
             board_weights,
@@ -415,10 +412,8 @@ impl Brain for SmartSnake {
             let mut clone_state = game_state.clone();
             let captures = clone_state.capture(EDirection::from_usize(d));
             for j in 0..SNAKES {
-                if let Some(snake) = clone_state.snakes.get(j).as_ref() {
-                    simulation_states[d].space[j as usize] =
-                        (snake.length, captures[j as usize] as u8);
-                }
+                simulation_states[d].space[j as usize] =
+                    (captures.0[j as usize], captures.1[j as usize]);
             }
         }
 
@@ -474,7 +469,7 @@ mod tests {
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
-        board.move_tails().unwrap();
+        board.move_tails();
         let mut score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board);
         println!("{}", &score_board);
         score_board = score_board.convolution(
