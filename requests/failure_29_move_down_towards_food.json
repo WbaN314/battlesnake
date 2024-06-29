@@ -1,0 +1,158 @@
+{
+    "game": {
+        "id": "a3cea6a9-3390-41e2-9a21-0e64ce61e1c2",
+        "ruleset": {
+            "version": "v1.2.3",
+            "name": "standard",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 42,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 0,
+                "y": 4
+            },
+            {
+                "x": 4,
+                "y": 7
+            },
+            {
+                "x": 4,
+                "y": 6
+            },
+            {
+                "x": 10,
+                "y": 1
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_rWf37b9w6gWfGdgrDy4hDTXB",
+                "name": "SNAKERRRRRRRR",
+                "health": 60,
+                "body": [
+                    {
+                        "x": 2,
+                        "y": 0
+                    },
+                    {
+                        "x": 2,
+                        "y": 1
+                    },
+                    {
+                        "x": 1,
+                        "y": 1
+                    },
+                    {
+                        "x": 1,
+                        "y": 0
+                    }
+                ],
+                "head": {
+                    "x": 2,
+                    "y": 0
+                },
+                "length": 4,
+                "latency": "1",
+                "shout": ""
+            },
+            {
+                "id": "gs_YPrS4rbHvDSYMrMdPxDjX634",
+                "name": "Smart Snake",
+                "health": 76,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 10
+                    },
+                    {
+                        "x": 3,
+                        "y": 10
+                    },
+                    {
+                        "x": 2,
+                        "y": 10
+                    },
+                    {
+                        "x": 1,
+                        "y": 10
+                    },
+                    {
+                        "x": 0,
+                        "y": 10
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 10
+                },
+                "length": 6,
+                "latency": "324",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_YPrS4rbHvDSYMrMdPxDjX634",
+        "name": "Smart Snake",
+        "health": 76,
+        "body": [
+            {
+                "x": 4,
+                "y": 10
+            },
+            {
+                "x": 3,
+                "y": 10
+            },
+            {
+                "x": 2,
+                "y": 10
+            },
+            {
+                "x": 1,
+                "y": 10
+            },
+            {
+                "x": 0,
+                "y": 10
+            },
+            {
+                "x": 0,
+                "y": 9
+            }
+        ],
+        "head": {
+            "x": 4,
+            "y": 10
+        },
+        "length": 6,
+        "latency": "324",
+        "shout": ""
+    }
+}

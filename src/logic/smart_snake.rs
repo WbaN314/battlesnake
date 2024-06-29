@@ -128,14 +128,37 @@ impl SmartSnake {
                 return weights;
             }
 
+            // compared distance weights
+            let mut d = uncontested_food.iter().enumerate().collect::<Vec<_>>();
+            d.sort_by(|a, b| {
+                a.1.unwrap_or((ECoord::from(0, 0), u8::MAX))
+                    .1
+                    .cmp(&b.1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1)
+            });
+            let mut d2 = [0, 0, 0, 0];
+            for i in 1..4 {
+                d2[d[i].0] = d[i].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1
+                    - d[0].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1;
+            }
+            let relative_distance_weight = d2.map(|x| {
+                if x == 0 {
+                    1.0
+                } else if x == 1 {
+                    0.5
+                } else {
+                    0.0
+                }
+            });
+
             // change weights
             for d in 0..4 {
                 match uncontested_food[d] {
                     Some((_, distance)) => {
                         let new_head = my_snake.head + EDIRECTION_VECTORS[d];
-                        let weight = (100.0 - my_snake.health as f64).max(0.0)
-                            + (25.0 - distance as f64).max(0.0)
+                        let mut weight = (100.0 - my_snake.health as f64).max(0.0)
+                            + (25.0 - distance as f64).max(0.0) // TODO: More emphasis on distnace compared to other directions
                             + (25.0 - my_snake.length as f64).max(0.0);
+                        weight *= relative_distance_weight[d];
                         weights.update(new_head.x, new_head.y, weight);
                     }
                     _ => (),
@@ -381,7 +404,9 @@ impl Brain for SmartSnake {
             ],
             true,
         );
-        // println!("{}", &board_weights);
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("{}", &board_weights);
+        }
         for d in 0..4 {
             let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
             simulation_states[d].weight_close =
@@ -401,6 +426,9 @@ impl Brain for SmartSnake {
                 ],
                 true,
             );
+        }
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("{}", &board_weights_far);
         }
         for d in 0..4 {
             let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
@@ -467,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_print_convolution() {
-        let game_state = read_game_state("requests/failure_28_grab_food.json");
+        let game_state = read_game_state("requests/failure_29_move_down_towards_food.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
