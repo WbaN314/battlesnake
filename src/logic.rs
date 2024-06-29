@@ -281,12 +281,13 @@ mod json_requests {
 
     #[test]
     fn failure_21_bait_into_trap_with_top_wall() {
+        // TODO: Space should be able to judge this if improved
         let chosen_move = get_move_from_json_file("failure_21_bait_into_trap_with_top_wall.json");
         assert_eq!(chosen_move, Direction::Right);
     }
 
     #[test]
-    fn failure_22_bait_into_trap_with_top_wall() {
+    fn failure_22_bait_into_trap_with_top_wall_modified() {
         let chosen_move =
             get_move_from_json_file("failure_22_bait_into_trap_with_top_wall_modified.json");
         assert_eq!(chosen_move, Direction::Right);
