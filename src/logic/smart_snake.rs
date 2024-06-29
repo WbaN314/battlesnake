@@ -224,28 +224,30 @@ impl SmartSnake {
             match game_state.snakes.get(osi).as_ref() {
                 Some(snake) => {
                     let head = snake.head;
-                    if head.x <= 4 && head.y >= 6 {
+                    let l = 2;
+                    let h = 8;
+                    if head.x <= l && head.y >= h {
                         // Top Left
                         weights.update_around(head.x, head.y, &top_left);
-                    } else if head.x >= 6 && head.y >= 6 {
+                    } else if head.x >= h && head.y >= h {
                         // Top Right
                         weights.update_around(head.x, head.y, &top_right);
-                    } else if head.x <= 4 && head.y <= 4 {
+                    } else if head.x <= l && head.y <= l {
                         // Bottom Left
                         weights.update_around(head.x, head.y, &bottom_left);
-                    } else if head.x >= 6 && head.y <= 4 {
+                    } else if head.x >= h && head.y <= l {
                         // Bottom Right
                         weights.update_around(head.x, head.y, &bottom_right);
-                    } else if head.x <= 4 {
+                    } else if head.x <= l {
                         // Left
                         weights.update_around(head.x, head.y, &left);
-                    } else if head.x >= 6 {
+                    } else if head.x >= h {
                         // Right
                         weights.update_around(head.x, head.y, &right);
-                    } else if head.y <= 4 {
+                    } else if head.y <= l {
                         // Bottom
                         weights.update_around(head.x, head.y, &bottom);
-                    } else if head.y >= 6 {
+                    } else if head.y >= h {
                         // Top
                         weights.update_around(head.x, head.y, &top);
                     }
