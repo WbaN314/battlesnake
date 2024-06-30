@@ -334,4 +334,18 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_29_move_down_towards_food.json");
         assert_eq!(chosen_move, Direction::Down);
     }
+
+    #[test]
+    fn failure_30_grab_food_leads_to_death() {
+        let chosen_move = get_move_from_json_file("failure_30_grab_food_leads_to_death.json");
+        assert_ne!(chosen_move, Direction::Right);
+        assert_ne!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn failure_31_going_right_leads_to_death() {
+        let chosen_move = get_move_from_json_file("failure_31_going_right_leads_to_death.json");
+        assert_ne!(chosen_move, Direction::Right);
+        assert_ne!(chosen_move, Direction::Up);
+    }
 }

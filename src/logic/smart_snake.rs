@@ -168,18 +168,36 @@ impl SmartSnake {
         weights
     }
 
-    fn board_weights(&self, mut weights: EScoreBoard, game_state: &EGameState) -> EScoreBoard {
-        // food
+    fn board_weights(
+        &self,
+        mut weights: EScoreBoard,
+        game_state: &EGameState,
+        far: bool,
+    ) -> EScoreBoard {
         let health = game_state.snakes.get(0).as_ref().unwrap().health;
-        let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
-        if health < 15 {
-            food_bonus *= 10.0
-        } else if health < 10 {
-            food_bonus *= 100.0
-        }
 
-        // snake
-        let snake_malus = -1.0;
+        let (food_bonus, snake_malus, empty_bonus) = if far {
+            let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
+            if health < 15 {
+                food_bonus *= 10.0
+            } else if health < 10 {
+                food_bonus *= 100.0
+            }
+            let snake_malus = -10.0;
+            let empty_bonus = 10.0;
+            (food_bonus, snake_malus, empty_bonus)
+        } else {
+            // close
+            let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
+            if health < 15 {
+                food_bonus *= 10.0
+            } else if health < 10 {
+                food_bonus *= 100.0
+            }
+            let snake_malus = 0.0;
+            let empty_bonus = 0.0;
+            (food_bonus, snake_malus, empty_bonus)
+        };
 
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
@@ -190,69 +208,87 @@ impl SmartSnake {
                     Some(EField::SnakePart { .. }) => {
                         weights.update(x, y, snake_malus);
                     }
+                    Some(EField::Empty) => {
+                        weights.update(x, y, empty_bonus);
+                    }
                     _ => (),
                 }
             }
         }
 
         // Other Snake Head Proximity Weights
-        let top_left = vec![
-            vec![0.000, 0.000, 0.000, 0.000, 0.000],
-            vec![0.000, -99.0, -50.0, 50.00, 0.000],
-            vec![0.000, -50.0, 0.000, 75.00, 0.000],
-            vec![0.000, 50.00, 75.00, 99.00, 0.000],
-            vec![0.000, 0.000, 0.000, 50.00, 0.000],
-        ];
-        let top_right = mirror_h(&top_left);
-        let bottom_left = mirror_v(&top_left);
-        let bottom_right = mirror_m(&top_left);
-        let left = vec![
-            vec![-50.0, 0.0, 50.0],
-            vec![-50.0, 0.0, 50.0],
-            vec![-50.0, 0.0, 50.0],
-            vec![-50.0, 0.0, 50.0],
-            vec![-50.0, 0.0, 50.0],
-        ];
-        let right = mirror_h(&left);
-        let bottom = vec![
-            vec![50.00, 50.00, 50.00, 50.00, 50.00],
-            vec![0.000, 0.000, 0.000, 0.000, 0.000],
-            vec![-50.0, -50.0, -50.0, -50.0, -50.0],
-        ];
-        let top = mirror_v(&bottom);
-        for osi in 1..SNAKES {
-            match game_state.snakes.get(osi).as_ref() {
-                Some(snake) => {
-                    let head = snake.head;
-                    let l = 2;
-                    let h = 8;
-                    if head.x <= l && head.y >= h {
-                        // Top Left
-                        weights.update_around(head.x, head.y, &top_left);
-                    } else if head.x >= h && head.y >= h {
-                        // Top Right
-                        weights.update_around(head.x, head.y, &top_right);
-                    } else if head.x <= l && head.y <= l {
-                        // Bottom Left
-                        weights.update_around(head.x, head.y, &bottom_left);
-                    } else if head.x >= h && head.y <= l {
-                        // Bottom Right
-                        weights.update_around(head.x, head.y, &bottom_right);
-                    } else if head.x <= l {
-                        // Left
-                        weights.update_around(head.x, head.y, &left);
-                    } else if head.x >= h {
-                        // Right
-                        weights.update_around(head.x, head.y, &right);
-                    } else if head.y <= l {
-                        // Bottom
-                        weights.update_around(head.x, head.y, &bottom);
-                    } else if head.y >= h {
-                        // Top
-                        weights.update_around(head.x, head.y, &top);
+        if !far {
+            let top_left = vec![
+                vec![0.000, 0.000, 0.000, 0.000, 0.000],
+                vec![0.000, -99.0, -50.0, 50.00, 0.000],
+                vec![0.000, -50.0, 0.000, 75.00, 0.000],
+                vec![0.000, 50.00, 75.00, 99.00, 0.000],
+                vec![0.000, 0.000, 0.000, 50.00, 0.000],
+            ];
+            let top_right = mirror_h(&top_left);
+            let bottom_left = mirror_v(&top_left);
+            let bottom_right = mirror_m(&top_left);
+            let left = vec![
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+            ];
+            let right = mirror_h(&left);
+            let bottom = vec![
+                vec![50.00, 50.00, 50.00, 50.00, 50.00],
+                vec![0.000, 0.000, 0.000, 0.000, 0.000],
+                vec![-50.0, -50.0, -50.0, -50.0, -50.0],
+            ];
+            let top = mirror_v(&bottom);
+            for osi in 1..SNAKES {
+                match game_state.snakes.get(osi).as_ref() {
+                    Some(snake) => {
+                        let head = snake.head;
+                        let l = 2;
+                        let h = 8;
+                        if head.x <= l && head.y >= h {
+                            // Top Left
+                            weights.update_around(head.x, head.y, &top_left);
+                        } else if head.x >= h && head.y >= h {
+                            // Top Right
+                            weights.update_around(head.x, head.y, &top_right);
+                        } else if head.x <= l && head.y <= l {
+                            // Bottom Left
+                            weights.update_around(head.x, head.y, &bottom_left);
+                        } else if head.x >= h && head.y <= l {
+                            // Bottom Right
+                            weights.update_around(head.x, head.y, &bottom_right);
+                        } else if head.x <= l {
+                            // Left
+                            weights.update_around(head.x, head.y, &left);
+                        } else if head.x >= h {
+                            // Right
+                            weights.update_around(head.x, head.y, &right);
+                        } else if head.y <= l {
+                            // Bottom
+                            weights.update_around(head.x, head.y, &bottom);
+                        } else if head.y >= h {
+                            // Top
+                            weights.update_around(head.x, head.y, &top);
+                        }
                     }
+                    _ => (),
                 }
-                _ => (),
+            }
+        }
+
+        if far {
+            weights.update(5, 5, 100.0);
+            //update edges with -10.0
+            for x in 0..X_SIZE {
+                weights.update(x, 0, -10.0);
+                weights.update(x, Y_SIZE - 1, -10.0);
+            }
+            for y in 0..Y_SIZE {
+                weights.update(0, y, -10.0);
+                weights.update(X_SIZE - 1, y, -10.0);
             }
         }
 
@@ -384,10 +420,23 @@ impl Brain for SmartSnake {
             }
         }
 
+        // Space evaluation
+        for d in 0..4 {
+            let mut clone_state = game_state.clone();
+            let captures = clone_state.capture(EDirection::from_usize(d));
+            if env::var("MODE").unwrap_or("".to_string()) == "test" {
+                println!("{}", clone_state);
+            }
+            for j in 0..SNAKES {
+                simulation_states[d].space[j as usize] =
+                    (captures.0[j as usize], captures.1[j as usize]);
+            }
+        }
+
         // Board weights close evaluation
         let mut moved_tails = game_state.clone();
         moved_tails.move_tails();
-        let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails);
+        let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails, false);
         board_weights = self.add_food_weights(
             board_weights,
             &game_state,
@@ -416,7 +465,7 @@ impl Brain for SmartSnake {
         }
 
         //board weights far evaluation
-        let mut board_weights_far = self.board_weights(EScoreBoard::new(), &game_state);
+        let mut board_weights_far = self.board_weights(EScoreBoard::new(), &game_state, true);
         for _ in 0..3 {
             board_weights_far = board_weights_far.convolution(
                 &vec![
@@ -437,16 +486,6 @@ impl Brain for SmartSnake {
             simulation_states[d].weight_far = board_weights_far
                 .get(candidate.x, candidate.y)
                 .unwrap_or(0.0);
-        }
-
-        // Space evaluation
-        for d in 0..4 {
-            let mut clone_state = game_state.clone();
-            let captures = clone_state.capture(EDirection::from_usize(d));
-            for j in 0..SNAKES {
-                simulation_states[d].space[j as usize] =
-                    (captures.0[j as usize], captures.1[j as usize]);
-            }
         }
 
         // Evaluate the results
@@ -490,7 +529,7 @@ mod tests {
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
-        let score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board);
+        let score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board, false);
         println!("{}", &score_board);
         println!("{:?}", &score_board._center_of_gravity());
     }
@@ -502,7 +541,7 @@ mod tests {
         println!("{}", &board);
         let smart_snake = SmartSnake::new();
         board.move_tails();
-        let mut score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board);
+        let mut score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board, false);
         println!("{}", &score_board);
         score_board = score_board.convolution(
             &vec![
