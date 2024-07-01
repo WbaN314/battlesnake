@@ -14,7 +14,7 @@ use core::fmt;
 use log::info;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::{collections::HashMap, env};
 
 use crate::{Battlesnake, Board, Coord, Game};
 
@@ -65,12 +65,16 @@ trait Brain {
 pub fn info() -> Value {
     info!("INFO");
 
+    let color = env::var("SNAKE_COLOR").unwrap_or("#f5982f".to_string());
+    let head = env::var("SNAKE_HEAD").unwrap_or("duck".to_string());
+    let tail = env::var("SNAKE_TAIL").unwrap_or("chicken".to_string());
+
     return json!({
         "apiversion": "1",
         "author": "WbaN",
-        "color": "#f5982f",
-        "head": "fang",
-        "tail": "rattle",
+        "color": color,
+        "head": head,
+        "tail": tail,
     });
 }
 
