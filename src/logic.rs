@@ -66,8 +66,8 @@ pub fn info() -> Value {
     info!("INFO");
 
     let color = env::var("SNAKE_COLOR").unwrap_or("#f5982f".to_string());
-    let head = env::var("SNAKE_HEAD").unwrap_or("duck".to_string());
-    let tail = env::var("SNAKE_TAIL").unwrap_or("chicken".to_string());
+    let head = env::var("SNAKE_HEAD").unwrap_or("chicken".to_string());
+    let tail = env::var("SNAKE_TAIL").unwrap_or("duck".to_string());
 
     return json!({
         "apiversion": "1",
