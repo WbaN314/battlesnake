@@ -348,4 +348,27 @@ mod json_requests {
         assert_ne!(chosen_move, Direction::Right);
         assert_ne!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_32_right_certain_death_down_maybe_death() {
+        let chosen_move =
+            get_move_from_json_file("failure_32_right_certain_death_down_maybe_death.json");
+        // Assuming perfect opponent play, right is the best move as it leads to certain death in 3 turns whereas down is in 2 turns
+        // If opponents do not play perfectly, down is better as it might not lead to death
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Left);
+    }
+
+    #[test]
+    fn failure_33_do_not_move_left_as_you_can_get_killed() {
+        let chosen_move =
+            get_move_from_json_file("failure_33_do_not_move_left_as_you_can_get_killed.json");
+        assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_34_follow_own_tail() {
+        let chosen_move = get_move_from_json_file("failure_34_follow_own_tail.json");
+        assert_eq!(chosen_move, Direction::Right);
+    }
 }
