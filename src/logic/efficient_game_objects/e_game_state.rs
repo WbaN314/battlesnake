@@ -616,10 +616,10 @@ impl EGameState {
         // Initial captures
         self.move_tails();
         // Own capture
-        if let Some(own_snake) = self.snakes.get(0).as_ref() {
+        if let Some(own_snake) = self.snakes.get_mut(0).as_mut() {
             let start = own_snake.head + EDIRECTION_VECTORS[direction.to_usize()];
             match self.board.get(start.x, start.y) {
-                Some(EField::Empty) | Some(EField::Food) => {
+                Some(EField::Empty) => {
                     self.board.set(
                         start.x,
                         start.y,
@@ -631,6 +631,20 @@ impl EGameState {
                     );
                     snake_captures[0] += 1;
                 }
+                Some(EField::Food) => {
+                    self.grow_snake(own_snake); // increase initial length if food is direct starting point -> solves failure_39
+                    self.board.set(
+                        start.x,
+                        start.y,
+                        EField::Capture {
+                            snake_number: Some(0),
+                            length: own_snake.length,
+                            changeable: true,
+                        },
+                    );
+                    snake_captures[0] += 1;
+                }
+
                 _ => return (snake_captures, squeezed),
             }
         } else {

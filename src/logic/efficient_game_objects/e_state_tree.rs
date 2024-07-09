@@ -308,3 +308,30 @@ impl Display for EStateTree {
         write!(f, "{}", s)
     }
 }
+
+#[cfg(test)]
+mod json_requests {
+    use crate::logic::json_requests::read_game_state;
+
+    use super::*;
+
+    #[ignore]
+    #[test]
+    fn evaluate_best_move() {
+        let filename = "failure_33_do_not_move_left_as_you_can_get_killed.json";
+        let s = String::from("requests/") + filename;
+        let game_state = read_game_state(&s);
+        let e_game_state = EGameState::from(&game_state.board, &game_state.you);
+        let mut tree = EStateTree::from(e_game_state);
+        let result = tree.simulate_timed(100, Duration::from_millis(100000));
+        for i in 0..4 {
+            println!(
+                "{} {} {} {:?}",
+                EDirection::from_usize(i),
+                result[i].depth,
+                result[i].alive,
+                result[i].snake_count
+            );
+        }
+    }
+}

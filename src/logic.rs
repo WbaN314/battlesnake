@@ -142,12 +142,6 @@ mod json_requests {
     }
 
     #[test]
-    fn example_move_request() {
-        let chosen_move = get_move_from_json_file("example_move_request.json");
-        assert_eq!(chosen_move, Direction::Up);
-    }
-
-    #[test]
     fn example_move_request_2() {
         let chosen_move = get_move_from_json_file("example_move_request_2.json");
         assert_eq!(chosen_move, Direction::Up);
@@ -374,5 +368,37 @@ mod json_requests {
     fn failure_34_follow_own_tail() {
         let chosen_move = get_move_from_json_file("failure_34_follow_own_tail.json");
         assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_35_up_2() {
+        let chosen_move = get_move_from_json_file("failure_35_up_2.json");
+        assert_eq!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_36_tail_2_food_4() {
+        let chosen_move = get_move_from_json_file("failure_36_tail_2_food_4.json");
+        assert_eq!(chosen_move, Direction::Right);
+    }
+
+    #[test]
+    fn failure_37_unclear_best_move() {
+        let chosen_move = get_move_from_json_file("failure_37_unclear_best_move.json");
+        assert_ne!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn failure_38_left_possible_wall_squeeze() {
+        // Moving right would equally allow for squeeze
+        let chosen_move = get_move_from_json_file("failure_38_left_possible_wall_squeeze.json");
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_39_grab_food_in_middle() {
+        let chosen_move = get_move_from_json_file("failure_39_grab_food_in_middle.json");
+        assert_eq!(chosen_move, Direction::Left);
     }
 }

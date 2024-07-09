@@ -1,0 +1,194 @@
+{
+    "game": {
+        "id": "d098f2fa-18cd-4659-a6d0-fc84d5ee11e5",
+        "ruleset": {
+            "name": "standard",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "version": "v1.2.3"
+        },
+        "timeout": 500
+    },
+    "turn": 9,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 8,
+                "y": 0
+            },
+            {
+                "x": 5,
+                "y": 5
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_D7gjVQbWXRpmfg8pYQPbx6WY",
+                "name": "Lindor 👀✨",
+                "health": 93,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 7
+                },
+                "length": 4,
+                "latency": "77",
+                "shout": ""
+            },
+            {
+                "id": "gs_cQkqk3Fb4WFPdMmgXDFBRqxP",
+                "name": "ich heisse marvin",
+                "health": 93,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 3
+                    },
+                    {
+                        "x": 4,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 4
+                    },
+                    {
+                        "x": 2,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 3
+                },
+                "length": 4,
+                "latency": "23",
+                "shout": ""
+            },
+            {
+                "id": "gs_FPJ9PM6gDtpRrRGpGhHyMf3V",
+                "name": "Game of Chicken",
+                "health": 93,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 5
+                    },
+                    {
+                        "x": 6,
+                        "y": 6
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 5
+                },
+                "length": 4,
+                "latency": "315",
+                "shout": ""
+            },
+            {
+                "id": "gs_YKDfHq6cmh7mwvXSR9FdGqrK",
+                "name": "Hovering Hobbs",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 2
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 2
+                },
+                "length": 4,
+                "latency": "377",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_FPJ9PM6gDtpRrRGpGhHyMf3V",
+        "name": "Game of Chicken",
+        "health": 93,
+        "body": [
+            {
+                "x": 6,
+                "y": 5
+            },
+            {
+                "x": 6,
+                "y": 6
+            },
+            {
+                "x": 6,
+                "y": 7
+            },
+            {
+                "x": 7,
+                "y": 7
+            }
+        ],
+        "head": {
+            "x": 6,
+            "y": 5
+        },
+        "length": 4,
+        "latency": "315",
+        "shout": ""
+    }
+}
