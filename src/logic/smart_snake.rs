@@ -176,6 +176,7 @@ impl SmartSnake {
     ) -> EScoreBoard {
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         let amount_of_alive_snakes = game_state.snakes.count_alive();
+        let trajectories = game_state.trajectories();
 
         let (food_bonus, snake_malus, empty_bonus) = if far {
             // far
@@ -294,7 +295,6 @@ impl SmartSnake {
 
         // avoid trajectory endpoints if multi opponent
         if far && amount_of_alive_snakes > 2 {
-            let trajectories = game_state.trajectories();
             for i in 1..SNAKES {
                 if let Some(other_snake) = game_state.snakes.get(i).as_ref() {
                     if let Some(trajectory) = trajectories[i as usize] {
