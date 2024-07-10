@@ -46,6 +46,26 @@ impl EDirection {
             EDirection::Right => Direction::Right,
         }
     }
+
+    pub fn from_coords(from: ECoord, to: ECoord) -> Option<EDirection> {
+        if from == to {
+            return None;
+        }
+
+        if from.x == to.x {
+            if from.y < to.y {
+                Some(EDirection::Down)
+            } else {
+                Some(EDirection::Up)
+            }
+        } else {
+            if from.x < to.x {
+                Some(EDirection::Right)
+            } else {
+                Some(EDirection::Left)
+            }
+        }
+    }
 }
 
 impl Display for EDirection {

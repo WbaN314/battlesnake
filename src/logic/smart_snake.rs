@@ -174,13 +174,15 @@ impl SmartSnake {
         game_state: &EGameState,
         far: bool,
     ) -> EScoreBoard {
-        let health = game_state.snakes.get(0).as_ref().unwrap().health;
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
+        let amount_of_alive_snakes = game_state.snakes.count_alive();
 
         let (food_bonus, snake_malus, empty_bonus) = if far {
-            let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
-            if health < 15 {
+            // far
+            let mut food_bonus = (100.0 - my_snake.health as f64).max(0.0) + 10.0;
+            if my_snake.health < 15 {
                 food_bonus *= 10.0
-            } else if health < 10 {
+            } else if my_snake.health < 10 {
                 food_bonus *= 100.0
             }
             let snake_malus = -10.0;
@@ -188,10 +190,10 @@ impl SmartSnake {
             (food_bonus, snake_malus, empty_bonus)
         } else {
             // close
-            let mut food_bonus = (100.0 - health as f64).max(0.0) + 10.0;
-            if health < 15 {
+            let mut food_bonus = (100.0 - my_snake.health as f64).max(0.0) + 10.0;
+            if my_snake.health < 15 {
                 food_bonus *= 10.0
-            } else if health < 10 {
+            } else if my_snake.health < 10 {
                 food_bonus *= 100.0
             }
             let snake_malus = 0.0;
@@ -199,6 +201,7 @@ impl SmartSnake {
             (food_bonus, snake_malus, empty_bonus)
         };
 
+        // Update with food, snake and empty bonuses
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
                 match game_state.board.get(x, y) {
@@ -218,6 +221,7 @@ impl SmartSnake {
 
         // Other Snake Head Proximity Weights
         if !far {
+            // close
             let top_left = vec![
                 vec![0.000, 0.000, 0.000, 0.000, 0.000],
                 vec![0.000, -99.0, -50.0, 50.00, 0.000],
@@ -277,8 +281,31 @@ impl SmartSnake {
                     _ => (),
                 }
             }
+        } else {
+            // far
+            for osi in 1..SNAKES {
+                if let Some(other_snake) = game_state.snakes.get(osi).as_ref() {
+                    if other_snake.length >= my_snake.length {
+                        weights.update(other_snake.head.x, other_snake.head.y, -100.0);
+                    }
+                }
+            }
         }
 
+        // avoid trajectory endpoints if multi opponent
+        if far && amount_of_alive_snakes > 2 {
+            let trajectories = game_state.trajectories();
+            for i in 1..SNAKES {
+                if let Some(other_snake) = game_state.snakes.get(i).as_ref() {
+                    if let Some(trajectory) = trajectories[i as usize] {
+                        let target = game_state.collision_point(other_snake.head, trajectory);
+                        weights.update(target.x, target.y, -100.0);
+                    }
+                }
+            }
+        }
+
+        // avoid edges
         if far {
             weights.update(5, 5, 100.0);
             //update edges with -10.0

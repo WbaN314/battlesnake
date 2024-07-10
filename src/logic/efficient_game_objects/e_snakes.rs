@@ -54,6 +54,10 @@ impl ESnakes {
     pub fn get_mut(&self, i: u8) -> RefMut<Option<ESnake>> {
         self.0[i as usize].borrow_mut()
     }
+
+    pub fn count_alive(&self) -> u8 {
+        self.0.iter().filter(|x| x.borrow().is_some()).count() as u8
+    }
 }
 
 pub type Result<T> = std::result::Result<T, ESimulationError>;

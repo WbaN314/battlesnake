@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{fmt, panic};
 use std::collections::HashSet;
 
 use crate::{Battlesnake, Board};
@@ -603,6 +603,71 @@ impl EGameState {
                     ),
                 }
             }
+        }
+    }
+
+    pub fn collision_point(&self, start: ECoord, direction: EDirection) -> ECoord {
+        let mut current = start;
+        loop {
+            let next = current + EDIRECTION_VECTORS[direction.to_usize()];
+            match self.board.get(next.x, next.y) {
+                Some(EField::Empty) | Some(EField::Food) => {
+                    current = next;
+                }
+                _ => break,
+            }
+        }
+        current
+    }
+
+    pub fn trajectories(&self) -> [Option<EDirection>; SNAKES as usize] {
+        let mut trajectories = [None; SNAKES as usize];
+        for i in 0..SNAKES {
+            trajectories[i as usize] = self.trajectory(i);
+        }
+        trajectories
+    }
+
+    pub fn trajectory(&self, snake_index: u8) -> Option<EDirection> {
+        if let Some(snake) = self.snakes.get(snake_index).as_ref() {
+            let tail = snake.tail;
+
+            let mut snake_part_coords = Vec::with_capacity(snake.length as usize);
+            let mut current = tail;
+            loop {
+                snake_part_coords.push(current);
+                match self.board.get(current.x, current.y) {
+                    Some(EField::SnakePart { next, .. }) => {
+                        if let Some(next) = next {
+                            current = next;
+                        } else {
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+            }
+
+            let mut direction_counts = [0; 4];
+            let l = snake_part_coords.len();
+            for i in ((l as i32 - 3).max(1) as usize..l).rev() {
+                let d = EDirection::from_coords(snake_part_coords[i - 1], snake_part_coords[i]);
+                if let Some(d) = d {
+                    direction_counts[d.to_usize()] += 1;
+                }
+            }
+            for i in 0..4 {
+                if direction_counts[i] >= 2 {
+                    return Some(EDirection::from_usize(i));
+                }
+            }
+            if l >= 2 {
+                return EDirection::from_coords(snake_part_coords[l - 2], snake_part_coords[l - 1]);
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
