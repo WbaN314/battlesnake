@@ -407,4 +407,11 @@ mod json_requests {
         let chosen_move = get_move_from_json_file("failure_40_should_go_up_to_food.json");
         assert_eq!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_41_area_suggests_right_but_left_might_be_better() {
+        let chosen_move =
+            get_move_from_json_file("failure_41_area_suggests_right_but_left_might_be_better.json");
+        assert_eq!(chosen_move, Direction::Left);
+    }
 }
