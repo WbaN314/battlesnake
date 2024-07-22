@@ -706,7 +706,7 @@ impl EGameState {
                         let capture_result = new_state.capture();
                         if initialize_result.is_ok()
                             && new_state_to_store
-                                .move_snakes([Some(direction), None, None, None], u8::MAX, false)
+                                .move_heads(&[Some(direction), None, None, None])
                                 .is_ok()
                         {
                             new_state_to_store.capture_iteration();
