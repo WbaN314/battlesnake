@@ -180,7 +180,7 @@ impl SmartSnake {
 
         let (food_bonus, snake_malus, empty_bonus) = if far {
             // far
-            let mut food_bonus = (100.0 - my_snake.health as f64).max(0.0) + 10.0;
+            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
             if my_snake.health < 15 {
                 food_bonus *= 10.0
             } else if my_snake.health < 10 {
@@ -191,7 +191,7 @@ impl SmartSnake {
             (food_bonus, snake_malus, empty_bonus)
         } else {
             // close
-            let mut food_bonus = (100.0 - my_snake.health as f64).max(0.0) + 10.0;
+            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
             if my_snake.health < 15 {
                 food_bonus *= 10.0
             } else if my_snake.health < 10 {

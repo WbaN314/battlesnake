@@ -693,10 +693,13 @@ impl EGameState {
         let mut done_scores: HashMap<Vec<EDirection>, Vec<u8>> = HashMap::new();
         done_scores.insert(Vec::new(), Vec::new());
 
+        let mut finished_round = 0;
+
         while start.elapsed() < duration {
             match work_queue.pop_front() {
                 Some(moves) => {
                     let old_state = done_map.get(&moves).unwrap().clone();
+                    finished_round = 0.max(moves.len() as isize - 1);
                     for d in 0..4 {
                         let direction = EDirection::from_usize(d);
                         let mut new_state = old_state.clone();
@@ -730,7 +733,10 @@ impl EGameState {
             }
         }
         //sort done scores by value array
-        let mut done_scores_vec: Vec<(&Vec<EDirection>, &Vec<u8>)> = done_scores.iter().collect();
+        let mut done_scores_vec: Vec<(&Vec<EDirection>, &Vec<u8>)> = done_scores
+            .iter()
+            .filter(|x| x.0.len() <= finished_round as usize)
+            .collect();
         done_scores_vec.sort_by(|a, b| {
             if a.1.len() != b.1.len() {
                 return b.1.len().cmp(&a.1.len());
