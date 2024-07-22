@@ -414,4 +414,19 @@ mod json_requests {
             get_move_from_json_file("failure_41_area_suggests_right_but_left_might_be_better.json");
         assert_eq!(chosen_move, Direction::Left);
     }
+
+    #[test]
+    fn failure_42_going_right_enables_getting_killed() {
+        let chosen_move =
+            get_move_from_json_file("failure_42_going_right_enables_getting_killed.json");
+        assert_ne!(chosen_move, Direction::Left);
+        assert_ne!(chosen_move, Direction::Up);
+    }
+
+    #[test]
+    fn failure_43_going_down_guarantees_getting_killed() {
+        let chosen_move =
+            get_move_from_json_file("failure_43_going_down_guarantees_getting_killed.json");
+        assert_eq!(chosen_move, Direction::Up);
+    }
 }
