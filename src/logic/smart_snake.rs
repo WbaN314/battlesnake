@@ -346,12 +346,8 @@ impl SmartSnake {
             }
             t.push(x as i64);
 
-            // space
-            if s.space[0].1 {
-                t.push(-1);
-            } else {
-                t.push(s.space.iter().map(|x| x.1 as i64).sum::<i64>());
-            }
+            // capture timed
+            t.push(s.space.0 as i64);
 
             // area
             let mut area_score: usize = s.area.area as usize;
@@ -383,7 +379,7 @@ impl SmartSnake {
 impl Brain for SmartSnake {
     fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let distance = 10;
-        let duration = 300;
+        let duration = 200;
 
         let game_state = EGameState::from(board, you);
         let my_snake_clone = game_state.snakes.get(0).clone().unwrap();
@@ -448,16 +444,9 @@ impl Brain for SmartSnake {
         }
 
         // Space evaluation
+        let space = game_state.timed_capture(Duration::from_millis(100));
         for d in 0..4 {
-            let mut clone_state = game_state.clone();
-            let captures = clone_state.capture(EDirection::from_usize(d));
-            if env::var("MODE").unwrap_or("".to_string()) == "test" {
-                println!("{}", clone_state);
-            }
-            for j in 0..SNAKES {
-                simulation_states[d].space[j as usize] =
-                    (captures.0[j as usize], captures.1[j as usize]);
-            }
+            simulation_states[d].space = space[d];
         }
 
         // Board weights close evaluation

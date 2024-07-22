@@ -10,7 +10,7 @@ use super::{
     e_coord::ECoord,
     e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
-    e_snakes::{ESimulationError, Result, SNAKES},
+    e_snakes::{ESimulationError, Result},
     e_state_node::{ENodeRating, EStateNode},
 };
 
@@ -25,7 +25,7 @@ pub struct ESimulationState {
     pub weight_close: f64,
     pub weight_far: f64,
     pub scores: Vec<i64>,
-    pub space: [(u8, bool); SNAKES as usize],
+    pub space: (usize, usize),
 }
 
 impl ESimulationState {
@@ -40,7 +40,7 @@ impl ESimulationState {
             weight_close: 0.0,
             weight_far: 0.0,
             scores: Vec::new(),
-            space: [(0, true); SNAKES as usize],
+            space: (0, 0),
         }
     }
 
