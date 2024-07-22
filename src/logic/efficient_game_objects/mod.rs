@@ -38,6 +38,7 @@ mod tests {
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         println!("{board}")
@@ -51,12 +52,14 @@ mod tests {
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         board
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         println!("{board}")
@@ -70,18 +73,21 @@ mod tests {
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         board
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         board
             .move_snakes(
                 [Some(EDirection::Up), Some(EDirection::Up), None, None],
                 u8::MAX,
+                true,
             )
             .unwrap();
         println!("{board}")
@@ -190,7 +196,7 @@ mod tests {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         let mut moved_up = board.clone();
-        match moved_up.move_snakes([None, Some(EDirection::Up), None, None], u8::MAX) {
+        match moved_up.move_snakes([None, Some(EDirection::Up), None, None], u8::MAX, true) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
         }
@@ -204,6 +210,7 @@ mod tests {
         match moved_up.move_snakes(
             [Some(EDirection::Left), Some(EDirection::Left), None, None],
             u8::MAX,
+            true,
         ) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
@@ -218,6 +225,7 @@ mod tests {
         match moved_up.move_snakes(
             [Some(EDirection::Up), Some(EDirection::Down), None, None],
             u8::MAX,
+            true,
         ) {
             Ok(_) => println!("{}", moved_up),
             Err(_) => println!("Death"),
@@ -255,6 +263,7 @@ mod tests {
                     Some(EDirection::Up),
                 ],
                 u8::MAX,
+                true,
             )
             .unwrap();
         println!("{board}")
@@ -326,25 +335,25 @@ mod tests {
         println!("{:#?}", &simulation_result_1);
         println!("{:#?}", &simulation_result_2);
         board
-            .move_snakes([Some(EDirection::Left), None, None, None], 10)
+            .move_snakes([Some(EDirection::Left), None, None, None], 10, true)
             .unwrap();
         println!("{}", &board);
         assert!(board.snakes.get(0).as_ref().is_some());
         assert!(board.snakes.get(1).as_ref().is_some());
         board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
             .unwrap();
         println!("{}", &board);
         assert!(board.snakes.get(0).as_ref().is_some());
         assert!(board.snakes.get(1).as_ref().is_some());
         board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
             .unwrap();
         println!("{}", &board);
         assert!(board.snakes.get(0).as_ref().is_some());
         assert!(board.snakes.get(1).as_ref().is_some());
         board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8)
+            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
             .unwrap();
         println!("{}", &board);
         assert!(board.snakes.get(0).as_ref().is_some());

@@ -374,9 +374,12 @@ impl EGameState {
         &mut self,
         moveset: [Option<EDirection>; SNAKES as usize],
         distance: u8,
+        hunger: bool,
     ) -> Result<()> {
         self.set_snakes_far_away(distance, true);
-        self.handle_hunger(&moveset)?;
+        if hunger {
+            self.handle_hunger(&moveset)?;
+        }
         self.move_tails();
         self.move_heads(&moveset)?;
         self.set_snakes_far_away(distance, false);
@@ -703,7 +706,7 @@ impl EGameState {
                         let capture_result = new_state.capture();
                         if initialize_result.is_ok()
                             && new_state_to_store
-                                .move_snakes([Some(direction), None, None, None], u8::MAX)
+                                .move_snakes([Some(direction), None, None, None], u8::MAX, false)
                                 .is_ok()
                         {
                             new_state_to_store.capture_iteration();
