@@ -1,0 +1,1 @@
+cargo run & PORT=8001 cargo run
