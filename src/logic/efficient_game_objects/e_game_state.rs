@@ -989,6 +989,7 @@ impl fmt::Display for EGameState {
 #[derive(Clone, Copy, Debug)]
 pub struct CaptureResult {
     pub fields: [u8; SNAKES as usize],
+    #[allow(dead_code)]
     pub iterations: u8,
 }
 

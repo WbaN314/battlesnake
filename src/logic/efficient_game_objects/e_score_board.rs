@@ -322,6 +322,7 @@ impl EScoreBoard {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_food_weights(
         &mut self,
         game_state: &EGameState,
