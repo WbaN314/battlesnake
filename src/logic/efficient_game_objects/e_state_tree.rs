@@ -6,8 +6,6 @@ use std::{
 };
 
 use super::{
-    e_board::EArea,
-    e_coord::ECoord,
     e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
     e_snakes::{ESimulationError, Result},
@@ -18,14 +16,7 @@ use super::{
 pub struct ESimulationState {
     pub depth: u8,
     pub alive: bool,
-    pub area: EArea,
-    pub food: Option<(ECoord, u8)>,
-    pub movable: bool,
     pub snake_count: Vec<u8>,
-    pub weight_close: f64,
-    pub weight_far: f64,
-    pub scores: Vec<i64>,
-    pub space: (usize, usize),
 }
 
 impl ESimulationState {
@@ -33,14 +24,7 @@ impl ESimulationState {
         Self {
             depth: 0,
             alive: false,
-            area: EArea::new(),
-            food: None,
-            movable: false,
             snake_count: Vec::new(),
-            weight_close: 0.0,
-            weight_far: 0.0,
-            scores: Vec::new(),
-            space: (0, 0),
         }
     }
 

@@ -1,4 +1,5 @@
-use std::{env, time::Duration};
+use core::fmt;
+use std::{env, fmt::Display, time::Duration};
 
 use crate::{
     logic::efficient_game_objects::{
@@ -15,10 +16,61 @@ use super::{
         e_board::{EField, X_SIZE, Y_SIZE},
         e_direction::EDirection,
         e_score_board::EScoreBoard,
-        e_state_tree::ESimulationState,
     },
     Brain, Direction,
 };
+
+pub struct Scores {
+    scores: Vec<([i64; 4], String)>,
+}
+
+impl Scores {
+    fn new() -> Self {
+        Scores { scores: Vec::new() }
+    }
+
+    fn push(&mut self, result: ([i64; 4], String)) {
+        self.scores.push(result);
+    }
+
+    fn evaluate(&self) -> EDirection {
+        let mut viable = [true; 4];
+        for i in 0..self.scores.len() {
+            let to_beat = self.scores[i]
+                .0
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| viable[*i])
+                .map(|x| x.1)
+                .max();
+            for d in 0..4 {
+                if self.scores[i].0[d] < *to_beat.unwrap() {
+                    viable[d] = false;
+                }
+            }
+        }
+        for d in 0..4 {
+            if viable[d] {
+                return EDirection::from_usize(d);
+            }
+        }
+        panic!("No viable direction found");
+    }
+}
+
+impl Display for Scores {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "|")?;
+        for score in self.scores.iter() {
+            write!(
+                f,
+                " {} {} {} {} {} |",
+                score.1, score.0[0], score.0[1], score.0[2], score.0[3]
+            )?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 pub struct Score {
@@ -322,99 +374,75 @@ impl SmartSnake {
         weights
     }
 
-    fn evaluate_states(&self, states: &mut [ESimulationState; 4]) -> EDirection {
-        // info!("{:#?}", states);
-        let mut scores: [Score; 4] = [Score::new(), Score::new(), Score::new(), Score::new()];
+    fn depth_and_alive(
+        &self,
+        game_state: &EGameState,
+        distance: u8,
+        duration: Duration,
+    ) -> [([i64; 4], String); 2] {
+        let mut d_tree = EStateTree::from(game_state.clone());
+        let simulation_states = d_tree.simulate_timed(distance, duration);
 
+        let mut results = [([0; 4], "Depth".to_string()), ([0; 4], "Alive".to_string())];
         for d in 0..4 {
-            let s = &states[d];
-            let t = &mut scores[d].scores;
+            results[0].0[d] = simulation_states[d].depth as i64;
+            results[1].0[d] = simulation_states[d].alive as i64;
+        }
+        results
+    }
 
-            // movable
-            t.push(s.movable as i64);
+    fn movable(&self, game_state: &EGameState) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let current_head = game_state.snakes.get(0).as_ref().unwrap().clone().head;
+        let mut game_state = game_state.clone();
+        game_state.move_tails();
+        for d in 0..4 {
+            let new_head = current_head + EDIRECTION_VECTORS[d];
+            match game_state.board.get(new_head.x, new_head.y) {
+                Some(EField::Empty) | Some(EField::Food) => result[d] = 1,
+                _ => (),
+            };
+        }
+        (result, "Movable".to_string())
+    }
 
-            // depth
-            t.push(s.depth as i64);
-
-            // alive
-            t.push(s.alive as i64);
-
-            // snakes
-            let mut x = 0;
-            for i in 0..s.snake_count.len() {
-                x += SNAKES - s.snake_count[i];
-            }
-            t.push(x as i64);
-
-            // capture timed
-            t.push(s.space.0 as i64);
-
-            // area
-            let mut area_score: usize = s.area.area as usize;
-            for x in 1..s.area.opening_times_by_snake.len() {
-                match s.area.opening_times_by_snake[x] {
-                    Some(opening_time) => {
-                        area_score += 3 * (10 - opening_time as isize).max(0) as usize;
-                        // Rate areas that open up higher to focus on tail chasing
-                        // opening time is 0 if tail is in area, otherwise +1 for each step it takes for tail to reach area
+    fn areas(&self, game_state: &EGameState) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
+        let mut game_state = game_state.clone();
+        game_state.move_tails();
+        for d in 0..4 {
+            if let Some(area) = game_state
+                .clone()
+                .advanced_fill(&(my_snake.head + EDIRECTION_VECTORS[d]))
+            {
+                let min_to_open = area
+                    .opening_times_by_snake
+                    .iter()
+                    .filter(|x| x.is_some())
+                    .map(|x| x.unwrap())
+                    .min();
+                if area.area >= my_snake.length {
+                    result[d] = 1;
+                } else if let Some(min_to_open) = min_to_open {
+                    if area.area >= min_to_open {
+                        result[d] = 1;
                     }
-                    _ => (),
                 }
             }
-            t.push(area_score as i64);
-
-            // board weight close
-            t.push(f64::round(s.weight_close) as i64);
-
-            // board weight far
-            t.push(f64::round(s.weight_far * 100.0) as i64);
-
-            states[d].scores = scores[d].scores.clone();
         }
-
-        EDirection::from_usize(scores.iter().enumerate().max_by_key(|x| x.1).unwrap().0)
+        (result, "Area".to_string())
     }
-}
 
-impl Brain for SmartSnake {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-        let distance = 10;
-        let duration = 200;
-
-        let game_state = EGameState::from(board, you);
-        let my_snake_clone = game_state.snakes.get(0).clone().unwrap();
-
-        // Simulate future
-        let mut d_tree = EStateTree::from(game_state.clone());
-        let mut simulation_states =
-            d_tree.simulate_timed(distance, Duration::from_millis(duration));
-
-        // Check for areas
-        let mut moved_tails = game_state.clone();
-        moved_tails.move_tails();
-
-        for d in 0..4 {
-            if let Some(area) = moved_tails
-                .clone()
-                .advanced_fill(&(my_snake_clone.head + EDIRECTION_VECTORS[d]))
-            {
-                simulation_states[d].area = area;
-            }
-        }
-
-        // Movable directions
-        for d in 0..4 {
-            if simulation_states[d].area.area > 0 {
-                simulation_states[d].movable = true;
-            }
-        }
-
+    fn food(&self, board: &Board, game_state: &EGameState) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         // Closest food distance that can be reached first
         if board.food.len() > 0 {
             for d in 0..4 {
                 let mut closest_uncontested_food_and_distance: Option<(ECoord, u8)> = None;
                 let mut e_food_and_distances = Vec::new();
-                let start = my_snake_clone.head + EDIRECTION_VECTORS[d];
+                let start = my_snake.head + EDIRECTION_VECTORS[d];
                 for food in board.food.iter() {
                     let e_food = ECoord::from(food.x as i8, food.y as i8);
                     let distance = start.distance(&e_food);
@@ -426,9 +454,8 @@ impl Brain for SmartSnake {
                     for s in 1..SNAKES {
                         if let Some(snake) = game_state.snakes.get(s).as_ref() {
                             let other_distance = snake.head.distance(&e_food) - 1;
-                            if (snake.length < my_snake_clone.length && other_distance < distance)
-                                || snake.length >= my_snake_clone.length
-                                    && other_distance <= distance
+                            if (snake.length < my_snake.length && other_distance < distance)
+                                || snake.length >= my_snake.length && other_distance <= distance
                             {
                                 contested = true;
                             }
@@ -439,30 +466,30 @@ impl Brain for SmartSnake {
                         break;
                     }
                 }
-                simulation_states[d].food = closest_uncontested_food_and_distance;
+                result[d] = match closest_uncontested_food_and_distance {
+                    Some((_, distance)) => -1 * distance as i64,
+                    _ => -99,
+                };
             }
         }
+        (result, "Food".to_string())
+    }
 
-        // Space evaluation
-        let space = game_state.timed_capture(Duration::from_millis(100));
+    fn captures(&self, game_state: &EGameState, duration: Duration) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let space = game_state.timed_capture(duration);
         for d in 0..4 {
-            simulation_states[d].space = space[d];
+            result[d] = space[d].1 as i64;
         }
+        (result, "Capture".to_string())
+    }
 
-        // Board weights close evaluation
+    fn close_weights(&self, game_state: &EGameState) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         let mut moved_tails = game_state.clone();
         moved_tails.move_tails();
         let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails, false);
-        board_weights = self.add_food_weights(
-            board_weights,
-            &game_state,
-            [
-                simulation_states[0].food,
-                simulation_states[1].food,
-                simulation_states[2].food,
-                simulation_states[3].food,
-            ],
-        );
         board_weights = board_weights.convolution(
             &vec![
                 vec![0.0, 1.0, 0.0],
@@ -475,12 +502,15 @@ impl Brain for SmartSnake {
             println!("{}", &board_weights);
         }
         for d in 0..4 {
-            let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
-            simulation_states[d].weight_close =
-                board_weights.get(candidate.x, candidate.y).unwrap_or(0.0);
+            let candidate = my_snake.head + EDIRECTION_VECTORS[d];
+            result[d] = board_weights.get(candidate.x, candidate.y).unwrap_or(0.0) as i64;
         }
+        (result, "Close".to_string())
+    }
 
-        //board weights far evaluation
+    fn far_weights(&self, game_state: &EGameState) -> ([i64; 4], String) {
+        let mut result = [0; 4];
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         let mut board_weights_far = self.board_weights(EScoreBoard::new(), &game_state, true);
         for _ in 0..3 {
             board_weights_far = board_weights_far.convolution(
@@ -498,37 +528,76 @@ impl Brain for SmartSnake {
             println!("{}", &board_weights_far);
         }
         for d in 0..4 {
-            let candidate = my_snake_clone.head + EDIRECTION_VECTORS[d];
-            simulation_states[d].weight_far = board_weights_far
+            let candidate = my_snake.head + EDIRECTION_VECTORS[d];
+            result[d] = board_weights_far
                 .get(candidate.x, candidate.y)
-                .unwrap_or(0.0);
+                .unwrap_or(0.0) as i64;
         }
 
-        // Evaluate the results
-        let result = self.evaluate_states(&mut simulation_states).to_direction();
+        (result, "Far".to_string())
+    }
 
-        // Print the results
+    fn print_results(&self, game: &Game, turn: &i32, result: EDirection, scores: &Scores) {
         let mut s = String::new();
         s.push_str(&format!(
             "Game {} Turn {} Result {} Scores ",
-            game.id, turn, result
+            game.id,
+            turn,
+            result.to_direction()
         ));
-        for i in 0..simulation_states[0].scores.len() {
-            for d in 0..4 {
-                s.push_str(&format!("{} ", simulation_states[d].scores[i]));
-            }
-            if i < simulation_states[0].scores.len() - 1 {
-                s.push_str(format!("| ").as_str());
-            }
-        }
+        s.push_str(&format!("{}", scores));
 
         if env::var("MODE").unwrap_or("".to_string()) == "test" {
             println!("{}", s);
         } else {
             info!("{}", s);
         }
+    }
+}
 
-        result
+impl Brain for SmartSnake {
+    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+        let distance = 10;
+        let simulate_duration = 200;
+        let capture_duration = 100;
+
+        let game_state = EGameState::from(board, you);
+        let mut scores = Scores::new();
+
+        // movable
+        scores.push(self.movable(&game_state));
+
+        // depth and alive
+        let depth_and_alive_results = self.depth_and_alive(
+            &game_state,
+            distance,
+            Duration::from_millis(simulate_duration),
+        );
+        scores.push(depth_and_alive_results[0].clone()); // Depth
+        scores.push(depth_and_alive_results[1].clone()); // Alive
+
+        // areas
+        scores.push(self.areas(&game_state));
+
+        // captures
+        scores.push(self.captures(&game_state, Duration::from_millis(capture_duration)));
+
+        // food
+        scores.push(self.food(board, &game_state));
+
+        // close weights
+        scores.push(self.close_weights(&game_state));
+
+        // far weights
+        scores.push(self.far_weights(&game_state));
+
+        // Evaluate the results
+        let result = scores.evaluate();
+
+        // Print the results
+        self.print_results(game, turn, result, &scores);
+
+        result.to_direction()
     }
 }
 #[cfg(test)]
