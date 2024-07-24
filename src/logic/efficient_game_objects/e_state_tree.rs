@@ -247,7 +247,7 @@ impl EStateTree {
                     // Calculate the 4 child nodes for the current node and return ratings
                     let node_ratings = self.calcs(
                         d_vec.clone(),
-                        0.max(distance as i32 - 2 * current_depth as i32) as u8,
+                        0.max(4.max(distance as i32 - 2 * current_depth as i32)) as u8,
                     );
 
                     // Push keys to new generated nodes to end of processing queue
