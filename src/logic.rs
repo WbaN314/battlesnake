@@ -438,4 +438,10 @@ mod json_requests {
             get_move_from_json_file("failure_43_going_down_guarantees_getting_killed.json");
         assert_eq!(chosen_move, Direction::Up);
     }
+
+    #[test]
+    fn failure_44_panic() {
+        let chosen_move = get_move_from_json_file("failure_44_panic.json");
+        assert_ne!(chosen_move, Direction::Down);
+    }
 }

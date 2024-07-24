@@ -684,7 +684,6 @@ impl EGameState {
         let mut count_result = self.count_captures();
         let mut iterations = 1;
         loop {
-            // println!("{}", self);
             self.capture_iteration();
             let new_count_result = self.count_captures();
             if count_result.uncontested == new_count_result.uncontested {
@@ -711,7 +710,6 @@ impl EGameState {
         for i in 0..4 {
             let mut state = self.clone();
             results[i] = state.capture_in_direction(EDirection::from_usize(i));
-            println!("{}", state);
         }
         results
     }
