@@ -1,19 +1,14 @@
-use core::{fmt, panic};
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    result::Result as StdResult,
-    time::{Duration, Instant},
-};
-
-use env_logger::init;
-
-use crate::{Battlesnake, Board};
-
 use super::{
     e_board::{EArea, EBoard, EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::{EDirection, EDIRECTION_VECTORS},
     e_snakes::{ESimulationError, ESnake, ESnakes, Result, SNAKES},
+};
+use crate::{Battlesnake, Board};
+use core::{fmt, panic};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    time::{Duration, Instant},
 };
 
 #[derive(Clone, Copy)]
@@ -108,10 +103,9 @@ impl EGameState {
         }
 
         for i in 0u8..old.snakes.len() as u8 {
-            gamestate.snakes.set(
-                i,
-                Some(ESnake::from(&old.snakes[order[i as usize]], i as i32)),
-            );
+            gamestate
+                .snakes
+                .set(i, Some(ESnake::from(&old.snakes[order[i as usize]])));
         }
 
         gamestate.validate_state();
@@ -682,98 +676,40 @@ impl EGameState {
         }
     }
 
-    pub fn timed_capture(&self, duration: Duration) -> [(usize, usize); 4] {
-        let start = Instant::now();
-        let mut work_queue: VecDeque<Vec<EDirection>> = VecDeque::new();
-        work_queue.push_back(Vec::new());
-        let mut done_map: HashMap<Vec<EDirection>, EGameState> = HashMap::new();
-        let mut others_initialized_board = self.clone();
-        others_initialized_board.initialize_other_captures(true);
-        done_map.insert(Vec::new(), others_initialized_board);
-        let mut done_scores: HashMap<Vec<EDirection>, Vec<u8>> = HashMap::new();
-        done_scores.insert(Vec::new(), Vec::new());
-
-        let mut finished_round = 0;
-
-        while start.elapsed() < duration {
-            match work_queue.pop_front() {
-                Some(moves) => {
-                    let old_state = done_map.get(&moves).unwrap().clone();
-                    finished_round = 0.max(moves.len() as isize - 1);
-                    for d in 0..4 {
-                        let direction = EDirection::from_usize(d);
-                        let mut new_state = old_state.clone();
-                        let mut new_state_to_store = old_state.clone();
-                        new_state.move_tails();
-                        let initialize_result = new_state.initialize_own_capture(direction, true);
-                        let capture_result = new_state.capture();
-                        if initialize_result.is_ok()
-                            && new_state_to_store
-                                .move_heads(&[Some(direction), None, None, None])
-                                .is_ok()
-                        {
-                            new_state_to_store.capture_iteration();
-                            let mut new_moves = moves.clone();
-                            new_moves.push(direction);
-                            // println!("{:?}", &new_moves);
-                            // println!("{}", &new_state_to_store);
-                            done_map.insert(new_moves.clone(), new_state_to_store);
-                            work_queue.push_back(new_moves.clone());
-                            let mut new_scores = done_scores.get(&moves).unwrap().clone();
-                            new_scores.push(capture_result[0]);
-                            done_scores.insert(new_moves, new_scores);
-                        } else {
-                            let mut new_moves = moves.clone();
-                            new_moves.push(direction);
-                            // println!("Invalid move {:?}", &new_moves);
-                        }
-                    }
-                }
-                None => break,
+    pub fn execute_capture(&mut self) -> CaptureResult {
+        let mut count_result = self.count_captures();
+        let mut iterations = 1;
+        loop {
+            // println!("{}", self);
+            self.capture_iteration();
+            let new_count_result = self.count_captures();
+            if count_result.uncontested == new_count_result.uncontested {
+                break;
             }
+            count_result = new_count_result;
+            iterations += 1;
         }
-        //sort done scores by value array
-        let mut done_scores_vec: Vec<(&Vec<EDirection>, &Vec<u8>)> = done_scores
-            .iter()
-            .filter(|x| x.0.len() <= finished_round as usize)
-            .collect();
-        done_scores_vec.sort_by(|a, b| {
-            if a.1.len() != b.1.len() {
-                return b.1.len().cmp(&a.1.len());
-            }
-            let a_sum = a.1.iter().map(|x| *x as usize).sum::<usize>();
-            let b_sum = b.1.iter().map(|x| *x as usize).sum::<usize>();
-            b_sum.cmp(&a_sum)
-        });
-
-        let mut result = [(0, 0); 4];
-        for (k, v) in done_scores_vec.iter() {
-            if k.len() > 0 {
-                let d = k[0].to_usize();
-                if result[d].0 == 0 {
-                    result[d] = (k.len(), v.iter().map(|x| *x as usize).sum::<usize>());
-                }
-            }
+        CaptureResult {
+            fields: count_result.captures,
+            iterations,
         }
-
-        // println!("{:?}", done_scores_vec);
-
-        result
     }
 
-    pub fn capture(&mut self) -> [u8; SNAKES as usize + 1] {
-        let number_of_fields: u8 = (Y_SIZE * X_SIZE) as u8;
-        let mut captures = self.count_captures();
-        // println!("Capture call");
-        // println!("{}", self);
-        while captures.iter().sum::<u8>() < number_of_fields {
-            self.capture_iteration();
-            let new_captures = self.count_captures();
-            captures = new_captures;
-            // println!("{}", &self);
-            // println!("{:?}", &captures);
+    fn capture_in_direction(&mut self, direction: EDirection) -> Option<CaptureResult> {
+        match self.initialize_capture(direction) {
+            Ok(_) => Some(self.execute_capture()),
+            Err(_) => None,
         }
-        captures
+    }
+
+    pub fn capture(&self) -> [Option<CaptureResult>; 4] {
+        let mut results = [None; 4];
+        for i in 0..4 {
+            let mut state = self.clone();
+            results[i] = state.capture_in_direction(EDirection::from_usize(i));
+            println!("{}", state);
+        }
+        results
     }
 
     /// One capture iteration including tail movement at the beginning
@@ -849,23 +785,30 @@ impl EGameState {
     }
 
     /// Counts the number of captures for each snake and the blocked fields
-    fn count_captures(&self) -> [u8; SNAKES as usize + 1] {
-        let mut snake_captures = [0; SNAKES as usize + 1];
+    fn count_captures(&self) -> CaptureCount {
+        let mut capture_count = CaptureCount {
+            captures: [0; SNAKES as usize],
+            contested: 0,
+            uncontested: 0,
+            snakeparts: 0,
+        };
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
                 match self.board.get(x, y) {
                     Some(EField::Capture { snake_number, .. }) => {
                         if let Some(n) = snake_number {
-                            snake_captures[n as usize] += 1;
+                            capture_count.captures[n as usize] += 1;
                         } else {
-                            snake_captures[SNAKES as usize] += 1;
+                            capture_count.contested += 1;
                         }
                     }
+                    Some(EField::Empty) | Some(EField::Food) => capture_count.uncontested += 1,
+                    Some(EField::SnakePart { .. }) => capture_count.snakeparts += 1,
                     _ => (),
                 }
             }
         }
-        snake_captures
+        capture_count
     }
 
     /// Sets initial capture fields for own and other snakes
@@ -922,6 +865,7 @@ impl EGameState {
 
     /// Sets initial capture fields for own and other snakes
     fn initialize_capture(&mut self, direction: EDirection) -> Result<()> {
+        self.move_tails();
         self.initialize_own_capture(direction, true)?;
         self.initialize_other_captures(true);
         Ok(())
@@ -1045,6 +989,20 @@ impl fmt::Display for EGameState {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct CaptureResult {
+    pub fields: [u8; SNAKES as usize],
+    pub iterations: u8,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CaptureCount {
+    pub captures: [u8; SNAKES as usize],
+    pub contested: u8,
+    pub uncontested: u8,
+    pub snakeparts: u8,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::logic::{
@@ -1071,7 +1029,16 @@ mod tests {
         let game_state = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
-        let result = board.timed_capture(Duration::from_millis(50));
+        let result = board.capture();
+        println!("{:?}", result);
+    }
+
+    #[test]
+    fn test_print_capture_in_direction() {
+        let game_state = read_game_state("requests/failure_9.json");
+        let mut board = EGameState::from(&game_state.board, &game_state.you);
+        println!("{}", &board);
+        let result = board.capture_in_direction(EDirection::Up);
         println!("{:?}", result);
     }
 }

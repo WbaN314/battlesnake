@@ -468,18 +468,27 @@ impl SmartSnake {
                 }
                 result[d] = match closest_uncontested_food_and_distance {
                     Some((_, distance)) => -1 * distance as i64,
-                    _ => -99,
+                    _ => -100,
                 };
             }
         }
         (result, "Food".to_string())
     }
 
-    fn captures(&self, game_state: &EGameState, duration: Duration) -> ([i64; 4], String) {
+    fn captures(&self, game_state: &EGameState) -> ([i64; 4], String) {
         let mut result = [0; 4];
-        let space = game_state.timed_capture(duration);
+        let my_length = game_state.snakes.get(0).as_ref().unwrap().length;
+        let capture_results = game_state.capture();
         for d in 0..4 {
-            result[d] = space[d].1 as i64;
+            if let Some(capture_result) = capture_results[d] {
+                if capture_result.fields[0] > my_length {
+                    result[d] = 100.max(capture_result.fields[0] as i64);
+                } else {
+                    result[d] = capture_result.fields[0] as i64;
+                }
+            } else {
+                result[d] = -1;
+            }
         }
         (result, "Capture".to_string())
     }
@@ -580,7 +589,7 @@ impl Brain for SmartSnake {
         scores.push(self.areas(&game_state));
 
         // captures
-        scores.push(self.captures(&game_state, Duration::from_millis(capture_duration)));
+        scores.push(self.captures(&game_state));
 
         // food
         scores.push(self.food(board, &game_state));

@@ -9,7 +9,6 @@ pub const SNAKES: u8 = 4;
 
 #[derive(Clone, Debug)]
 pub struct ESnake {
-    pub number: u8,
     pub head: ECoord,
     pub tail: ECoord,
     pub health: u8,
@@ -19,9 +18,8 @@ pub struct ESnake {
 }
 
 impl ESnake {
-    pub fn from(snake: &Battlesnake, number: i32) -> Self {
+    pub fn from(snake: &Battlesnake) -> Self {
         Self {
-            number: number as u8,
             head: ECoord::from(snake.head.x as i8, snake.head.y as i8),
             tail: ECoord::from(
                 snake.body.last().unwrap().x as i8,
