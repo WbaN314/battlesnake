@@ -129,12 +129,12 @@ impl SmartSnake {
         Self {}
     }
 
-    fn depth_and_alive_and_snakes(
+    fn depth_and_alive_and_snakes_and_length(
         &self,
         game_state: &EGameState,
         distance: u8,
         duration: Duration,
-    ) -> [([i64; 4], String); 3] {
+    ) -> [([i64; 4], String); 4] {
         let mut d_tree = EStateTree::from(game_state.clone());
         let simulation_states = d_tree.simulate_timed(distance, duration);
 
@@ -142,11 +142,13 @@ impl SmartSnake {
             ([0; 4], "Depth".to_string()),
             ([0; 4], "Alive".to_string()),
             ([0; 4], "Snakes".to_string()),
+            ([0; 4], "Length".to_string()),
         ];
         for d in 0..4 {
             results[0].0[d] = simulation_states[d].depth as i64;
             results[1].0[d] = simulation_states[d].alive as i64;
             results[2].0[d] = -1 * *(simulation_states[d].snake_count.last().unwrap_or(&10)) as i64;
+            results[3].0[d] = *(simulation_states[d].my_length.last().unwrap_or(&0)) as i64;
         }
         results
     }
@@ -321,7 +323,7 @@ impl Brain for SmartSnake {
         scores.push(self.movable(&game_state));
 
         // depth and alive
-        let depth_and_alive_results = self.depth_and_alive_and_snakes(
+        let depth_and_alive_results = self.depth_and_alive_and_snakes_and_length(
             &game_state,
             distance,
             Duration::from_millis(simulate_duration),
@@ -329,6 +331,7 @@ impl Brain for SmartSnake {
         scores.push(depth_and_alive_results[0].clone()); // Depth
         scores.push(depth_and_alive_results[1].clone()); // Alive
         scores.push(depth_and_alive_results[2].clone()); // Snakes
+        scores.push(depth_and_alive_results[3].clone()); // Length
 
         // areas
         scores.push(self.areas(&game_state));

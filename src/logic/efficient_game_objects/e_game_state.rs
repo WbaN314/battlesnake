@@ -10,20 +10,27 @@ use std::collections::HashSet;
 
 #[derive(Clone, Copy)]
 pub struct EStateRating {
-    pub snakes: u8,
+    pub alive_snakes: u8,
+    pub my_length: u8,
 }
 
 impl EStateRating {
     pub fn new() -> Self {
-        Self { snakes: u8::MAX }
+        Self {
+            alive_snakes: u8::MAX,
+            my_length: 0,
+        }
     }
 
     pub fn from(state: &EGameState) -> Self {
         let mut rating = Self::new();
-        rating.snakes = 0;
+        if let Some(my_snake) = state.snakes.get(0).as_ref() {
+            rating.my_length = my_snake.length;
+        }
+        rating.alive_snakes = 0;
         for i in 0..SNAKES {
             if state.snakes.get(i).as_ref().is_some() {
-                rating.snakes += 1;
+                rating.alive_snakes += 1;
             }
         }
         rating
@@ -1033,10 +1040,11 @@ mod tests {
 
     #[test]
     fn test_print_capture_in_direction() {
-        let game_state = read_game_state("requests/failure_9.json");
+        let game_state = read_game_state("requests/failure_39_grab_food_in_middle.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
-        let result = board.capture_in_direction(EDirection::Up);
+        let result = board.capture_in_direction(EDirection::Left);
+        println!("{}", &board);
         println!("{:?}", result);
     }
 }

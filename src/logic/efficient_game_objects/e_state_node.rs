@@ -2,6 +2,7 @@ use core::fmt;
 use std::{
     fmt::Display,
     time::{Duration, Instant},
+    u8,
 };
 
 use super::{
@@ -12,18 +13,22 @@ use super::{
 
 #[derive(Clone)]
 pub struct ENodeRating {
+    // Worst cases here across all possible states for a fixed own move combination that results in this node
     pub highest_snake_count: u8,
+    pub lowest_length: u8,
 }
 
 impl ENodeRating {
     pub fn new() -> Self {
         Self {
             highest_snake_count: 0,
+            lowest_length: u8::MAX,
         }
     }
 
     pub fn update(&mut self, state: &EStateRating) {
-        self.highest_snake_count = state.snakes.max(self.highest_snake_count);
+        self.highest_snake_count = state.alive_snakes.max(self.highest_snake_count);
+        self.lowest_length = state.my_length.min(self.lowest_length);
     }
 }
 

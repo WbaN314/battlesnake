@@ -17,6 +17,7 @@ pub struct ESimulationState {
     pub depth: u8,
     pub alive: bool,
     pub snake_count: Vec<u8>,
+    pub my_length: Vec<u8>,
 }
 
 impl ESimulationState {
@@ -25,12 +26,14 @@ impl ESimulationState {
             depth: 0,
             alive: false,
             snake_count: Vec::new(),
+            my_length: Vec::new(),
         }
     }
 
     pub fn update(&mut self, iteration_result: &Option<EIterationState>) {
         if let Some(iteration_result) = iteration_result {
-            self.snake_count.push(iteration_result.highest_snakes_count);
+            self.snake_count.push(iteration_result.lowest_snakes_count);
+            self.my_length.push(iteration_result.highest_length);
             self.alive = true;
             self.depth += 1;
         } else {
@@ -60,13 +63,15 @@ impl Ord for ESimulationState {
 impl Eq for ESimulationState {}
 
 pub struct EIterationState {
-    highest_snakes_count: u8,
+    lowest_snakes_count: u8,
+    highest_length: u8,
 }
 
 impl EIterationState {
     pub fn new() -> Self {
         Self {
-            highest_snakes_count: u8::MAX,
+            lowest_snakes_count: u8::MAX,
+            highest_length: 0,
         }
     }
 
@@ -77,7 +82,8 @@ impl EIterationState {
         for i in 0..4 {
             if let Some(node_rating) = node_ratings[i].as_ref() {
                 let mut n = Self::new();
-                n.highest_snakes_count = node_rating.highest_snake_count;
+                n.lowest_snakes_count = node_rating.highest_snake_count;
+                n.highest_length = node_rating.lowest_length;
                 n.update(node_ratings);
                 return Some(n);
             }
@@ -88,7 +94,8 @@ impl EIterationState {
     pub fn from_rating(node_rating: &Option<ENodeRating>) -> Option<Self> {
         if let Some(node_rating) = node_rating {
             let mut n = Self::new();
-            n.highest_snakes_count = node_rating.highest_snake_count;
+            n.lowest_snakes_count = node_rating.highest_snake_count;
+            n.highest_length = node_rating.lowest_length;
             return Some(n);
         }
         None
@@ -97,9 +104,10 @@ impl EIterationState {
     pub fn update(&mut self, node_ratings: &[Option<ENodeRating>; 4]) {
         for i in 0..4 {
             if let Some(node_rating) = &node_ratings[i] {
-                self.highest_snakes_count = node_rating
+                self.lowest_snakes_count = node_rating
                     .highest_snake_count
-                    .min(self.highest_snakes_count);
+                    .min(self.lowest_snakes_count);
+                self.highest_length = node_rating.lowest_length.max(self.highest_length);
             }
         }
     }

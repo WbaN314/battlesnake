@@ -400,6 +400,8 @@ mod json_requests {
 
     #[test]
     fn failure_39_grab_food_in_middle() {
+        // This might be fixed with chicken logic
+        // or adding length to simulate timed evaluation
         let chosen_move = get_move_from_json_file("failure_39_grab_food_in_middle.json");
         assert_eq!(chosen_move, Direction::Left);
     }
