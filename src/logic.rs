@@ -293,8 +293,10 @@ mod json_requests {
 
     #[test]
     fn failure_23_go_for_kill_here() {
+        // Down leads to guaranteed kill in 2, right leads to guaranteed kill in 4
         let chosen_move = get_move_from_json_file("failure_23_go_for_kill_here.json");
-        assert_eq!(chosen_move, Direction::Down);
+        assert_ne!(chosen_move, Direction::Up);
+        assert_ne!(chosen_move, Direction::Left);
     }
 
     #[test]
