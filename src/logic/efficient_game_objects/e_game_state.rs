@@ -6,10 +6,7 @@ use super::{
 };
 use crate::{Battlesnake, Board};
 use core::{fmt, panic};
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    time::{Duration, Instant},
-};
+use std::collections::HashSet;
 
 #[derive(Clone, Copy)]
 pub struct EStateRating {

@@ -94,7 +94,6 @@ impl EDirectionVec {
         Self(Vec::new())
     }
 
-    #[allow(dead_code)]
     pub fn from(v: Vec<EDirection>) -> Self {
         Self(v)
     }

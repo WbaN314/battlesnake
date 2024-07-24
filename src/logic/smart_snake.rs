@@ -13,9 +13,7 @@ use log::info;
 
 use super::{
     efficient_game_objects::{
-        e_board::{EField, X_SIZE, Y_SIZE},
-        e_direction::EDirection,
-        e_score_board::EScoreBoard,
+        e_board::EField, e_direction::EDirection, e_score_board::EScoreBoard,
     },
     Brain, Direction,
 };
@@ -56,6 +54,22 @@ impl Scores {
         }
         panic!("No viable direction found");
     }
+
+    pub fn print_log(&self, game: &Game, turn: &i32, result: EDirection) {
+        let mut s = String::new();
+        s.push_str(&format!(
+            "Game {} Turn {} Result {} Scores ",
+            game.id,
+            turn,
+            result.to_direction()
+        ));
+        s.push_str(&format!("{}", self));
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("{}", s);
+        } else {
+            info!("{}", s);
+        }
+    }
 }
 
 impl Display for Scores {
@@ -75,12 +89,6 @@ impl Display for Scores {
 #[derive(Debug)]
 pub struct Score {
     scores: Vec<i64>,
-}
-
-impl Score {
-    fn new() -> Self {
-        Score { scores: Vec::new() }
-    }
 }
 
 impl Ord for Score {
@@ -114,264 +122,11 @@ impl PartialEq for Score {
 
 impl Eq for Score {}
 
-pub fn mirror_h(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-    let mut result = Vec::with_capacity(v.len());
-    for i in 0..v.len() {
-        let mut row = Vec::with_capacity(v[0].len());
-        for j in 0..v[i].len() {
-            row.push(v[i][v[i].len() - j - 1]);
-        }
-        result.push(row);
-    }
-    result
-}
-
-pub fn mirror_v(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-    let mut result = Vec::with_capacity(v.len());
-    for i in 0..v.len() {
-        let mut row = Vec::with_capacity(v[0].len());
-        for j in 0..v[i].len() {
-            row.push(v[v.len() - i - 1][j]);
-        }
-        result.push(row);
-    }
-    result
-}
-
-pub fn mirror_m(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-    let mut result = Vec::with_capacity(v.len());
-    for i in 0..v.len() {
-        let mut row = Vec::with_capacity(v[0].len());
-        for j in 0..v[i].len() {
-            row.push(v[v.len() - i - 1][v[i].len() - j - 1]);
-        }
-        result.push(row);
-    }
-    result
-}
-
 pub struct SmartSnake {}
 
 impl SmartSnake {
     pub fn new() -> Self {
         Self {}
-    }
-
-    fn add_food_weights(
-        &self,
-        mut weights: EScoreBoard,
-        game_state: &EGameState,
-        uncontested_food: [Option<(ECoord, u8)>; 4],
-    ) -> EScoreBoard {
-        // calculate length difference to longest snake
-        if let Some(my_snake) = game_state.snakes.get(0).as_ref() {
-            let mut length_diff = 0; // positive means mine is longest
-            for s in 1..SNAKES {
-                if let Some(snake) = game_state.snakes.get(s).as_ref() {
-                    let diff = my_snake.length as i32 - snake.length as i32;
-                    if diff < length_diff {
-                        length_diff = diff;
-                    }
-                }
-            }
-
-            // if I am longest and have enough health, don't go for food
-            if length_diff > 1 && my_snake.health > 40 {
-                return weights;
-            }
-
-            // compared distance weights
-            let mut d = uncontested_food.iter().enumerate().collect::<Vec<_>>();
-            d.sort_by(|a, b| {
-                a.1.unwrap_or((ECoord::from(0, 0), u8::MAX))
-                    .1
-                    .cmp(&b.1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1)
-            });
-            let mut d2 = [0, 0, 0, 0];
-            for i in 1..4 {
-                d2[d[i].0] = d[i].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1
-                    - d[0].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1;
-            }
-            let relative_distance_weight = d2.map(|x| {
-                if x == 0 {
-                    1.0
-                } else if x == 1 {
-                    0.5
-                } else {
-                    0.0
-                }
-            });
-
-            // change weights
-            for d in 0..4 {
-                match uncontested_food[d] {
-                    Some((_, distance)) => {
-                        let new_head = my_snake.head + EDIRECTION_VECTORS[d];
-                        let mut weight = (100.0 - my_snake.health as f64).max(0.0)
-                            + (25.0 - distance as f64).max(0.0) // TODO: More emphasis on distnace compared to other directions
-                            + (25.0 - my_snake.length as f64).max(0.0);
-                        weight *= relative_distance_weight[d];
-                        weights.update(new_head.x, new_head.y, weight);
-                    }
-                    _ => (),
-                }
-            }
-        }
-        weights
-    }
-
-    fn board_weights(
-        &self,
-        mut weights: EScoreBoard,
-        game_state: &EGameState,
-        far: bool,
-    ) -> EScoreBoard {
-        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
-        let amount_of_alive_snakes = game_state.snakes.count_alive();
-        let trajectories = game_state.trajectories();
-
-        let (food_bonus, snake_malus, empty_bonus) = if far {
-            // far
-            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
-            if my_snake.health < 15 {
-                food_bonus *= 10.0
-            } else if my_snake.health < 10 {
-                food_bonus *= 100.0
-            }
-            let snake_malus = -10.0;
-            let empty_bonus = 10.0;
-            (food_bonus, snake_malus, empty_bonus)
-        } else {
-            // close
-            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
-            if my_snake.health < 15 {
-                food_bonus *= 10.0
-            } else if my_snake.health < 10 {
-                food_bonus *= 100.0
-            }
-            let snake_malus = 0.0;
-            let empty_bonus = 0.0;
-            (food_bonus, snake_malus, empty_bonus)
-        };
-
-        // Update with food, snake and empty bonuses
-        for y in 0..Y_SIZE {
-            for x in 0..X_SIZE {
-                match game_state.board.get(x, y) {
-                    Some(EField::Food) => {
-                        weights.update(x, y, food_bonus);
-                    }
-                    Some(EField::SnakePart { .. }) => {
-                        weights.update(x, y, snake_malus);
-                    }
-                    Some(EField::Empty) => {
-                        weights.update(x, y, empty_bonus);
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        // Other Snake Head Proximity Weights
-        if !far {
-            // close
-            let top_left = vec![
-                vec![0.000, 0.000, 0.000, 0.000, 0.000],
-                vec![0.000, -99.0, -50.0, 50.00, 0.000],
-                vec![0.000, -50.0, 0.000, 75.00, 0.000],
-                vec![0.000, 50.00, 75.00, 99.00, 0.000],
-                vec![0.000, 0.000, 0.000, 50.00, 0.000],
-            ];
-            let top_right = mirror_h(&top_left);
-            let bottom_left = mirror_v(&top_left);
-            let bottom_right = mirror_m(&top_left);
-            let left = vec![
-                vec![-50.0, 0.0, 50.0],
-                vec![-50.0, 0.0, 50.0],
-                vec![-50.0, 0.0, 50.0],
-                vec![-50.0, 0.0, 50.0],
-                vec![-50.0, 0.0, 50.0],
-            ];
-            let right = mirror_h(&left);
-            let bottom = vec![
-                vec![50.00, 50.00, 50.00, 50.00, 50.00],
-                vec![0.000, 0.000, 0.000, 0.000, 0.000],
-                vec![-50.0, -50.0, -50.0, -50.0, -50.0],
-            ];
-            let top = mirror_v(&bottom);
-            for osi in 1..SNAKES {
-                match game_state.snakes.get(osi).as_ref() {
-                    Some(snake) => {
-                        let head = snake.head;
-                        let l = 2;
-                        let h = 8;
-                        if head.x <= l && head.y >= h {
-                            // Top Left
-                            weights.update_around(head.x, head.y, &top_left);
-                        } else if head.x >= h && head.y >= h {
-                            // Top Right
-                            weights.update_around(head.x, head.y, &top_right);
-                        } else if head.x <= l && head.y <= l {
-                            // Bottom Left
-                            weights.update_around(head.x, head.y, &bottom_left);
-                        } else if head.x >= h && head.y <= l {
-                            // Bottom Right
-                            weights.update_around(head.x, head.y, &bottom_right);
-                        } else if head.x <= l {
-                            // Left
-                            weights.update_around(head.x, head.y, &left);
-                        } else if head.x >= h {
-                            // Right
-                            weights.update_around(head.x, head.y, &right);
-                        } else if head.y <= l {
-                            // Bottom
-                            weights.update_around(head.x, head.y, &bottom);
-                        } else if head.y >= h {
-                            // Top
-                            weights.update_around(head.x, head.y, &top);
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        } else {
-            // far
-            for osi in 1..SNAKES {
-                if let Some(other_snake) = game_state.snakes.get(osi).as_ref() {
-                    if other_snake.length >= my_snake.length {
-                        weights.update(other_snake.head.x, other_snake.head.y, -100.0);
-                    }
-                }
-            }
-        }
-
-        // avoid trajectory endpoints if multi opponent
-        if far && amount_of_alive_snakes > 2 {
-            for i in 1..SNAKES {
-                if let Some(other_snake) = game_state.snakes.get(i).as_ref() {
-                    if let Some(trajectory) = trajectories[i as usize] {
-                        let target = game_state.collision_point(other_snake.head, trajectory);
-                        weights.update(target.x, target.y, -100.0);
-                    }
-                }
-            }
-        }
-
-        // avoid edges
-        if far {
-            weights.update(5, 5, 100.0);
-            //update edges with -10.0
-            for x in 0..X_SIZE {
-                weights.update(x, 0, -10.0);
-                weights.update(x, Y_SIZE - 1, -10.0);
-            }
-            for y in 0..Y_SIZE {
-                weights.update(0, y, -10.0);
-                weights.update(X_SIZE - 1, y, -10.0);
-            }
-        }
-
-        weights
     }
 
     fn depth_and_alive(
@@ -498,7 +253,8 @@ impl SmartSnake {
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         let mut moved_tails = game_state.clone();
         moved_tails.move_tails();
-        let mut board_weights = self.board_weights(EScoreBoard::from(0.0), &moved_tails, false);
+        let mut board_weights = EScoreBoard::from(0.0);
+        board_weights.board_weights(&moved_tails, false);
         board_weights = board_weights.convolution(
             &vec![
                 vec![0.0, 1.0, 0.0],
@@ -520,7 +276,8 @@ impl SmartSnake {
     fn far_weights(&self, game_state: &EGameState) -> ([i64; 4], String) {
         let mut result = [0; 4];
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
-        let mut board_weights_far = self.board_weights(EScoreBoard::new(), &game_state, true);
+        let mut board_weights_far = EScoreBoard::new();
+        board_weights_far.board_weights(&game_state, true);
         for _ in 0..3 {
             board_weights_far = board_weights_far.convolution(
                 &vec![
@@ -545,30 +302,12 @@ impl SmartSnake {
 
         (result, "Far".to_string())
     }
-
-    fn print_results(&self, game: &Game, turn: &i32, result: EDirection, scores: &Scores) {
-        let mut s = String::new();
-        s.push_str(&format!(
-            "Game {} Turn {} Result {} Scores ",
-            game.id,
-            turn,
-            result.to_direction()
-        ));
-        s.push_str(&format!("{}", scores));
-
-        if env::var("MODE").unwrap_or("".to_string()) == "test" {
-            println!("{}", s);
-        } else {
-            info!("{}", s);
-        }
-    }
 }
 
 impl Brain for SmartSnake {
     fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let distance = 10;
         let simulate_duration = 200;
-        let capture_duration = 100;
 
         let game_state = EGameState::from(board, you);
         let mut scores = Scores::new();
@@ -604,67 +343,8 @@ impl Brain for SmartSnake {
         let result = scores.evaluate();
 
         // Print the results
-        self.print_results(game, turn, result, &scores);
+        scores.print_log(game, turn, result);
 
         result.to_direction()
-    }
-}
-#[cfg(test)]
-mod tests {
-    use crate::logic::{
-        efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_print_gravity() {
-        let game_state = read_game_state("requests/failure_17.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let smart_snake = SmartSnake::new();
-        let score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board, false);
-        println!("{}", &score_board);
-        println!("{:?}", &score_board._center_of_gravity());
-    }
-
-    #[test]
-    fn test_print_convolution() {
-        let game_state = read_game_state("requests/failure_29_move_down_towards_food.json");
-        let mut board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let smart_snake = SmartSnake::new();
-        board.move_tails();
-        let mut score_board = smart_snake.board_weights(EScoreBoard::from(0.0), &board, false);
-        println!("{}", &score_board);
-        score_board = score_board.convolution(
-            &vec![
-                vec![0.0, 1.0, 0.0],
-                vec![1.0, 4.0, 1.0],
-                vec![0.0, 1.0, 0.0],
-            ],
-            false,
-        );
-        println!("{}", &score_board);
-    }
-
-    #[test]
-    fn mirrors() {
-        let v = vec![
-            vec![1.0, 2.0, 3.0],
-            vec![4.0, 5.0, 6.0],
-            vec![7.0, 8.0, 9.0],
-        ];
-        let v_mirrored_h = mirror_h(&v);
-        let v_mirrored_v = mirror_v(&v);
-        println!("{:?}", v);
-        println!("{:?}", v_mirrored_h);
-        println!("{:?}", v_mirrored_v);
-        let v_mirrored_h_mirrored_v = mirror_v(&v_mirrored_h);
-        let v_mirrored_v_mirrored_h = mirror_h(&v_mirrored_v);
-        let v_mirrored_m = mirror_m(&v);
-        println!("{:?}", v_mirrored_m);
-        assert_eq!(v_mirrored_h_mirrored_v, v_mirrored_v_mirrored_h);
-        assert_eq!(v_mirrored_m, v_mirrored_h_mirrored_v);
     }
 }

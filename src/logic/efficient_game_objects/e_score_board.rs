@@ -2,9 +2,48 @@ use core::fmt;
 use std::fmt::{Display, Formatter};
 
 use super::{
-    e_board::{X_SIZE, Y_SIZE},
+    e_board::{EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
+    e_direction::EDIRECTION_VECTORS,
+    e_game_state::EGameState,
+    e_snakes::SNAKES,
 };
+
+pub fn mirror_h(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[i][v[i].len() - j - 1]);
+        }
+        result.push(row);
+    }
+    result
+}
+
+pub fn mirror_v(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[v.len() - i - 1][j]);
+        }
+        result.push(row);
+    }
+    result
+}
+
+pub fn mirror_m(v: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let mut result = Vec::with_capacity(v.len());
+    for i in 0..v.len() {
+        let mut row = Vec::with_capacity(v[0].len());
+        for j in 0..v[i].len() {
+            row.push(v[v.len() - i - 1][v[i].len() - j - 1]);
+        }
+        result.push(row);
+    }
+    result
+}
 
 #[derive(Clone)]
 pub struct EScoreBoard([f64; X_SIZE as usize * Y_SIZE as usize]);
@@ -134,6 +173,214 @@ impl EScoreBoard {
             }
         }
         new_score_board
+    }
+
+    pub fn board_weights(&mut self, game_state: &EGameState, far: bool) {
+        let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
+        let amount_of_alive_snakes = game_state.snakes.count_alive();
+        let trajectories = game_state.trajectories();
+
+        let (food_bonus, snake_malus, empty_bonus) = if far {
+            // far
+            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
+            if my_snake.health < 15 {
+                food_bonus *= 10.0
+            } else if my_snake.health < 10 {
+                food_bonus *= 100.0
+            }
+            let snake_malus = -10.0;
+            let empty_bonus = 10.0;
+            (food_bonus, snake_malus, empty_bonus)
+        } else {
+            // close
+            let mut food_bonus = (200.0 - my_snake.health as f64).max(0.0) + 10.0;
+            if my_snake.health < 15 {
+                food_bonus *= 10.0
+            } else if my_snake.health < 10 {
+                food_bonus *= 100.0
+            }
+            let snake_malus = 0.0;
+            let empty_bonus = 0.0;
+            (food_bonus, snake_malus, empty_bonus)
+        };
+
+        // Update with food, snake and empty bonuses
+        for y in 0..Y_SIZE {
+            for x in 0..X_SIZE {
+                match game_state.board.get(x, y) {
+                    Some(EField::Food) => {
+                        self.update(x, y, food_bonus);
+                    }
+                    Some(EField::SnakePart { .. }) => {
+                        self.update(x, y, snake_malus);
+                    }
+                    Some(EField::Empty) => {
+                        self.update(x, y, empty_bonus);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // Other Snake Head Proximity Weights
+        if !far {
+            // close
+            let top_left = vec![
+                vec![0.000, 0.000, 0.000, 0.000, 0.000],
+                vec![0.000, -99.0, -50.0, 50.00, 0.000],
+                vec![0.000, -50.0, 0.000, 75.00, 0.000],
+                vec![0.000, 50.00, 75.00, 99.00, 0.000],
+                vec![0.000, 0.000, 0.000, 50.00, 0.000],
+            ];
+            let top_right = mirror_h(&top_left);
+            let bottom_left = mirror_v(&top_left);
+            let bottom_right = mirror_m(&top_left);
+            let left = vec![
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+                vec![-50.0, 0.0, 50.0],
+            ];
+            let right = mirror_h(&left);
+            let bottom = vec![
+                vec![50.00, 50.00, 50.00, 50.00, 50.00],
+                vec![0.000, 0.000, 0.000, 0.000, 0.000],
+                vec![-50.0, -50.0, -50.0, -50.0, -50.0],
+            ];
+            let top = mirror_v(&bottom);
+            for osi in 1..SNAKES {
+                match game_state.snakes.get(osi).as_ref() {
+                    Some(snake) => {
+                        let head = snake.head;
+                        let l = 2;
+                        let h = 8;
+                        if head.x <= l && head.y >= h {
+                            // Top Left
+                            self.update_around(head.x, head.y, &top_left);
+                        } else if head.x >= h && head.y >= h {
+                            // Top Right
+                            self.update_around(head.x, head.y, &top_right);
+                        } else if head.x <= l && head.y <= l {
+                            // Bottom Left
+                            self.update_around(head.x, head.y, &bottom_left);
+                        } else if head.x >= h && head.y <= l {
+                            // Bottom Right
+                            self.update_around(head.x, head.y, &bottom_right);
+                        } else if head.x <= l {
+                            // Left
+                            self.update_around(head.x, head.y, &left);
+                        } else if head.x >= h {
+                            // Right
+                            self.update_around(head.x, head.y, &right);
+                        } else if head.y <= l {
+                            // Bottom
+                            self.update_around(head.x, head.y, &bottom);
+                        } else if head.y >= h {
+                            // Top
+                            self.update_around(head.x, head.y, &top);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        } else {
+            // far
+            for osi in 1..SNAKES {
+                if let Some(other_snake) = game_state.snakes.get(osi).as_ref() {
+                    if other_snake.length >= my_snake.length {
+                        self.update(other_snake.head.x, other_snake.head.y, -100.0);
+                    }
+                }
+            }
+        }
+
+        // avoid trajectory endpoints if multi opponent
+        if far && amount_of_alive_snakes > 2 {
+            for i in 1..SNAKES {
+                if let Some(other_snake) = game_state.snakes.get(i).as_ref() {
+                    if let Some(trajectory) = trajectories[i as usize] {
+                        let target = game_state.collision_point(other_snake.head, trajectory);
+                        self.update(target.x, target.y, -100.0);
+                    }
+                }
+            }
+        }
+
+        // avoid edges
+        if far {
+            self.update(5, 5, 100.0);
+            //update edges with -10.0
+            for x in 0..X_SIZE {
+                self.update(x, 0, -10.0);
+                self.update(x, Y_SIZE - 1, -10.0);
+            }
+            for y in 0..Y_SIZE {
+                self.update(0, y, -10.0);
+                self.update(X_SIZE - 1, y, -10.0);
+            }
+        }
+    }
+
+    pub fn add_food_weights(
+        &mut self,
+        game_state: &EGameState,
+        uncontested_food: [Option<(ECoord, u8)>; 4],
+    ) {
+        // calculate length difference to longest snake
+        if let Some(my_snake) = game_state.snakes.get(0).as_ref() {
+            let mut length_diff = 0; // positive means mine is longest
+            for s in 1..SNAKES {
+                if let Some(snake) = game_state.snakes.get(s).as_ref() {
+                    let diff = my_snake.length as i32 - snake.length as i32;
+                    if diff < length_diff {
+                        length_diff = diff;
+                    }
+                }
+            }
+
+            // if I am longest and have enough health, don't go for food
+            if length_diff > 1 && my_snake.health > 40 {
+                return;
+            }
+
+            // compared distance weights
+            let mut d = uncontested_food.iter().enumerate().collect::<Vec<_>>();
+            d.sort_by(|a, b| {
+                a.1.unwrap_or((ECoord::from(0, 0), u8::MAX))
+                    .1
+                    .cmp(&b.1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1)
+            });
+            let mut d2 = [0, 0, 0, 0];
+            for i in 1..4 {
+                d2[d[i].0] = d[i].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1
+                    - d[0].1.unwrap_or((ECoord::from(0, 0), u8::MAX)).1;
+            }
+            let relative_distance_weight = d2.map(|x| {
+                if x == 0 {
+                    1.0
+                } else if x == 1 {
+                    0.5
+                } else {
+                    0.0
+                }
+            });
+
+            // change weights
+            for d in 0..4 {
+                match uncontested_food[d] {
+                    Some((_, distance)) => {
+                        let new_head = my_snake.head + EDIRECTION_VECTORS[d];
+                        let mut weight = (100.0 - my_snake.health as f64).max(0.0)
+                            + (25.0 - distance as f64).max(0.0) // TODO: More emphasis on distnace compared to other directions
+                            + (25.0 - my_snake.length as f64).max(0.0);
+                        weight *= relative_distance_weight[d];
+                        self.update(new_head.x, new_head.y, weight);
+                    }
+                    _ => (),
+                }
+            }
+        }
     }
 }
 
