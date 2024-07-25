@@ -1,7 +1,7 @@
 use core::fmt;
 use std::fmt::{Display, Formatter};
 
-use super::{
+use crate::logic::efficient_game_objects::{
     e_board::{EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::EDIRECTION_VECTORS,

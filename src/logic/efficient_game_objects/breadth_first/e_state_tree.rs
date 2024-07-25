@@ -1,15 +1,14 @@
+use crate::logic::efficient_game_objects::{
+    breadth_first::e_state_node::{ENodeRating, EStateNode},
+    e_direction::{EDirection, EDirectionVec},
+    e_game_state::EGameState,
+    e_snakes::{ESimulationError, Result},
+};
 use core::fmt;
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt::Display,
     time::{Duration, Instant},
-};
-
-use super::{
-    e_direction::{EDirection, EDirectionVec},
-    e_game_state::EGameState,
-    e_snakes::{ESimulationError, Result},
-    e_state_node::{ENodeRating, EStateNode},
 };
 
 #[derive(Clone, Debug)]

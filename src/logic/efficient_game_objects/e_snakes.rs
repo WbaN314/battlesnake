@@ -13,8 +13,8 @@ pub struct ESnake {
     pub tail: ECoord,
     pub health: u8,
     pub length: u8,
-    pub die: bool,
-    pub far_away: bool,
+    pub _die: bool,
+    pub _far_away: bool,
 }
 
 impl ESnake {
@@ -27,8 +27,8 @@ impl ESnake {
             ),
             health: snake.health as u8,
             length: snake.length as u8,
-            die: false,
-            far_away: false,
+            _die: false,
+            _far_away: false,
         }
     }
 }

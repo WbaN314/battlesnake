@@ -313,7 +313,7 @@ impl EGameState {
     fn eliminate_dead_snake(&self, snake_index: u8) -> Result<()> {
         let mut eliminate = false;
         if let Some(snake) = self.snakes.get(snake_index).as_ref() {
-            if snake.die && !snake.far_away {
+            if snake._die && !snake._far_away {
                 if snake_index == 0 {
                     return Err(ESimulationError::Death);
                 }
@@ -390,9 +390,9 @@ impl EGameState {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 if far_away && my_head.distance(&snake.head) > distance {
-                    snake.far_away = true;
+                    snake._far_away = true;
                 } else {
-                    snake.far_away = false;
+                    snake._far_away = false;
                 }
             }
         }
@@ -417,7 +417,7 @@ impl EGameState {
                     }
                 }
                 if snake.health <= 0 {
-                    snake.die = true;
+                    snake._die = true;
                 }
             }
         }
@@ -487,7 +487,7 @@ impl EGameState {
                                 },
                             );
                         }
-                        _ => snake.die = true,
+                        _ => snake._die = true,
                     }
                     // handle new snake head
                     // set contested
@@ -513,12 +513,12 @@ impl EGameState {
                             );
                         }
                         Some(EField::SnakePart { .. }) => {
-                            snake.die = true;
+                            snake._die = true;
                         }
                         Some(EField::Contested { snake_number, food }) => {
                             if let Some(other_snake) = self.snakes.get_mut(snake_number).as_mut() {
                                 if snake.length > other_snake.length {
-                                    other_snake.die = true;
+                                    other_snake._die = true;
                                     self.board.set(
                                         new_head.x,
                                         new_head.y,
@@ -528,17 +528,17 @@ impl EGameState {
                                         },
                                     );
                                 } else if snake.length < other_snake.length {
-                                    snake.die = true;
+                                    snake._die = true;
                                 } else {
-                                    snake.die = true;
-                                    other_snake.die = true;
+                                    snake._die = true;
+                                    other_snake._die = true;
                                 }
                             }
                         }
                         Some(EField::Capture { .. }) => {
-                            snake.die = true;
+                            snake._die = true;
                         }
-                        None => snake.die = true,
+                        None => snake._die = true,
                         _ => panic!("Invalid state while moving heads"),
                     }
                     snake.head = new_head;
@@ -550,7 +550,7 @@ impl EGameState {
 
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
-                if !snake.far_away {
+                if !snake._far_away {
                     match self.board.get(snake.head.x, snake.head.y) {
                         Some(EField::Contested { snake_number, food }) => {
                             if snake_number == i {

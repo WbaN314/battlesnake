@@ -1,14 +1,13 @@
+use crate::logic::efficient_game_objects::{
+    e_direction::{EBoolDirections, EDirection},
+    e_game_state::{EGameState, EStateRating},
+    e_snakes::{ESimulationError, Result},
+};
 use core::fmt;
 use std::{
     fmt::Display,
     time::{Duration, Instant},
     u8,
-};
-
-use super::{
-    e_direction::{EBoolDirections, EDirection},
-    e_game_state::{EGameState, EStateRating},
-    e_snakes::{ESimulationError, Result},
 };
 
 #[derive(Clone)]

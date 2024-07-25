@@ -1,22 +1,17 @@
-use core::fmt;
-use std::{env, fmt::Display, time::Duration};
-
 use crate::{
-    logic::efficient_game_objects::{
-        e_coord::ECoord, e_direction::EDIRECTION_VECTORS, e_game_state::EGameState,
-        e_snakes::SNAKES, e_state_tree::EStateTree,
+    logic::{
+        efficient_game_objects::{
+            board_weights::e_score_board::EScoreBoard, breadth_first::e_state_tree::EStateTree,
+            e_board::EField, e_coord::ECoord, e_direction::EDirection,
+            e_direction::EDIRECTION_VECTORS, e_game_state::EGameState, e_snakes::SNAKES,
+        },
+        Brain, Direction,
     },
     Battlesnake, Board, Game,
 };
-
+use core::fmt;
 use log::info;
-
-use super::{
-    efficient_game_objects::{
-        e_board::EField, e_direction::EDirection, e_score_board::EScoreBoard,
-    },
-    Brain, Direction,
-};
+use std::{env, fmt::Display, time::Duration};
 
 pub struct Scores {
     scores: Vec<([i64; 4], String)>,
