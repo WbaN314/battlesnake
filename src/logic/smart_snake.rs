@@ -11,7 +11,10 @@ use crate::{
 };
 use core::fmt;
 use log::info;
+use rocket::State;
 use std::{env, fmt::Display, time::Duration};
+
+use super::efficient_game_objects::depth_first::chickens::Chickens;
 
 pub struct Scores {
     scores: Vec<([i64; 4], String)>,
@@ -307,9 +310,18 @@ impl SmartSnake {
 }
 
 impl Brain for SmartSnake {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(
+        &self,
+        game: &Game,
+        turn: &i32,
+        board: &Board,
+        you: &Battlesnake,
+        _chickens: &State<Chickens>,
+    ) -> Direction {
         let distance = 10;
         let simulate_duration = 200;
+
+        // _chickens.lock().unwrap().insert("Test".to_string(), true);
 
         let game_state = EGameState::from(board, you);
         let mut scores = Scores::new();

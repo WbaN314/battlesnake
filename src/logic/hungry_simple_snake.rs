@@ -8,7 +8,14 @@ impl HungrySimpleSnake {
 }
 
 impl Brain for HungrySimpleSnake {
-    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(
+        &self,
+        _game: &Game,
+        _turn: &i32,
+        board: &Board,
+        you: &Battlesnake,
+        _chickens: &State<Chickens>,
+    ) -> Direction {
         let mut is_move_safe: HashMap<Direction, _> = vec![
             (Direction::Up, true),
             (Direction::Down, true),

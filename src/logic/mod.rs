@@ -11,14 +11,16 @@
 // For more info see docs.battlesnake.com
 
 use core::fmt;
+use efficient_game_objects::depth_first::chickens::Chickens;
 use log::info;
+use rocket::State;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use std::{collections::HashMap, env};
 
 use crate::{Battlesnake, Board, Coord, Game};
 
-mod efficient_game_objects;
+pub mod efficient_game_objects;
 mod hungry_simple_snake;
 mod simple_tree_search_snake;
 mod smart_snake;
@@ -56,7 +58,14 @@ impl Serialize for Direction {
 }
 
 trait Brain {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction;
+    fn logic(
+        &self,
+        game: &Game,
+        turn: &i32,
+        board: &Board,
+        you: &Battlesnake,
+        chickens: &State<Chickens>,
+    ) -> Direction;
 }
 
 // info is called when you create your Battlesnake on play.battlesnake.com
@@ -97,6 +106,7 @@ pub fn get_move(
     board: &Board,
     you: &Battlesnake,
     variant: String,
+    chickens: &State<Chickens>,
 ) -> Direction {
     let brain: Box<dyn Brain> = match variant.as_str() {
         "hungry_simple" => Box::new(hungry_simple_snake::HungrySimpleSnake::new()),
@@ -104,18 +114,17 @@ pub fn get_move(
         "smart_snake" => Box::new(smart_snake::SmartSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-    let next_move = brain.logic(game, turn, board, you);
+    let next_move = brain.logic(game, turn, board, you, chickens);
     // info!("MOVE {}: {}", turn, next_move);
     return next_move;
 }
 
 #[cfg(test)]
 mod json_requests {
-    use std::env;
-
-    use crate::logic::Direction;
-
     use super::{efficient_game_objects::e_game_state::EGameState, get_move};
+    use crate::logic::{efficient_game_objects::depth_first::chickens::Chickens, Direction};
+    use rocket::State;
+    use std::env;
 
     const DIR: &str = "requests/";
 
@@ -137,6 +146,7 @@ mod json_requests {
             &game_state.board,
             &game_state.you,
             env::var("VARIANT").unwrap_or("smart_snake".to_string()),
+            State::from(&Chickens::new()),
         );
         m
     }
@@ -443,5 +453,11 @@ mod json_requests {
     fn failure_44_panic() {
         let chosen_move = get_move_from_json_file("failure_44_panic.json");
         assert_ne!(chosen_move, Direction::Down);
+    }
+
+    #[test]
+    fn failure_45_panic_again() {
+        let chosen_move = get_move_from_json_file("failure_45_panic_again.json");
+        assert_eq!(chosen_move, Direction::Right);
     }
 }

@@ -1,10 +1,3 @@
-GET http://localhost:8000/ HTTP/1.1
-
-###
-
-POST http://localhost:8001/move HTTP/1.1
-content-type: application/json
-
 {
     "game": {
         "id": "5f1db2a2-5959-4327-8b87-24b4a0d89b8d",
@@ -47,7 +40,7 @@ content-type: application/json
         "snakes": [
             {
                 "id": "gs_mpMdHSX968WpYKtWRQbCGwyH",
-                "name": "Fairy Rust 2",
+                "name": "Fairy Rust",
                 "health": 99,
                 "body": [
                     {

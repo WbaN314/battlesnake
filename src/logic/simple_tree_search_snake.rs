@@ -234,7 +234,14 @@ impl SimpleTreeSearchSnake {
 }
 
 impl Brain for SimpleTreeSearchSnake {
-    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(
+        &self,
+        _game: &Game,
+        _turn: &i32,
+        board: &Board,
+        you: &Battlesnake,
+        _chickens: &State<Chickens>,
+    ) -> Direction {
         let (mut new_boards, mut move_scores) = step(board, &you.id);
 
         let depth = if board.snakes.len() == 2 { 3 } else { 1 };

@@ -1,5 +1,6 @@
 pub mod board_weights;
 pub mod breadth_first;
+pub mod depth_first;
 pub mod e_board;
 pub mod e_coord;
 pub mod e_direction;
