@@ -169,6 +169,7 @@ impl EStateTree {
                         result = Result::Err(ESimulationError::Death)
                     }
                     Err(ESimulationError::Timer) => return Err(ESimulationError::Timer),
+                    _ => panic!("Invalid result"),
                 }
                 if node.completely_evaluated() {
                     delete = true
@@ -200,6 +201,7 @@ impl EStateTree {
                 Err(ESimulationError::Timer) => {
                     break;
                 }
+                _ => panic!("Invalid result"),
             }
         }
         results

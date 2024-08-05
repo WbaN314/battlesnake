@@ -934,6 +934,54 @@ impl EGameState {
             }
         }
     }
+
+    fn relevant_states_after_move_in_direction(
+        &self,
+        direction: EDirection,
+        distance: u8,
+        possible_move_sets: &Vec<[Option<EDirection>; SNAKES as usize]>,
+    ) -> Result<Vec<Self>> {
+        let mut new_relevant_states = Vec::new();
+        let relevant_move_sets = possible_move_sets
+            .into_iter()
+            .filter(|x| x[0].unwrap() == direction);
+        let mut relevant_move_set_exists = false;
+        for current_move_set in relevant_move_sets {
+            relevant_move_set_exists = true;
+            let mut new_state = self.clone();
+            new_state.move_snakes(*current_move_set, distance, true)?;
+            new_relevant_states.push(new_state);
+        }
+        if !relevant_move_set_exists {
+            return Err(ESimulationError::Death);
+        } else {
+            Ok(new_relevant_states)
+        }
+    }
+
+    pub fn calculate_relevant_states_after_move(
+        &self,
+        distance: u8,
+        evaluate_direction: [bool; 4],
+    ) -> [Result<Vec<Self>>; 4] {
+        let mut results = [
+            Err(ESimulationError::NotEvaluated),
+            Err(ESimulationError::NotEvaluated),
+            Err(ESimulationError::NotEvaluated),
+            Err(ESimulationError::NotEvaluated),
+        ];
+        let possible_move_sets = self.relevant_moves(distance);
+        for i in 0..4 {
+            if evaluate_direction[i] {
+                results[i] = self.relevant_states_after_move_in_direction(
+                    EDirection::from_usize(i),
+                    distance,
+                    &possible_move_sets,
+                );
+            }
+        }
+        results
+    }
 }
 
 impl fmt::Display for EGameState {
@@ -1038,10 +1086,11 @@ mod tests {
 
     #[test]
     fn test_print_capture_in_direction() {
-        let game_state = read_game_state("requests/failure_39_grab_food_in_middle.json");
+        let game_state =
+            read_game_state("requests/failure_42_going_right_enables_getting_killed.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
-        let result = board.capture_in_direction(EDirection::Left);
+        let result = board.capture_in_direction(EDirection::Right);
         println!("{}", &board);
         println!("{:?}", result);
     }

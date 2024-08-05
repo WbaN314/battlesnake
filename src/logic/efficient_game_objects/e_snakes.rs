@@ -64,6 +64,7 @@ pub type Result<T> = std::result::Result<T, ESimulationError>;
 pub enum ESimulationError {
     Death,
     Timer,
+    NotEvaluated,
 }
 
 // Define our error types. These may be customized for our error handling cases.
