@@ -1,3 +1,5 @@
+#![feature(test)]
+extern crate test;
 #[macro_use]
 extern crate rocket;
 
@@ -8,7 +10,6 @@ use rocket::http::Status;
 use rocket::serde::{json::Json, Deserialize, Serialize};
 use rocket::State;
 use serde_json::{json, Value};
-use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::env;
 

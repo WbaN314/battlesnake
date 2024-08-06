@@ -65,7 +65,7 @@ impl SimulationTree {
 impl Display for SimulationTree {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (id, node) in self.map.iter() {
-            writeln!(f, "{}: {}", id, node.borrow())?;
+            writeln!(f, "{}-> {}", id, node.borrow())?;
         }
         Ok(())
     }
@@ -79,17 +79,46 @@ mod tests {
     use crate::logic::{
         efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
     };
+    use test::Bencher;
+
+    #[bench]
+    fn bench_simulate_and_add_children(b: &mut Bencher) {
+        b.iter(|| {
+            let game_state = read_game_state("requests/failure_1.json");
+            let e_game_state = EGameState::from(&game_state.board, &game_state.you);
+            let mut simulation_tree = SimulationTree::from(e_game_state);
+            simulation_tree.simulate_and_add_children(&EDirectionVec::new(), u8::MAX);
+            simulation_tree
+                .simulate_and_add_children(&EDirectionVec::from(vec![EDirection::Left]), u8::MAX);
+            simulation_tree.simulate_and_add_children(
+                &EDirectionVec::from(vec![EDirection::Left, EDirection::Left]),
+                u8::MAX,
+            );
+            simulation_tree.simulate_and_add_children(
+                &EDirectionVec::from(vec![EDirection::Left, EDirection::Left, EDirection::Down]),
+                u8::MAX,
+            );
+        });
+    }
 
     #[test]
     fn test_add_all_child_parent_converts_to_result() {
-        let game_state = read_game_state("requests/example_move_request_3.json");
+        let game_state = read_game_state("requests/failure_1.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
         let mut simulation_tree = SimulationTree::from(e_game_state);
         let root_id = EDirectionVec::new();
         simulation_tree.simulate_and_add_children(&root_id, u8::MAX);
         simulation_tree
-            .simulate_and_add_children(&EDirectionVec::from(vec![EDirection::Down]), u8::MAX);
+            .simulate_and_add_children(&EDirectionVec::from(vec![EDirection::Left]), u8::MAX);
+        simulation_tree.simulate_and_add_children(
+            &EDirectionVec::from(vec![EDirection::Left, EDirection::Left]),
+            u8::MAX,
+        );
+        simulation_tree.simulate_and_add_children(
+            &EDirectionVec::from(vec![EDirection::Left, EDirection::Left, EDirection::Down]),
+            u8::MAX,
+        );
         println!("{}", simulation_tree);
     }
 }

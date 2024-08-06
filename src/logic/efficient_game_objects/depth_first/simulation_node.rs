@@ -66,8 +66,8 @@ impl SimulationNode {
 impl Display for SimulationNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SimulationNode::Relevant(_) => write!(f, "Relevant"),
-            SimulationNode::Completed(_) => write!(f, "Completed"),
+            SimulationNode::Relevant(node) => write!(f, "Relevant {}", node),
+            SimulationNode::Completed(rating) => write!(f, "Completed {}", rating),
             SimulationNode::NotRelevant => write!(f, "NotRelevant"),
         }
     }

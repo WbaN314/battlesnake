@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::node_rating::NodeRating;
 use super::simulation_node::SimulationNode;
 use crate::logic::efficient_game_objects::e_game_state::EGameState;
@@ -91,5 +93,19 @@ impl Node {
             }
         }
         result
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.rating {
+            Some(ref rating) => {
+                write!(f, "Rating: {} States: {}", rating, self.states.len())?;
+            }
+            None => {
+                write!(f, "Unrated States: {}", self.states.len())?;
+            }
+        }
+        Ok(())
     }
 }
