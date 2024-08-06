@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use super::node_rating::NodeRating;
 use super::simulation_node::SimulationNode;
+use super::simulation_state::SimulationState;
 use crate::logic::efficient_game_objects::e_game_state::EGameState;
 use crate::logic::efficient_game_objects::e_snakes::{ESimulationError, Result};
 
@@ -44,12 +45,15 @@ impl Node {
         self.rating.as_ref()
     }
 
-    fn calculate_relevant_states_after_move(&self, distance: u8) -> [Result<Vec<EGameState>>; 4] {
+    fn calculate_relevant_states_after_move(
+        &self,
+        distance: u8,
+    ) -> [SimulationState<Vec<EGameState>>; 4] {
         let mut states_by_direction = [
-            Ok(Vec::new()),
-            Ok(Vec::new()),
-            Ok(Vec::new()),
-            Ok(Vec::new()),
+            SimulationState::Alive(Vec::new()),
+            SimulationState::Alive(Vec::new()),
+            SimulationState::Alive(Vec::new()),
+            SimulationState::Alive(Vec::new()),
         ];
         let mut still_relevant = [true, true, true, true];
         for state in self.states.iter() {
@@ -57,10 +61,10 @@ impl Node {
             for i in 0..4 {
                 match state_result[i].to_owned() {
                     Ok(mut states) => {
-                        states_by_direction[i].as_mut().unwrap().append(&mut states);
+                        states_by_direction[i].append(&mut states);
                     }
                     Err(ESimulationError::Death) => {
-                        states_by_direction[i] = Err(ESimulationError::Death);
+                        states_by_direction[i] = SimulationState::Dead;
                         still_relevant[i] = false;
                     }
                     Err(_) => (),
@@ -79,17 +83,18 @@ impl Node {
             SimulationNode::NotRelevant,
         ];
         for i in 0..4 {
-            match state_vec[i].to_owned() {
-                Ok(states) => {
-                    let mut node = Node::from(states);
+            match state_vec[i] {
+                SimulationState::Alive(ref states) => {
+                    let mut node = Node::from(states.clone());
                     node.calculate_node_rating();
                     let simulation_node = SimulationNode::from(node);
                     result[i] = simulation_node;
                 }
-                Err(ESimulationError::Death) => {
+                SimulationState::Dead => {
                     result[i] = SimulationNode::NotRelevant;
                 }
-                Err(_) => panic!("Unexpected error"),
+                SimulationState::ChickenAlive(_) => panic!("Not implemented"),
+                SimulationState::TimedOut => panic!("Not implemented"),
             }
         }
         result
