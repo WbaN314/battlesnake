@@ -9,6 +9,7 @@ pub enum SimulationNode {
     Completed(NodeRating),
     Relevant(Node),
     NotRelevant,
+    Unfinished,
 }
 
 impl SimulationNode {
@@ -27,6 +28,7 @@ impl SimulationNode {
             }
             SimulationNode::Completed(_) => panic!("Is already completed"),
             SimulationNode::NotRelevant => panic!("Is not relevant"),
+            SimulationNode::Unfinished => panic!("Is unfinished"),
         }
     }
 
@@ -37,6 +39,7 @@ impl SimulationNode {
             }
             SimulationNode::Completed(rating) => rating.update(other_rating),
             SimulationNode::NotRelevant => panic!("Is not relevant"),
+            SimulationNode::Unfinished => panic!("Is unfinished"),
         }
     }
 
@@ -45,6 +48,7 @@ impl SimulationNode {
             SimulationNode::Completed(rating) => Some(rating),
             SimulationNode::Relevant(node) => Some(&node.rating),
             SimulationNode::NotRelevant => None,
+            SimulationNode::Unfinished => None,
         }
     }
 
@@ -55,6 +59,7 @@ impl SimulationNode {
             }
             SimulationNode::Completed(_) => panic!("Children should be already calculated"),
             SimulationNode::NotRelevant => panic!("Node is not relevant"),
+            SimulationNode::Unfinished => panic!("Node is unfinished"),
         }
     }
 
@@ -69,6 +74,9 @@ impl SimulationNode {
             SimulationNode::NotRelevant => {
                 println!("No states to print on NotRelevant SimulationNode")
             }
+            SimulationNode::Unfinished => {
+                println!("No states to print on Unfinished SimulationNode")
+            }
         }
     }
 }
@@ -79,6 +87,7 @@ impl Display for SimulationNode {
             SimulationNode::Relevant(node) => write!(f, "Relevant {}", node),
             SimulationNode::Completed(rating) => write!(f, "Completed {}", rating),
             SimulationNode::NotRelevant => write!(f, "NotRelevant"),
+            SimulationNode::Unfinished => write!(f, "Unfinished"),
         }
     }
 }

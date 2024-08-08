@@ -27,7 +27,7 @@ impl Node {
 
     fn calculate_relevant_states_after_move(
         &self,
-        distance: u8,
+        parameters: &SimulationParameters,
     ) -> [SimulationState<Vec<EGameState>>; 4] {
         let mut states_by_direction = [
             SimulationState::Alive(Vec::new()),
@@ -37,7 +37,18 @@ impl Node {
         ];
         let mut still_relevant = [true, true, true, true];
         for state in self.states.iter() {
-            let state_result = state.calculate_relevant_states_after_move(distance, still_relevant);
+            if parameters.is_time_up() {
+                return [
+                    SimulationState::TimedOut,
+                    SimulationState::TimedOut,
+                    SimulationState::TimedOut,
+                    SimulationState::TimedOut,
+                ];
+            }
+            let state_result = state.calculate_relevant_states_after_move(
+                parameters.move_snake_head_distance,
+                still_relevant,
+            );
             for i in 0..4 {
                 match state_result[i].to_owned() {
                     Ok(mut states) => {
@@ -58,8 +69,7 @@ impl Node {
         &self,
         parameters: &SimulationParameters,
     ) -> [SimulationNode; 4] {
-        let state_vec =
-            self.calculate_relevant_states_after_move(parameters.move_snake_head_distance);
+        let state_vec = self.calculate_relevant_states_after_move(parameters);
         let mut result = [
             SimulationNode::NotRelevant,
             SimulationNode::NotRelevant,
@@ -77,7 +87,9 @@ impl Node {
                     result[i] = SimulationNode::NotRelevant;
                 }
                 SimulationState::ChickenAlive(_) => panic!("Not implemented"),
-                SimulationState::TimedOut => panic!("Not implemented"),
+                SimulationState::TimedOut => {
+                    result[i] = SimulationNode::Unfinished;
+                }
             }
         }
         result
