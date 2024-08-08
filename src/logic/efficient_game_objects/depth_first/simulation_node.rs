@@ -35,9 +35,9 @@ impl SimulationNode {
     pub fn update_rating(&mut self, other_rating: &NodeRating) {
         match self {
             SimulationNode::Relevant(node) => {
-                node.rating.update(other_rating);
+                node.rating.update_from_child_node_rating(other_rating);
             }
-            SimulationNode::Completed(rating) => rating.update(other_rating),
+            SimulationNode::Completed(rating) => rating.update_from_child_node_rating(other_rating),
             SimulationNode::NotRelevant => panic!("Is not relevant"),
             SimulationNode::Unfinished => panic!("Is unfinished"),
         }

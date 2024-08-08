@@ -133,7 +133,8 @@ impl Node {
         for (_, mut states) in pruned_states.drain() {
             self.states.push(states.pop().unwrap());
         }
-        self.rating.pruned_states_from_this_node = initial_states - self.states.len();
+        self.rating
+            .set_pruned_states(initial_states - self.states.len());
     }
 }
 
