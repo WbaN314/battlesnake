@@ -1,5 +1,8 @@
 use core::fmt;
-use std::cell::{Ref, RefCell, RefMut};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    hash::Hash,
+};
 
 use crate::Battlesnake;
 
@@ -33,6 +36,13 @@ impl ESnake {
     }
 }
 
+impl Hash for ESnake {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.tail.hash(state);
+        self.length.hash(state);
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ESnakes([RefCell<Option<ESnake>>; SNAKES as usize]);
 
@@ -55,6 +65,14 @@ impl ESnakes {
 
     pub fn count_alive(&self) -> u8 {
         self.0.iter().filter(|x| x.borrow().is_some()).count() as u8
+    }
+}
+
+impl Hash for ESnakes {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for snake in self.0.iter() {
+            snake.borrow().hash(state);
+        }
     }
 }
 

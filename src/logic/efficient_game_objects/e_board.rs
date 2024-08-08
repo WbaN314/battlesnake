@@ -95,7 +95,7 @@ impl EBoard {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub enum EField {
     Empty,
     Food,
