@@ -1,3 +1,4 @@
+use std::cmp;
 use std::collections::HashMap;
 use std::fmt::Display;
 
@@ -101,13 +102,10 @@ impl Node {
         a_node: &Node,
         b_node: &Node,
     ) -> std::cmp::Ordering {
-        if a_id.len() < b_id.len() {
-            std::cmp::Ordering::Less
-        } else if a_id.len() > b_id.len() {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Equal
-        }
+        a_node
+            .rating
+            .cmp(&b_node.rating)
+            .then(a_id.len().cmp(&b_id.len()))
     }
 
     pub fn print_states(&self) {
@@ -135,6 +133,7 @@ impl Node {
         }
         self.rating
             .set_pruned_states(initial_states - self.states.len());
+        self.rating.set_current_states(self.states.len());
     }
 }
 

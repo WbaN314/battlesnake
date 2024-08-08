@@ -8,13 +8,13 @@ use crate::logic::efficient_game_objects::{
 };
 use std::{
     cell::RefCell,
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     fmt::{Display, Formatter},
 };
 
 pub struct SimulationTree {
     pub map: BTreeMap<EDirectionVec, RefCell<SimulationNode>>,
-    priority_queue: Vec<EDirectionVec>,
+    priority_queue: VecDeque<EDirectionVec>,
     parameters: SimulationParameters,
 }
 
@@ -25,7 +25,7 @@ impl SimulationTree {
         map.insert(EDirectionVec::new(), RefCell::new(root));
         SimulationTree {
             map,
-            priority_queue: Vec::new(),
+            priority_queue: VecDeque::new(),
             parameters: SimulationParameters::new(),
         }
     }
@@ -53,7 +53,7 @@ impl SimulationTree {
             self.propagate_rating_upwards(&child_id);
             match children[d] {
                 SimulationNode::Relevant(_) => {
-                    self.priority_queue.push(child_id);
+                    self.priority_queue.push_front(child_id);
                 }
                 _ => (),
             }
@@ -81,7 +81,7 @@ impl SimulationTree {
 
     /// Sorts the priority queqe ascending on nodes
     fn prioritize_priority_queue(&mut self) {
-        self.priority_queue.sort_by(|a_id, b_id| {
+        self.priority_queue.make_contiguous().sort_by(|a_id, b_id| {
             match (
                 &*self.map.get(a_id).unwrap().borrow(),
                 &*self.map.get(b_id).unwrap().borrow(),
@@ -98,9 +98,9 @@ impl SimulationTree {
 
     pub fn simulate_timed(&mut self, parameters: SimulationParameters) {
         self.set_parameters(parameters);
-        self.priority_queue.push(EDirectionVec::new());
+        self.priority_queue.push_front(EDirectionVec::new());
         while self.priority_queue.len() > 0 && !self.parameters.is_time_up() {
-            let id = self.priority_queue.pop().unwrap();
+            let id = self.priority_queue.pop_back().unwrap();
             self.simulate_and_add_children(&id);
             self.prioritize_priority_queue();
         }

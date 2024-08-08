@@ -9,7 +9,8 @@ use super::state_rating::StateRating;
 
 #[derive(Clone)]
 pub struct NodeRating {
-    pub states_on_this_node: usize,
+    pub initial_states_on_this_node: usize,
+    pub current_states_on_this_node: usize,
     pub pruned_states_from_this_node: usize,
     pub worst_current_length: u8,
     pub most_snakes_alive: u8,
@@ -18,7 +19,8 @@ pub struct NodeRating {
 impl NodeRating {
     pub fn new() -> Self {
         NodeRating {
-            states_on_this_node: 0,
+            initial_states_on_this_node: 0,
+            current_states_on_this_node: 0,
             pruned_states_from_this_node: 0,
             worst_current_length: u8::MAX,
             most_snakes_alive: 0,
@@ -27,7 +29,8 @@ impl NodeRating {
 
     pub fn from(states: &Vec<EGameState>) -> Self {
         let mut node = NodeRating::new();
-        node.states_on_this_node = states.len();
+        node.initial_states_on_this_node = states.len();
+        node.current_states_on_this_node = states.len();
         for state in states {
             node.update_from_state_rating(&StateRating::from(state));
         }
@@ -46,14 +49,20 @@ impl NodeRating {
     pub fn set_pruned_states(&mut self, pruned_states: usize) {
         self.pruned_states_from_this_node = pruned_states;
     }
+
+    pub fn set_current_states(&mut self, current_states: usize) {
+        self.current_states_on_this_node = current_states;
+    }
 }
 
 impl Display for NodeRating {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "States: {}, Pruned: {}",
-            self.states_on_this_node, self.pruned_states_from_this_node
+            "Initial: {}, Pruned: {}, Current: {}",
+            self.initial_states_on_this_node,
+            self.pruned_states_from_this_node,
+            self.current_states_on_this_node
         )
     }
 }
@@ -74,6 +83,13 @@ impl Eq for NodeRating {}
 
 impl Ord for NodeRating {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
+        self.most_snakes_alive
+            .cmp(&other.most_snakes_alive)
+            .then(other.worst_current_length.cmp(&self.worst_current_length))
+            .then(
+                other
+                    .current_states_on_this_node
+                    .cmp(&self.current_states_on_this_node),
+            )
     }
 }
