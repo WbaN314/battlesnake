@@ -208,13 +208,14 @@ mod tests {
 
     #[test]
     fn test_simulate_timed() {
-        let game_state = read_game_state("requests/failure_1.json");
+        let game_state =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
         let mut simulation_tree = SimulationTree::from(e_game_state);
         let mut parameters = SimulationParameters::new();
         parameters.duration = Some(Duration::from_millis(100));
-        parameters.board_state_prune_distance = Some(5);
+        parameters.board_state_prune_distance = None;
         simulation_tree.simulate_timed(parameters);
         println!("{}", simulation_tree);
     }

@@ -6,3 +6,11 @@ Competing at [play.battlesnake.com](https://play.battlesnake.com). Each particip
 
 This project uses [Rust](https://www.rust-lang.org/) and [Rocket](https://rocket.rs) for performance reasons (simulating future gamestates scales exponentially so optimization is key). It also comes with an [Dockerfile](https://docs.docker.com/engine/reference/builder/) that is used for easy Google Could Run deployment.
 
+## Commands
+
+```
+cargo run
+cargo test
+cargo bench
+```
+
