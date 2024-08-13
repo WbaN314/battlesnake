@@ -14,7 +14,11 @@ use log::info;
 use rocket::State;
 use std::{env, fmt::Display, time::Duration};
 
-use super::efficient_game_objects::depth_first::chickens::Chickens;
+use super::efficient_game_objects::depth_first::{
+    chickens::Chickens,
+    simulation_parameters::{self, SimulationParameters},
+    simulation_tree::SimulationTree,
+};
 
 pub struct Scores {
     scores: Vec<([i64; 4], String)>,
@@ -125,6 +129,16 @@ pub struct SmartSnake {}
 impl SmartSnake {
     pub fn new() -> Self {
         Self {}
+    }
+
+    fn depth_first_simulation(
+        &self,
+        game_state: &EGameState,
+        simulation_parameters: SimulationParameters,
+    ) -> [([i64; 4], String); 4] {
+        let mut depth_first_tree = SimulationTree::from(game_state.clone());
+        let simulation_states = depth_first_tree.simulate_timed(simulation_parameters);
+        todo!()
     }
 
     fn depth_and_alive_and_snakes_and_length(
