@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::u8;
 
 use super::node_rating::NodeRating;
 use super::simulation_node::SimulationNode;
@@ -46,7 +47,7 @@ impl Node {
                 ];
             }
             let state_result = state.calculate_relevant_states_after_move(
-                parameters.move_snake_head_distance,
+                parameters.move_snake_head_distance.unwrap_or(u8::MAX),
                 still_relevant,
             );
             for i in 0..4 {

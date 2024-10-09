@@ -180,9 +180,9 @@ mod tests {
             read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
-        let mut parameters = SimulationParameters::new();
-        parameters.duration = Some(Duration::from_millis(100));
-        parameters.board_state_prune_distance = Some(5);
+        let parameters = SimulationParameters::new()
+            .duration(Duration::from_millis(100))
+            .board_state_prune_distance(5);
         let result = SimulationTree::from(e_game_state)
             .with_parameters(parameters)
             .simulate_timed();

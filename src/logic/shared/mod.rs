@@ -4,6 +4,7 @@ pub mod e_board;
 pub mod e_coord;
 pub mod e_direction;
 pub mod e_game_state;
+pub mod e_scores;
 pub mod e_snakes;
 
 #[cfg(test)]
