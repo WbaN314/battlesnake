@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use super::{node::Node, node_rating::NodeRating, simulation_parameters::SimulationParameters};
 use crate::logic::efficient_game_objects::e_game_state::EGameState;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SimulationNode {
     Completed(NodeRating),
     Relevant(Node),

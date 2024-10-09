@@ -5,7 +5,7 @@ use super::{e_coord::ECoord, e_snakes::SNAKES};
 pub const X_SIZE: i8 = 11;
 pub const Y_SIZE: i8 = 11;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EBoard([RefCell<EField>; X_SIZE as usize * Y_SIZE as usize]);
 
 impl EBoard {

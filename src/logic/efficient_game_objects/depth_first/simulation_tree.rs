@@ -2,6 +2,7 @@
 use super::{
     direction_rating::DirectionRating, node::Node, node_rating::NodeRating,
     simulation_node::SimulationNode, simulation_parameters::SimulationParameters,
+    simulation_result::SimulationResult,
 };
 use crate::logic::efficient_game_objects::{
     e_direction::{EDirection, EDirectionVec},
@@ -97,10 +98,7 @@ impl SimulationTree {
         });
     }
 
-    pub fn simulate_timed(
-        &mut self,
-        parameters: SimulationParameters,
-    ) -> [Option<DirectionRating>; 4] {
+    pub fn simulate_timed(mut self, parameters: SimulationParameters) -> SimulationResult {
         self.set_parameters(parameters);
         self.priority_queue.push_front(EDirectionVec::new());
         while self.priority_queue.len() > 0 && !self.parameters.is_time_up() {
@@ -108,12 +106,7 @@ impl SimulationTree {
             self.simulate_and_add_children(&id);
             self.prioritize_priority_queue();
         }
-        let mut result = [None, None, None, None];
-        for d in 0..4 {
-            let id = EDirectionVec::from(vec![EDirection::from_usize(d)]);
-            result[d] = DirectionRating::from(&self, &id);
-        }
-        result
+        SimulationResult::from(self)
     }
 
     pub fn print_states(&self, id: &EDirectionVec) {
@@ -225,8 +218,7 @@ mod tests {
         let mut simulation_tree = SimulationTree::from(e_game_state);
         let mut parameters = SimulationParameters::new();
         parameters.duration = Some(Duration::from_millis(100));
-        parameters.board_state_prune_distance = None;
-        simulation_tree.simulate_timed(parameters);
-        println!("{}", simulation_tree);
+        parameters.board_state_prune_distance = Some(5);
+        let result = simulation_tree.simulate_timed(parameters);
     }
 }

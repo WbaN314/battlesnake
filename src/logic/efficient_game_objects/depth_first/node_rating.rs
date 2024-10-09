@@ -7,7 +7,7 @@ use crate::logic::efficient_game_objects::e_game_state::EGameState;
 
 use super::state_rating::StateRating;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NodeRating {
     pub initial_states_on_this_node: usize,
     pub current_states_on_this_node: usize,

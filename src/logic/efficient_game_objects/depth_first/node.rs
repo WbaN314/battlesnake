@@ -10,7 +10,7 @@ use crate::logic::efficient_game_objects::e_direction::EDirectionVec;
 use crate::logic::efficient_game_objects::e_game_state::EGameState;
 use crate::logic::efficient_game_objects::e_snakes::ESimulationError;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Node {
     pub states: Vec<EGameState>,
     pub rating: NodeRating,

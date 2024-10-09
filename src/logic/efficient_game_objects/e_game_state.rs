@@ -8,7 +8,6 @@ use super::{
 use crate::{Battlesnake, Board};
 use core::{fmt, panic};
 use std::{
-    borrow::Borrow,
     collections::HashSet,
     hash::{DefaultHasher, Hash, Hasher},
 };
@@ -42,7 +41,7 @@ impl EStateRating {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EGameState {
     pub board: EBoard,
     pub snakes: ESnakes,

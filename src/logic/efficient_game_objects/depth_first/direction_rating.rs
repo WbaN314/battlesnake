@@ -2,6 +2,7 @@ use crate::logic::efficient_game_objects::e_direction::EDirectionVec;
 
 use super::simulation_tree::SimulationTree;
 
+#[derive(Debug)]
 pub struct DirectionRating {
     best_snake_progression: Vec<u8>,
 }
@@ -15,6 +16,8 @@ impl DirectionRating {
 
     pub fn from(simulation_tree: &SimulationTree, id: &EDirectionVec) -> Option<Self> {
         // TODO
+        let direction_parent = simulation_tree.map.get(id).unwrap();
+        println!("{:?}", direction_parent);
         Some(Self::new())
     }
 
