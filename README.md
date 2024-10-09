@@ -14,3 +14,12 @@ cargo test
 cargo bench
 ```
 
+To test snakes against stored states
+
+```
+VARIANT=simple_hungry cargo test
+VARIANT=simple_tree_search cargo test
+VARIANT=depth_first cargo test
+VARIANT=breadth_first cargo test
+```
+

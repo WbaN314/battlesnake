@@ -136,7 +136,7 @@ mod json_requests {
             &game_state.turn,
             &game_state.board,
             &game_state.you,
-            env::var("VARIANT").unwrap_or("depth_first".to_string()),
+            env::var("VARIANT").unwrap_or("breadth_first".to_string()),
         );
         m
     }
