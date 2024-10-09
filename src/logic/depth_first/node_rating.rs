@@ -37,7 +37,7 @@ impl NodeRating {
         node
     }
 
-    pub fn update_from_child_node_rating(&mut self, other: &NodeRating) {
+    pub fn update_from_child_node_rating(&mut self, _other: &NodeRating) {
         // TODO
     }
 

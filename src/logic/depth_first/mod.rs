@@ -21,10 +21,10 @@ impl DepthFirstSnake {
 impl Brain for DepthFirstSnake {
     fn logic(
         &self,
-        game: &crate::Game,
-        turn: &i32,
-        board: &crate::Board,
-        you: &crate::Battlesnake,
+        _game: &crate::Game,
+        _turn: &i32,
+        _board: &crate::Board,
+        _you: &crate::Battlesnake,
     ) -> super::Direction {
         todo!()
     }

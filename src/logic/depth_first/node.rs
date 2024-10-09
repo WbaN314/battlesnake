@@ -1,4 +1,3 @@
-use std::cmp;
 use std::collections::HashMap;
 use std::fmt::Display;
 
@@ -87,7 +86,6 @@ impl Node {
                 SimulationState::Dead => {
                     result[i] = SimulationNode::NotRelevant;
                 }
-                SimulationState::ChickenAlive(_) => panic!("Not implemented"),
                 SimulationState::TimedOut => {
                     result[i] = SimulationNode::Unfinished;
                 }

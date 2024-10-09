@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use super::{
-    direction_rating::DirectionRating, node::Node, node_rating::NodeRating,
-    simulation_node::SimulationNode, simulation_parameters::SimulationParameters,
+    node::Node, simulation_node::SimulationNode, simulation_parameters::SimulationParameters,
     simulation_result::SimulationResult,
 };
 use crate::logic::shared::{

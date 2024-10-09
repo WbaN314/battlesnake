@@ -33,7 +33,7 @@ mod tests {
         let game_state = read_game_state("requests/failure_1.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
-        let mut tree = SimulationTree::from(e_game_state);
+        let tree = SimulationTree::from(e_game_state);
         let mut parameters = SimulationParameters::new();
         parameters.duration = Some(Duration::from_millis(100));
         parameters.board_state_prune_distance = Some(5);
