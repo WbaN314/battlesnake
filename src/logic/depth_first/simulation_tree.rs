@@ -117,6 +117,12 @@ impl SimulationTree {
             }
         }
     }
+
+    pub fn print_node_ratings(&self) {
+        for node in self.map.iter() {
+            println!("{} -> {:?}", node.0, node.1.borrow().get_rating());
+        }
+    }
 }
 
 impl Display for SimulationTree {

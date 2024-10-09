@@ -30,14 +30,13 @@ mod tests {
 
     #[test]
     fn test_add_all_child_parent_converts_to_result() {
-        let game_state = read_game_state("requests/failure_1.json");
+        let game_state = read_game_state("requests/failure_23_go_for_kill_here.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
-        let tree = SimulationTree::from(e_game_state);
-        let mut parameters = SimulationParameters::new();
-        parameters.duration = Some(Duration::from_millis(100));
-        parameters.board_state_prune_distance = Some(5);
-        let result = tree.with_parameters(parameters).simulate_timed();
-        println!("{}", result);
+        let parameters = SimulationParameters::new().duration(Duration::from_millis(200));
+        let result = SimulationTree::from(e_game_state)
+            .with_parameters(parameters)
+            .simulate_timed();
+        result.simulation_tree.print_node_ratings();
     }
 }
