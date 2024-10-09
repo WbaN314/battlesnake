@@ -1,4 +1,6 @@
-use super::*;
+use crate::{Battlesnake, Board, Coord, Game};
+
+use super::shared::{brain::Brain, direction::Direction};
 
 fn simulate_snakes_step(board: &Board) -> Vec<Board> {
     let mut new_boards = Vec::with_capacity(board.snakes.len().pow(4));

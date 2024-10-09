@@ -1,3 +1,5 @@
+pub mod brain;
+pub mod direction;
 pub mod e_board;
 pub mod e_coord;
 pub mod e_direction;

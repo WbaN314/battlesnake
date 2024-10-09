@@ -1,4 +1,9 @@
-use super::*;
+use std::collections::HashMap;
+
+use crate::{Battlesnake, Board, Coord, Game};
+
+use super::shared::{brain::Brain, direction::Direction};
+
 pub struct SimpleHungrySnake {}
 
 impl SimpleHungrySnake {
