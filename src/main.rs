@@ -4,11 +4,9 @@ extern crate test;
 extern crate rocket;
 
 use log::info;
-use logic::efficient_game_objects::depth_first::chickens::Chickens;
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
 use rocket::serde::{json::Json, Deserialize, Serialize};
-use rocket::State;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
@@ -78,12 +76,12 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 }
 
 #[post("/move", format = "json", data = "<move_req>")]
-fn handle_move(mut move_req: Json<GameState>, chickens: &State<Chickens>) -> Json<Value> {
+fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
     info!("{}", serde_json::to_string(&r).unwrap());
 
-    let variant = env::var("VARIANT").unwrap_or(String::from("smart_snake"));
+    let variant = env::var("VARIANT").unwrap_or(String::from("breadth_first"));
 
     move_req = Json(r);
     let response = logic::get_move(
@@ -92,7 +90,6 @@ fn handle_move(mut move_req: Json<GameState>, chickens: &State<Chickens>) -> Jso
         &move_req.board,
         &move_req.you,
         variant,
-        chickens,
     );
 
     // println! {"{:?}", chickens.lock().unwrap().borrow()};
@@ -132,7 +129,6 @@ fn rocket() -> _ {
                 res.set_raw_header("Server", "battlesnake/github/starter-snake-rust");
             })
         }))
-        .manage(Chickens::new())
         .mount(
             "/",
             routes![handle_index, handle_start, handle_move, handle_end],

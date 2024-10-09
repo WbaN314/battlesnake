@@ -1,4 +1,4 @@
-use crate::logic::efficient_game_objects::e_direction::EDirectionVec;
+use crate::logic::shared::e_direction::EDirectionVec;
 
 use super::simulation_tree::SimulationTree;
 

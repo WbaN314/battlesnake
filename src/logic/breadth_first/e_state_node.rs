@@ -1,4 +1,4 @@
-use crate::logic::efficient_game_objects::{
+use crate::logic::shared::{
     e_direction::{EBoolDirections, EDirection},
     e_game_state::{EGameState, EStateRating},
     e_snakes::{ESimulationError, Result},

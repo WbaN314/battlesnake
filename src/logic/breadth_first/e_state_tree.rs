@@ -1,5 +1,4 @@
-use crate::logic::efficient_game_objects::{
-    breadth_first::e_state_node::{ENodeRating, EStateNode},
+use crate::logic::shared::{
     e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
     e_snakes::{ESimulationError, Result},
@@ -10,6 +9,8 @@ use std::{
     fmt::Display,
     time::{Duration, Instant},
 };
+
+use super::e_state_node::{ENodeRating, EStateNode};
 
 #[derive(Clone, Debug)]
 pub struct ESimulationState {

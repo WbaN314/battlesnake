@@ -11,19 +11,18 @@
 // For more info see docs.battlesnake.com
 
 use core::fmt;
-use efficient_game_objects::depth_first::chickens::Chickens;
 use log::info;
-use rocket::State;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use std::{collections::HashMap, env};
 
 use crate::{Battlesnake, Board, Coord, Game};
 
-pub mod efficient_game_objects;
-mod hungry_simple_snake;
-mod simple_tree_search_snake;
-mod smart_snake;
+mod breadth_first;
+mod depth_first;
+mod shared;
+mod simple_hungry;
+mod simple_tree_search;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum Direction {
@@ -58,14 +57,7 @@ impl Serialize for Direction {
 }
 
 trait Brain {
-    fn logic(
-        &self,
-        game: &Game,
-        turn: &i32,
-        board: &Board,
-        you: &Battlesnake,
-        chickens: &State<Chickens>,
-    ) -> Direction;
+    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction;
 }
 
 // info is called when you create your Battlesnake on play.battlesnake.com
@@ -106,24 +98,23 @@ pub fn get_move(
     board: &Board,
     you: &Battlesnake,
     variant: String,
-    chickens: &State<Chickens>,
 ) -> Direction {
     let brain: Box<dyn Brain> = match variant.as_str() {
-        "hungry_simple" => Box::new(hungry_simple_snake::HungrySimpleSnake::new()),
-        "simple_tree_search" => Box::new(simple_tree_search_snake::SimpleTreeSearchSnake::new()),
-        "smart_snake" => Box::new(smart_snake::SmartSnake::new()),
+        "simple_hungry" => Box::new(simple_hungry::SimpleHungrySnake::new()),
+        "simple_tree_search" => Box::new(simple_tree_search::SimpleTreeSearchSnake::new()),
+        "breadth_first" => Box::new(breadth_first::BreadthFirstSnake::new()),
+        "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-    let next_move = brain.logic(game, turn, board, you, chickens);
+    let next_move = brain.logic(game, turn, board, you);
     // info!("MOVE {}: {}", turn, next_move);
     return next_move;
 }
 
 #[cfg(test)]
 mod json_requests {
-    use super::{efficient_game_objects::e_game_state::EGameState, get_move};
-    use crate::logic::{efficient_game_objects::depth_first::chickens::Chickens, Direction};
-    use rocket::State;
+    use super::{get_move, shared::e_game_state::EGameState};
+    use crate::logic::Direction;
     use std::env;
 
     const DIR: &str = "requests/";
@@ -145,8 +136,7 @@ mod json_requests {
             &game_state.turn,
             &game_state.board,
             &game_state.you,
-            env::var("VARIANT").unwrap_or("smart_snake".to_string()),
-            State::from(&Chickens::new()),
+            env::var("VARIANT").unwrap_or("depth_first".to_string()),
         );
         m
     }

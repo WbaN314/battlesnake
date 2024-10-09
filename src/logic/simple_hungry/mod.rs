@@ -1,21 +1,14 @@
 use super::*;
-pub struct HungrySimpleSnake {}
+pub struct SimpleHungrySnake {}
 
-impl HungrySimpleSnake {
+impl SimpleHungrySnake {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Brain for HungrySimpleSnake {
-    fn logic(
-        &self,
-        _game: &Game,
-        _turn: &i32,
-        board: &Board,
-        you: &Battlesnake,
-        _chickens: &State<Chickens>,
-    ) -> Direction {
+impl Brain for SimpleHungrySnake {
+    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let mut is_move_safe: HashMap<Direction, _> = vec![
             (Direction::Up, true),
             (Direction::Down, true),

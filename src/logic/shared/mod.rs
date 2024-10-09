@@ -1,6 +1,3 @@
-pub mod board_weights;
-pub mod breadth_first;
-pub mod depth_first;
 pub mod e_board;
 pub mod e_coord;
 pub mod e_direction;
@@ -9,11 +6,9 @@ pub mod e_snakes;
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
 
-    use crate::logic::efficient_game_objects::{
-        breadth_first::e_state_tree::EStateTree, e_board::EField, e_coord::ECoord,
-        e_direction::EDirection, e_game_state::EGameState,
+    use crate::logic::shared::{
+        e_board::EField, e_coord::ECoord, e_direction::EDirection, e_game_state::EGameState,
     };
 
     fn read_game_state(path: &str) -> crate::GameState {
@@ -233,16 +228,6 @@ mod tests {
     }
 
     #[test]
-    fn direction_tree_simulate() {
-        let game_state = read_game_state("requests/example_move_request_3.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(10, Duration::from_millis(200));
-        println!("{}", d_tree);
-        println!("{:#?}", result);
-    }
-
-    #[test]
     fn print_board_3() {
         let game_state = read_game_state("requests/failure_1.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
@@ -267,96 +252,5 @@ mod tests {
             )
             .unwrap();
         println!("{board}")
-    }
-
-    #[test]
-    fn failure_1() {
-        let game_state = read_game_state("requests/failure_1.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{:?}", result);
-    }
-
-    #[test]
-    fn failure_2() {
-        let game_state = read_game_state("requests/failure_2.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{:?}", result);
-    }
-
-    #[test]
-    fn failure_4() {
-        let game_state = read_game_state("requests/failure_4.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let mut d_tree = EStateTree::from(board);
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{:?}", result);
-    }
-
-    #[test]
-    fn print_state_tree() {
-        let game_state = read_game_state("requests/failure_4.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let mut d_tree = EStateTree::from(board);
-        d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{}", d_tree);
-    }
-
-    #[test]
-    fn limit_distance() {
-        let game_state = read_game_state("requests/failure_1.json");
-        let board = EGameState::from(&game_state.board, &game_state.you);
-        let mut d_tree = EStateTree::from(board);
-        let mut d_tree_2 = d_tree.clone();
-        let result = d_tree.simulate_timed(u8::MAX, Duration::from_millis(200));
-        println!("{:?}", result);
-        let result_2 = d_tree_2.simulate_timed(4, Duration::from_millis(200));
-        println!("{:?}", result_2);
-    }
-
-    #[test]
-    fn testing_kill_evaluation() {
-        let game_state = read_game_state("requests/failure_18.json");
-        let mut board = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", &board);
-        let mut d_tree = EStateTree::from(board.clone());
-        let simulation_result_1 = d_tree.clone().simulate_timed(8, Duration::from_millis(300));
-        let simulation_result_2 = d_tree.simulate_timed(100, Duration::from_millis(300));
-        assert_eq!(
-            simulation_result_1[0].snake_count,
-            simulation_result_2[0].snake_count
-        );
-        println!("{:#?}", &simulation_result_1);
-        println!("{:#?}", &simulation_result_2);
-        board
-            .move_snakes([Some(EDirection::Left), None, None, None], 10, true)
-            .unwrap();
-        println!("{}", &board);
-        assert!(board.snakes.get(0).as_ref().is_some());
-        assert!(board.snakes.get(1).as_ref().is_some());
-        board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
-            .unwrap();
-        println!("{}", &board);
-        assert!(board.snakes.get(0).as_ref().is_some());
-        assert!(board.snakes.get(1).as_ref().is_some());
-        board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
-            .unwrap();
-        println!("{}", &board);
-        assert!(board.snakes.get(0).as_ref().is_some());
-        assert!(board.snakes.get(1).as_ref().is_some());
-        board
-            .move_snakes([Some(EDirection::Left), None, None, None], 8, true)
-            .unwrap();
-        println!("{}", &board);
-        assert!(board.snakes.get(0).as_ref().is_some());
-        assert!(board.snakes.get(1).as_ref().is_some());
     }
 }

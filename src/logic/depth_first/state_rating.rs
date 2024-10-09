@@ -1,4 +1,4 @@
-use crate::logic::efficient_game_objects::e_game_state::EGameState;
+use crate::logic::shared::e_game_state::EGameState;
 
 pub struct StateRating {
     pub snakes_alive: u8,

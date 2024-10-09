@@ -4,7 +4,7 @@ use super::{
     simulation_node::SimulationNode, simulation_parameters::SimulationParameters,
     simulation_result::SimulationResult,
 };
-use crate::logic::efficient_game_objects::{
+use crate::logic::shared::{
     e_direction::{EDirection, EDirectionVec},
     e_game_state::EGameState,
 };
@@ -32,8 +32,8 @@ impl SimulationTree {
         }
     }
 
-    pub fn set_parameters(&mut self, parameters: SimulationParameters) {
-        self.parameters = parameters;
+    pub fn with_parameters(self, parameters: SimulationParameters) -> Self {
+        Self { parameters, ..self }
     }
 
     // adds a child and transforms the parent to result if no longer needed
@@ -98,8 +98,7 @@ impl SimulationTree {
         });
     }
 
-    pub fn simulate_timed(mut self, parameters: SimulationParameters) -> SimulationResult {
-        self.set_parameters(parameters);
+    pub fn simulate_timed(mut self) -> SimulationResult {
         self.priority_queue.push_front(EDirectionVec::new());
         while self.priority_queue.len() > 0 && !self.parameters.is_time_up() {
             let id = self.priority_queue.pop_back().unwrap();
@@ -135,9 +134,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::logic::{
-        efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
-    };
+    use crate::logic::{json_requests::read_game_state, shared::e_game_state::EGameState};
     use test::Bencher;
 
     #[bench]
@@ -179,46 +176,17 @@ mod tests {
     }
 
     #[test]
-    fn test_state_pruning() {
-        let game_state = read_game_state("requests/failure_1.json");
-        let e_game_state = EGameState::from(&game_state.board, &game_state.you);
-        println!("{}", e_game_state);
-        let mut simulation_tree = SimulationTree::from(e_game_state);
-        let mut parameters = SimulationParameters::new();
-        parameters.duration = Some(Duration::from_millis(100));
-        parameters.board_state_prune_distance = Some(6);
-        simulation_tree.set_parameters(parameters.clone());
-        simulation_tree.simulate_and_add_children(&EDirectionVec::from(vec![]));
-        simulation_tree.simulate_and_add_children(&EDirectionVec::from(vec![EDirection::Left]));
-        simulation_tree.simulate_and_add_children(&EDirectionVec::from(vec![
-            EDirection::Left,
-            EDirection::Left,
-        ]));
-        println!("{}", simulation_tree);
-        let mut simulation_node = simulation_tree
-            .map
-            .get_mut(&EDirectionVec::from(vec![
-                EDirection::Left,
-                EDirection::Left,
-                EDirection::Down,
-            ]))
-            .unwrap()
-            .borrow_mut();
-        if let SimulationNode::Relevant(ref mut node) = *simulation_node {
-            node.prune_states(&parameters);
-        }
-    }
-
-    #[test]
     fn test_simulate_timed() {
         let game_state =
             read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
-        let mut simulation_tree = SimulationTree::from(e_game_state);
         let mut parameters = SimulationParameters::new();
         parameters.duration = Some(Duration::from_millis(100));
         parameters.board_state_prune_distance = Some(5);
-        let result = simulation_tree.simulate_timed(parameters);
+        let result = SimulationTree::from(e_game_state)
+            .with_parameters(parameters)
+            .simulate_timed();
+        println!("{}", result);
     }
 }

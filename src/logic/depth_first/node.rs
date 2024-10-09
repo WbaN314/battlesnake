@@ -6,9 +6,9 @@ use super::node_rating::NodeRating;
 use super::simulation_node::SimulationNode;
 use super::simulation_parameters::SimulationParameters;
 use super::simulation_state::SimulationState;
-use crate::logic::efficient_game_objects::e_direction::EDirectionVec;
-use crate::logic::efficient_game_objects::e_game_state::EGameState;
-use crate::logic::efficient_game_objects::e_snakes::ESimulationError;
+use crate::logic::shared::e_direction::EDirectionVec;
+use crate::logic::shared::e_game_state::EGameState;
+use crate::logic::shared::e_snakes::ESimulationError;
 
 #[derive(Clone, Debug)]
 pub struct Node {
@@ -121,7 +121,7 @@ impl Node {
         let initial_states = self.states.len();
         let mut pruned_states: HashMap<u64, Vec<EGameState>> = HashMap::new();
         for state in self.states.drain(..) {
-            let hash = state.hash_for_pruning(parameters);
+            let hash = state.hash_for_pruning(parameters.board_state_prune_distance.unwrap());
             if let Some(states) = pruned_states.get_mut(&hash) {
                 states.push(state);
             } else {

@@ -1,7 +1,6 @@
 use crate::{
     logic::{
-        efficient_game_objects::{
-            board_weights::e_score_board::EScoreBoard, breadth_first::e_state_tree::EStateTree,
+        shared::{
             e_board::EField, e_coord::ECoord, e_direction::EDirection,
             e_direction::EDIRECTION_VECTORS, e_game_state::EGameState, e_snakes::SNAKES,
         },
@@ -10,15 +9,14 @@ use crate::{
     Battlesnake, Board, Game,
 };
 use core::fmt;
+use e_score_board::EScoreBoard;
+use e_state_tree::EStateTree;
 use log::info;
-use rocket::State;
 use std::{env, fmt::Display, time::Duration};
 
-use super::efficient_game_objects::depth_first::{
-    chickens::Chickens,
-    simulation_parameters::{self, SimulationParameters},
-    simulation_tree::SimulationTree,
-};
+mod e_score_board;
+mod e_state_node;
+mod e_state_tree;
 
 pub struct Scores {
     scores: Vec<([i64; 4], String)>,
@@ -124,21 +122,11 @@ impl PartialEq for Score {
 
 impl Eq for Score {}
 
-pub struct SmartSnake {}
+pub struct BreadthFirstSnake {}
 
-impl SmartSnake {
+impl BreadthFirstSnake {
     pub fn new() -> Self {
         Self {}
-    }
-
-    fn depth_first_simulation(
-        &self,
-        game_state: &EGameState,
-        simulation_parameters: SimulationParameters,
-    ) -> [([i64; 4], String); 4] {
-        let mut depth_first_tree = SimulationTree::from(game_state.clone());
-        let simulation_states = depth_first_tree.simulate_timed(simulation_parameters);
-        todo!()
     }
 
     fn depth_and_alive_and_snakes_and_length(
@@ -323,15 +311,8 @@ impl SmartSnake {
     }
 }
 
-impl Brain for SmartSnake {
-    fn logic(
-        &self,
-        game: &Game,
-        turn: &i32,
-        board: &Board,
-        you: &Battlesnake,
-        _chickens: &State<Chickens>,
-    ) -> Direction {
+impl Brain for BreadthFirstSnake {
+    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
         let distance = 10;
         let simulate_duration = 200;
 

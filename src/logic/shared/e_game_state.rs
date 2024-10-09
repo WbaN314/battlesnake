@@ -1,5 +1,4 @@
 use super::{
-    depth_first::simulation_parameters::SimulationParameters,
     e_board::{EArea, EBoard, EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::{EDirection, EDIRECTION_VECTORS},
@@ -987,15 +986,13 @@ impl EGameState {
         results
     }
 
-    pub fn hash_for_pruning(&self, parameters: &SimulationParameters) -> u64 {
+    pub fn hash_for_pruning(&self, distance: u8) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.snakes.hash(&mut hasher);
         let my_head = self.snakes.get(0).as_ref().unwrap().head;
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
-                if my_head.distance(&ECoord::from(x, y))
-                    <= parameters.board_state_prune_distance.unwrap()
-                {
+                if my_head.distance(&ECoord::from(x, y)) <= distance {
                     self.board.get(x, y).hash(&mut hasher);
                 }
             }
@@ -1076,9 +1073,7 @@ struct CaptureCount {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::{
-        efficient_game_objects::e_game_state::EGameState, json_requests::read_game_state,
-    };
+    use crate::logic::{json_requests::read_game_state, shared::e_game_state::EGameState};
 
     use super::*;
 
