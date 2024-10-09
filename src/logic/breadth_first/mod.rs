@@ -18,7 +18,7 @@ mod e_score_board;
 mod e_state_node;
 mod e_state_tree;
 
-pub struct Scores {
+struct Scores {
     scores: Vec<([i64; 4], String)>,
 }
 
@@ -85,42 +85,6 @@ impl Display for Scores {
         Ok(())
     }
 }
-
-#[derive(Debug)]
-pub struct Score {
-    scores: Vec<i64>,
-}
-
-impl Ord for Score {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.scores.len() != other.scores.len() {
-            panic!("Vectors have different lengths")
-        } else {
-            for i in 0..self.scores.len() {
-                if self.scores[i] > other.scores[i] {
-                    return std::cmp::Ordering::Greater;
-                } else if self.scores[i] < other.scores[i] {
-                    return std::cmp::Ordering::Less;
-                }
-            }
-            return std::cmp::Ordering::Equal;
-        }
-    }
-}
-
-impl PartialOrd for Score {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for Score {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other) == std::cmp::Ordering::Equal
-    }
-}
-
-impl Eq for Score {}
 
 pub struct BreadthFirstSnake {}
 
