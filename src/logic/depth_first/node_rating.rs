@@ -4,9 +4,7 @@ use std::{
     u8,
 };
 
-use crate::logic::shared::e_game_state::EGameState;
-
-use super::state_rating::StateRating;
+use crate::logic::shared::e_game_state::{EGameState, EStateRating};
 
 #[derive(Clone, Debug)]
 pub struct Running;
@@ -17,29 +15,27 @@ pub struct NodeRating<T> {
     pub initial_states_on_this_node: usize,
     pub current_states_on_this_node: usize,
     pub pruned_states_from_this_node: usize,
-    pub worst_current_length: u8,
-    pub most_snakes_alive: u8,
+    pub lowest_current_length: u8, // always the worst case of all state ratings
+    pub highest_snakes_alive: u8,
+    pub highest_food_distance: u8,
+    pub highest_middle_distance: u8,
     simulation_state: PhantomData<T>,
 }
 
 impl NodeRating<Running> {
-    pub fn new() -> Self {
-        NodeRating {
-            initial_states_on_this_node: 0,
-            current_states_on_this_node: 0,
-            pruned_states_from_this_node: 0,
-            worst_current_length: u8::MAX,
-            most_snakes_alive: 0,
+    pub fn from(states: &Vec<EGameState>, number_initial_states: usize) -> Self {
+        let mut node = Self {
+            initial_states_on_this_node: number_initial_states,
+            current_states_on_this_node: states.len(),
+            pruned_states_from_this_node: number_initial_states - states.len(),
+            lowest_current_length: u8::MAX,
+            highest_snakes_alive: u8::MIN,
+            highest_food_distance: u8::MIN,
+            highest_middle_distance: u8::MIN,
             simulation_state: PhantomData,
-        }
-    }
-
-    pub fn from(states: &Vec<EGameState>) -> Self {
-        let mut node = NodeRating::new();
-        node.initial_states_on_this_node = states.len();
-        node.current_states_on_this_node = states.len();
+        };
         for state in states {
-            node.update_from_state_rating(&StateRating::from(state));
+            node.update_from_state_rating(&state.rate_state());
         }
         node
     }
@@ -48,17 +44,11 @@ impl NodeRating<Running> {
         // TODO
     }
 
-    pub fn update_from_state_rating(&mut self, other: &StateRating) {
-        self.worst_current_length = self.worst_current_length.min(other.current_length);
-        self.most_snakes_alive = self.most_snakes_alive.max(other.snakes_alive);
-    }
-
-    pub fn set_pruned_states(&mut self, pruned_states: usize) {
-        self.pruned_states_from_this_node = pruned_states;
-    }
-
-    pub fn set_current_states(&mut self, current_states: usize) {
-        self.current_states_on_this_node = current_states;
+    pub fn update_from_state_rating(&mut self, other: &EStateRating) {
+        self.lowest_current_length = self.lowest_current_length.min(other.current_length);
+        self.highest_snakes_alive = self.highest_snakes_alive.max(other.snakes_alive);
+        self.highest_food_distance = self.highest_food_distance.max(other.food_distance);
+        self.highest_middle_distance = self.highest_middle_distance.max(other.middle_distance);
     }
 }
 
@@ -78,8 +68,11 @@ impl Display for NodeRating<Finished> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Worst Length: {}, Most Snakes: {}",
-            self.worst_current_length, self.most_snakes_alive
+            "Snakes Alive: {}, Length: {}, Food: {}, Middle: {}",
+            self.highest_snakes_alive,
+            self.lowest_current_length,
+            self.highest_food_distance,
+            self.highest_middle_distance
         )
     }
 }
@@ -99,9 +92,16 @@ impl Eq for NodeRating<Running> {}
 
 impl Ord for NodeRating<Running> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.most_snakes_alive
-            .cmp(&other.most_snakes_alive)
-            .then(other.worst_current_length.cmp(&self.worst_current_length))
+        other
+            .highest_snakes_alive
+            .cmp(&self.highest_snakes_alive)
+            .then(self.lowest_current_length.cmp(&other.lowest_current_length))
+            .then(other.highest_food_distance.cmp(&self.highest_food_distance))
+            .then(
+                other
+                    .highest_middle_distance
+                    .cmp(&self.highest_middle_distance),
+            )
             .then(
                 other
                     .current_states_on_this_node

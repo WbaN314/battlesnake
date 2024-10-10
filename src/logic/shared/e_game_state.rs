@@ -9,34 +9,29 @@ use core::{fmt, panic};
 use std::{
     collections::HashSet,
     hash::{DefaultHasher, Hash, Hasher},
+    u8,
 };
 
 #[derive(Clone, Copy)]
 pub struct EStateRating {
-    pub alive_snakes: u8,
-    pub my_length: u8,
+    pub snakes_alive: u8,
+    pub current_length: u8,
+    pub food_distance: u8,
+    pub middle_distance: u8,
 }
 
 impl EStateRating {
-    pub fn new() -> Self {
-        Self {
-            alive_snakes: u8::MAX,
-            my_length: 0,
-        }
-    }
-
     pub fn from(state: &EGameState) -> Self {
-        let mut rating = Self::new();
-        if let Some(my_snake) = state.snakes.get(0).as_ref() {
-            rating.my_length = my_snake.length;
+        let snakes_alive = state.snakes.count_alive();
+        let current_length = state.snakes.get(0).as_ref().unwrap().length;
+        let food_distance = state.food_distance().unwrap_or(u8::MAX);
+        let middle_distance = state.middle_distance();
+        Self {
+            snakes_alive,
+            current_length,
+            food_distance,
+            middle_distance,
         }
-        rating.alive_snakes = 0;
-        for i in 0..SNAKES {
-            if state.snakes.get(i).as_ref().is_some() {
-                rating.alive_snakes += 1;
-            }
-        }
-        rating
     }
 }
 
@@ -998,6 +993,31 @@ impl EGameState {
             }
         }
         hasher.finish()
+    }
+
+    pub fn food_distance(&self) -> Option<u8> {
+        let my_head = self.snakes.get(0).as_ref().unwrap().head;
+        let mut min_distance = None;
+        for y in 0..Y_SIZE {
+            for x in 0..X_SIZE {
+                match self.board.get(x, y) {
+                    Some(EField::Food) => {
+                        let distance = my_head.distance(&ECoord::from(x, y));
+                        if distance < min_distance.unwrap_or(u8::MAX) {
+                            min_distance = Some(distance);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+        min_distance
+    }
+
+    pub fn middle_distance(&self) -> u8 {
+        let my_head = self.snakes.get(0).as_ref().unwrap().head;
+        let middle = ECoord::from(X_SIZE / 2, Y_SIZE / 2);
+        my_head.distance(&middle)
     }
 }
 

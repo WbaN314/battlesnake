@@ -17,6 +17,7 @@ pub struct SimulationTree {
     pub map: BTreeMap<EDirectionVec, RefCell<SimulationNode>>,
     priority_queue: VecDeque<EDirectionVec>,
     parameters: SimulationParameters,
+    print: bool,
 }
 
 impl SimulationTree {
@@ -28,11 +29,19 @@ impl SimulationTree {
             map,
             priority_queue: VecDeque::new(),
             parameters: SimulationParameters::new(),
+            print: false,
         }
     }
 
-    pub fn with_parameters(self, parameters: SimulationParameters) -> Self {
+    pub fn parameters(self, parameters: SimulationParameters) -> Self {
         Self { parameters, ..self }
+    }
+
+    pub fn print(self) -> Self {
+        Self {
+            print: true,
+            ..self
+        }
     }
 
     // adds a child and transforms the parent to result if no longer needed
@@ -103,6 +112,9 @@ impl SimulationTree {
             let id = self.priority_queue.pop_back().unwrap();
             self.simulate_and_add_children(&id);
             self.prioritize_priority_queue();
+        }
+        if self.print {
+            println!("{}", self);
         }
         SimulationResult::from(self)
     }
@@ -190,7 +202,7 @@ mod tests {
             .duration(Duration::from_millis(100))
             .board_state_prune_distance(5);
         let result = SimulationTree::from(e_game_state)
-            .with_parameters(parameters)
+            .parameters(parameters)
             .simulate_timed();
         println!("{}", result);
     }

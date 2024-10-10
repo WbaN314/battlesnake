@@ -26,8 +26,8 @@ impl ENodeRating {
     }
 
     pub fn update(&mut self, state: &EStateRating) {
-        self.highest_snake_count = state.alive_snakes.max(self.highest_snake_count);
-        self.lowest_length = state.my_length.min(self.lowest_length);
+        self.highest_snake_count = state.snakes_alive.max(self.highest_snake_count);
+        self.lowest_length = state.current_length.min(self.lowest_length);
     }
 }
 

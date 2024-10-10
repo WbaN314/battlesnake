@@ -18,7 +18,7 @@ pub enum SimulationNode {
 
 impl SimulationNode {
     pub fn new(states: Vec<EGameState>) -> Self {
-        SimulationNode::Relevant(Node::new(states, &SimulationParameters::new()))
+        SimulationNode::Relevant(Node::from(states, &SimulationParameters::new()))
     }
 
     pub fn from(node: Node) -> Self {

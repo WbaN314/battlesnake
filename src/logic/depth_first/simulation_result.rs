@@ -32,7 +32,7 @@ impl SimulationResult {
 impl Display for SimulationResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (direction, rating) in self.extracted_ratings.iter() {
-            writeln!(f, "{} -> {}", direction, rating)?;
+            writeln!(f, "{}-> {}", direction, rating)?;
         }
         Ok(())
     }
@@ -53,9 +53,13 @@ mod tests {
         let game_state = read_game_state("requests/failure_23_go_for_kill_here.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
-        let parameters = SimulationParameters::new().duration(Duration::from_millis(200));
+        let parameters = SimulationParameters::new()
+            .duration(Duration::from_millis(200))
+            .board_state_prune_distance(2)
+            .move_snake_head_distance(6);
         let result = SimulationTree::from(e_game_state)
-            .with_parameters(parameters)
+            .parameters(parameters)
+            .print()
             .simulate_timed();
         println!("{}", result);
     }

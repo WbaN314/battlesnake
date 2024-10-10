@@ -17,12 +17,13 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(states: Vec<EGameState>, parameters: &SimulationParameters) -> Self {
-        let mut node = Node {
-            rating: NodeRating::from(&states),
+    pub fn from(states: Vec<EGameState>, parameters: &SimulationParameters) -> Self {
+        let number_initial_states = states.len();
+        let states = Node::prune_states(states, parameters);
+        let node = Node {
+            rating: NodeRating::from(&states, number_initial_states),
             states,
         };
-        node.prune_states(parameters);
         node
     }
 
@@ -80,7 +81,7 @@ impl Node {
         for i in 0..4 {
             match state_vec[i] {
                 SimulationState::Alive(ref states) => {
-                    let node = Node::new(states.clone(), parameters);
+                    let node = Node::from(states.clone(), parameters);
                     let simulation_node = SimulationNode::from(node);
                     result[i] = simulation_node;
                 }
@@ -113,13 +114,15 @@ impl Node {
         }
     }
 
-    pub fn prune_states(&mut self, parameters: &SimulationParameters) {
+    pub fn prune_states(
+        mut states: Vec<EGameState>,
+        parameters: &SimulationParameters,
+    ) -> Vec<EGameState> {
         if parameters.board_state_prune_distance.is_none() {
-            return;
+            return states;
         }
-        let initial_states = self.states.len();
         let mut pruned_states: HashMap<u64, Vec<EGameState>> = HashMap::new();
-        for state in self.states.drain(..) {
+        for state in states.drain(..) {
             let hash = state.hash_for_pruning(parameters.board_state_prune_distance.unwrap());
             if let Some(states) = pruned_states.get_mut(&hash) {
                 states.push(state);
@@ -127,12 +130,10 @@ impl Node {
                 pruned_states.insert(hash, vec![state]);
             }
         }
-        for (_, mut states) in pruned_states.drain() {
-            self.states.push(states.pop().unwrap());
+        for (_, mut same_states) in pruned_states.drain() {
+            states.push(same_states.pop().unwrap());
         }
-        self.rating
-            .set_pruned_states(initial_states - self.states.len());
-        self.rating.set_current_states(self.states.len());
+        states
     }
 }
 

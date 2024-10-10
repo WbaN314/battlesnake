@@ -16,7 +16,6 @@ mod simulation_parameters;
 mod simulation_result;
 mod simulation_state;
 mod simulation_tree;
-mod state_rating;
 
 pub struct DepthFirstSnake {}
 
@@ -31,7 +30,7 @@ impl DepthFirstSnake {
             .move_snake_head_distance(10)
             .duration(Duration::from_millis(200));
         let _result = SimulationTree::from(game_state.clone())
-            .with_parameters(parameters)
+            .parameters(parameters)
             .simulate_timed();
     }
 }
