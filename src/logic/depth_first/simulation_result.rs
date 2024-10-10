@@ -1,20 +1,40 @@
 use std::fmt::{Display, Formatter};
 
-use super::simulation_tree::SimulationTree;
+use crate::logic::shared::e_direction::EDirectionVec;
+
+use super::{
+    node_rating::{Finished, NodeRating},
+    simulation_node::SimulationNode,
+    simulation_tree::SimulationTree,
+};
 
 pub struct SimulationResult {
-    simulation_tree: SimulationTree,
+    extracted_ratings: Vec<(EDirectionVec, NodeRating<Finished>)>,
 }
 
 impl SimulationResult {
     pub fn from(simulation_tree: SimulationTree) -> Self {
-        Self { simulation_tree }
+        let mut extracted_ratings = simulation_tree
+            .map
+            .iter()
+            .filter_map(|(d_vec, s_node)| match *s_node.borrow() {
+                SimulationNode::Completed(ref rating) => {
+                    Some((d_vec.clone(), rating.clone().into()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<(EDirectionVec, NodeRating<Finished>)>>();
+        extracted_ratings.sort_by(|a, b| a.0.cmp(&b.0));
+        Self { extracted_ratings }
     }
 }
 
 impl Display for SimulationResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.simulation_tree)
+        for (direction, rating) in self.extracted_ratings.iter() {
+            writeln!(f, "{} -> {}", direction, rating)?;
+        }
+        Ok(())
     }
 }
 
@@ -37,6 +57,6 @@ mod tests {
         let result = SimulationTree::from(e_game_state)
             .with_parameters(parameters)
             .simulate_timed();
-        result.simulation_tree.print_node_ratings();
+        println!("{}", result);
     }
 }

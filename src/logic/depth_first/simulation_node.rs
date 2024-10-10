@@ -1,12 +1,16 @@
 #![allow(dead_code)]
 use std::fmt::{Display, Formatter};
 
-use super::{node::Node, node_rating::NodeRating, simulation_parameters::SimulationParameters};
+use super::{
+    node::Node,
+    node_rating::{NodeRating, Running},
+    simulation_parameters::SimulationParameters,
+};
 use crate::logic::shared::e_game_state::EGameState;
 
 #[derive(Clone, Debug)]
 pub enum SimulationNode {
-    Completed(NodeRating),
+    Completed(NodeRating<Running>),
     Relevant(Node),
     NotRelevant,
     Unfinished,
@@ -32,7 +36,7 @@ impl SimulationNode {
         }
     }
 
-    pub fn update_rating(&mut self, other_rating: &NodeRating) {
+    pub fn update_rating(&mut self, other_rating: &NodeRating<Running>) {
         match self {
             SimulationNode::Relevant(node) => {
                 node.rating.update_from_child_node_rating(other_rating);
@@ -43,7 +47,7 @@ impl SimulationNode {
         }
     }
 
-    pub fn get_rating(&self) -> Option<&NodeRating> {
+    pub fn get_rating(&self) -> Option<&NodeRating<Running>> {
         match self {
             SimulationNode::Completed(rating) => Some(rating),
             SimulationNode::Relevant(node) => Some(&node.rating),

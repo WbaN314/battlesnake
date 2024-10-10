@@ -1,3 +1,4 @@
+#![feature(type_changing_struct_update)]
 #![feature(test)]
 extern crate test;
 #[macro_use]

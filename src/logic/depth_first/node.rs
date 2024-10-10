@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::u8;
 
-use super::node_rating::NodeRating;
+use super::node_rating::{NodeRating, Running};
 use super::simulation_node::SimulationNode;
 use super::simulation_parameters::SimulationParameters;
 use super::simulation_state::SimulationState;
@@ -13,7 +13,7 @@ use crate::logic::shared::e_snakes::ESimulationError;
 #[derive(Clone, Debug)]
 pub struct Node {
     pub states: Vec<EGameState>,
-    pub rating: NodeRating,
+    pub rating: NodeRating<Running>,
 }
 
 impl Node {

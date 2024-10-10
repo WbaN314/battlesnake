@@ -1,5 +1,6 @@
 use std::{
     fmt::{Display, Formatter},
+    marker::PhantomData,
     u8,
 };
 
@@ -8,15 +9,20 @@ use crate::logic::shared::e_game_state::EGameState;
 use super::state_rating::StateRating;
 
 #[derive(Clone, Debug)]
-pub struct NodeRating {
+pub struct Running;
+pub struct Finished;
+
+#[derive(Clone, Debug)]
+pub struct NodeRating<T> {
     pub initial_states_on_this_node: usize,
     pub current_states_on_this_node: usize,
     pub pruned_states_from_this_node: usize,
     pub worst_current_length: u8,
     pub most_snakes_alive: u8,
+    simulation_state: PhantomData<T>,
 }
 
-impl NodeRating {
+impl NodeRating<Running> {
     pub fn new() -> Self {
         NodeRating {
             initial_states_on_this_node: 0,
@@ -24,6 +30,7 @@ impl NodeRating {
             pruned_states_from_this_node: 0,
             worst_current_length: u8::MAX,
             most_snakes_alive: 0,
+            simulation_state: PhantomData,
         }
     }
 
@@ -37,7 +44,7 @@ impl NodeRating {
         node
     }
 
-    pub fn update_from_child_node_rating(&mut self, _other: &NodeRating) {
+    pub fn update_from_child_node_rating(&mut self, _other: &NodeRating<Running>) {
         // TODO
     }
 
@@ -55,7 +62,7 @@ impl NodeRating {
     }
 }
 
-impl Display for NodeRating {
+impl Display for NodeRating<Running> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -67,21 +74,30 @@ impl Display for NodeRating {
     }
 }
 
-impl PartialEq for NodeRating {
+impl Display for NodeRating<Finished> {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Worst Length: {}, Most Snakes: {}",
+            self.worst_current_length, self.most_snakes_alive
+        )
+    }
+}
+impl PartialEq for NodeRating<Running> {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == std::cmp::Ordering::Equal
     }
 }
 
-impl PartialOrd for NodeRating {
+impl PartialOrd for NodeRating<Running> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Eq for NodeRating {}
+impl Eq for NodeRating<Running> {}
 
-impl Ord for NodeRating {
+impl Ord for NodeRating<Running> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.most_snakes_alive
             .cmp(&other.most_snakes_alive)
@@ -91,5 +107,14 @@ impl Ord for NodeRating {
                     .current_states_on_this_node
                     .cmp(&self.current_states_on_this_node),
             )
+    }
+}
+
+impl From<NodeRating<Running>> for NodeRating<Finished> {
+    fn from(rating: NodeRating<Running>) -> Self {
+        NodeRating {
+            simulation_state: PhantomData,
+            ..rating
+        }
     }
 }
