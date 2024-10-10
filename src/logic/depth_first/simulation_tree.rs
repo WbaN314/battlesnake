@@ -199,8 +199,8 @@ mod tests {
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()
-            .duration(Duration::from_millis(100))
-            .board_state_prune_distance(5);
+            .simulation_duration(Duration::from_millis(100))
+            .prune_hash_radius(5);
         let result = SimulationTree::from(e_game_state)
             .parameters(parameters)
             .simulate_timed();

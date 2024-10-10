@@ -48,7 +48,7 @@ impl Node {
                 ];
             }
             let state_result = state.calculate_relevant_states_after_move(
-                parameters.move_snake_head_distance.unwrap_or(u8::MAX),
+                parameters.move_snake_heads_radius.unwrap_or(u8::MAX),
                 still_relevant,
             );
             for i in 0..4 {
@@ -118,12 +118,12 @@ impl Node {
         mut states: Vec<EGameState>,
         parameters: &SimulationParameters,
     ) -> Vec<EGameState> {
-        if parameters.board_state_prune_distance.is_none() {
+        if parameters.prune_hash_radius.is_none() {
             return states;
         }
         let mut pruned_states: HashMap<u64, Vec<EGameState>> = HashMap::new();
         for state in states.drain(..) {
-            let hash = state.hash_for_pruning(parameters.board_state_prune_distance.unwrap());
+            let hash = state.hash_for_pruning(parameters.prune_hash_radius.unwrap());
             if let Some(states) = pruned_states.get_mut(&hash) {
                 states.push(state);
             } else {

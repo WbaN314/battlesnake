@@ -54,9 +54,9 @@ mod tests {
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()
-            .duration(Duration::from_millis(200))
-            .board_state_prune_distance(2)
-            .move_snake_head_distance(6);
+            .simulation_duration(Duration::from_millis(200))
+            .prune_hash_radius(2)
+            .move_snake_heads_radius(6);
         let result = SimulationTree::from(e_game_state)
             .parameters(parameters)
             .print()

@@ -26,9 +26,9 @@ impl DepthFirstSnake {
 
     fn depth_first_simulation(&self, game_state: &EGameState) {
         let parameters = SimulationParameters::new()
-            .board_state_prune_distance(6)
-            .move_snake_head_distance(10)
-            .duration(Duration::from_millis(200));
+            .prune_hash_radius(6)
+            .move_snake_heads_radius(10)
+            .simulation_duration(Duration::from_millis(200));
         let _result = SimulationTree::from(game_state.clone())
             .parameters(parameters)
             .simulate_timed();
