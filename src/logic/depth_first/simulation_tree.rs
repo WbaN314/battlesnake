@@ -151,7 +151,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::logic::{json_requests::read_game_state, shared::e_game_state::EGameState};
+    use crate::{logic::shared::e_game_state::EGameState, read_game_state};
     use test::Bencher;
 
     #[bench]

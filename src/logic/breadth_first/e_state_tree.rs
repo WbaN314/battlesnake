@@ -305,7 +305,8 @@ impl Display for EStateTree {
 
 #[cfg(test)]
 mod json_requests {
-    use crate::logic::json_requests::read_game_state;
+
+    use crate::read_game_state;
 
     use super::*;
 

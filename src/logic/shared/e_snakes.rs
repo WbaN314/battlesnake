@@ -38,6 +38,7 @@ impl ESnake {
 
 impl Hash for ESnake {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // TODO: Resolve bug when activating: self.head.hash(state);
         self.tail.hash(state);
         self.length.hash(state);
     }

@@ -1093,7 +1093,7 @@ struct CaptureCount {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::{json_requests::read_game_state, shared::e_game_state::EGameState};
+    use crate::{logic::shared::e_game_state::EGameState, read_game_state};
 
     use super::*;
 

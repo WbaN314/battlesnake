@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{Battlesnake, Board, Coord, Game};
+use crate::{Battlesnake, Board, Coord, Direction, Game};
 
-use super::shared::{brain::Brain, direction::Direction};
+use super::shared::brain::Brain;
 
 pub struct SimpleHungrySnake {}
 

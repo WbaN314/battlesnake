@@ -3,10 +3,9 @@ use std::time::Duration;
 use simulation_parameters::SimulationParameters;
 use simulation_tree::SimulationTree;
 
-use super::{
-    shared::{direction::Direction, e_game_state::EGameState},
-    Brain,
-};
+use crate::Direction;
+
+use super::{shared::e_game_state::EGameState, Brain};
 
 mod direction_rating;
 mod node;

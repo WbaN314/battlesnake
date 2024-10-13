@@ -43,9 +43,12 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::logic::{
-        depth_first::simulation_parameters::SimulationParameters, json_requests::read_game_state,
-        shared::e_game_state::EGameState,
+    use crate::{
+        logic::{
+            depth_first::simulation_parameters::SimulationParameters,
+            shared::e_game_state::EGameState,
+        },
+        read_game_state,
     };
 
     #[test]
@@ -55,8 +58,8 @@ mod tests {
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()
             .simulation_duration(Duration::from_millis(200))
-            .prune_hash_radius(2)
-            .move_snake_heads_radius(6);
+            .prune_hash_radius(1)
+            .move_snake_heads_radius(2);
         let result = SimulationTree::from(e_game_state)
             .parameters(parameters)
             .print()

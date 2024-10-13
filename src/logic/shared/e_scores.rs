@@ -1,6 +1,8 @@
 use core::fmt;
 use std::{env, fmt::Display};
 
+use log::info;
+
 use crate::Game;
 
 use super::e_direction::EDirection;

@@ -5,4 +5,4 @@ WORKDIR /usr/app
 
 RUN cargo install --path .
 
-CMD ["starter-snake-rust"]
+CMD ["battlesnake_game_of_chicken"]

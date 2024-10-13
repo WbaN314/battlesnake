@@ -1,63 +1,13 @@
-#![feature(type_changing_struct_update)]
-#![feature(test)]
-extern crate test;
 #[macro_use]
 extern crate rocket;
 
+use battlesnake_game_of_chicken::{logic, GameState};
 use log::info;
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
-use rocket::serde::{json::Json, Deserialize, Serialize};
+use rocket::serde::json::Json;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::env;
-
-mod logic;
-
-// API and Response Objects
-// See https://docs.battlesnake.com/api
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Game {
-    id: String,
-    ruleset: HashMap<String, Value>,
-    timeout: u32,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Board {
-    height: u32,
-    width: i32,
-    food: Vec<Coord>,
-    snakes: Vec<Battlesnake>,
-    hazards: Vec<Coord>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Battlesnake {
-    id: String,
-    name: String,
-    health: i32,
-    body: Vec<Coord>,
-    head: Coord,
-    length: i32,
-    latency: String,
-    shout: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq)]
-pub struct Coord {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct GameState {
-    game: Game,
-    turn: i32,
-    board: Board,
-    you: Battlesnake,
-}
 
 #[get("/")]
 fn handle_index() -> Json<Value> {
@@ -92,8 +42,6 @@ fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
         &move_req.you,
         variant,
     );
-
-    // println! {"{:?}", chickens.lock().unwrap().borrow()};
 
     Json(json!({ "move": response }))
 }
