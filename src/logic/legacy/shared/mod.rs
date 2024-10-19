@@ -9,7 +9,7 @@ pub mod e_snakes;
 #[cfg(test)]
 mod tests {
 
-    use crate::logic::shared::{
+    use crate::logic::legacy::shared::{
         e_board::EField, e_coord::ECoord, e_direction::EDirection, e_game_state::EGameState,
     };
 

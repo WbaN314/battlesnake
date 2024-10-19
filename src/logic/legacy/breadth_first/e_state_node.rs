@@ -1,4 +1,4 @@
-use crate::logic::shared::{
+use crate::logic::legacy::shared::{
     e_direction::{EBoolDirections, EDirection},
     e_game_state::{EGameState, EStateRating},
     e_snakes::{ESimulationError, Result},

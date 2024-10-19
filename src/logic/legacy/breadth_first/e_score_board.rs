@@ -1,7 +1,7 @@
 use core::fmt;
 use std::fmt::{Display, Formatter};
 
-use crate::logic::shared::{
+use crate::logic::legacy::shared::{
     e_board::{EField, X_SIZE, Y_SIZE},
     e_coord::ECoord,
     e_direction::EDIRECTION_VECTORS,

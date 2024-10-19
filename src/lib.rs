@@ -3,7 +3,7 @@
 extern crate test;
 
 use core::fmt;
-use logic::{get_move, shared::e_game_state::EGameState};
+use logic::{get_move, legacy::shared::e_game_state::EGameState};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::HashMap, env};
@@ -104,7 +104,7 @@ pub fn get_move_from_json_file(path: &str) -> Direction {
         &game_state.turn,
         &game_state.board,
         &game_state.you,
-        env::var("VARIANT").unwrap_or("depth_first".to_string()),
+        env::var("VARIANT").unwrap_or("breadth_first".to_string()),
     );
     m
 }

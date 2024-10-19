@@ -1,6 +1,6 @@
 use crate::{
     logic::{
-        shared::{
+        legacy::shared::{
             e_board::EField, e_coord::ECoord, e_direction::EDIRECTION_VECTORS,
             e_game_state::EGameState, e_snakes::SNAKES,
         },

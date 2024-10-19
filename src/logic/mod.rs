@@ -10,18 +10,15 @@
 // To get you started we've included code to prevent your Battlesnake from moving backwards.
 // For more info see docs.battlesnake.com
 
+use legacy::shared::brain::Brain;
 use log::info;
 use serde_json::{json, Value};
-use shared::brain::Brain;
 use std::env;
 
 use crate::{Battlesnake, Board, Direction, Game};
 
-mod breadth_first;
 mod depth_first;
-pub mod shared;
-mod simple_hungry;
-mod simple_tree_search;
+pub mod legacy;
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -63,9 +60,9 @@ pub fn get_move(
     variant: String,
 ) -> Direction {
     let brain: Box<dyn Brain> = match variant.as_str() {
-        "simple_hungry" => Box::new(simple_hungry::SimpleHungrySnake::new()),
-        "simple_tree_search" => Box::new(simple_tree_search::SimpleTreeSearchSnake::new()),
-        "breadth_first" => Box::new(breadth_first::BreadthFirstSnake::new()),
+        "simple_hungry" => Box::new(legacy::simple_hungry::SimpleHungrySnake::new()),
+        "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),
+        "breadth_first" => Box::new(legacy::breadth_first::BreadthFirstSnake::new()),
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
