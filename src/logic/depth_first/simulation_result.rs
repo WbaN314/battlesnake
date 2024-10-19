@@ -58,8 +58,8 @@ mod tests {
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()
             .simulation_duration(Duration::from_millis(200))
-            .prune_hash_radius(1)
-            .move_snake_heads_radius(2);
+            .prune_hash_radius(4)
+            .move_snake_heads_radius(4);
         let result = SimulationTree::from(e_game_state)
             .parameters(parameters)
             .print()
