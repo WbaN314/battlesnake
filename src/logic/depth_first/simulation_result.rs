@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn test_add_all_child_parent_converts_to_result() {
-        let game_state = read_game_state("requests/failure_23_go_for_kill_here.json");
+        let game_state = read_game_state("requests/failure_30_grab_food_leads_to_death.json");
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()

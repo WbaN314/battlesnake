@@ -98,7 +98,7 @@ impl Ord for NodeRating<Running> {
                 if self
                     .current_states_on_this_node
                     .min(other.current_states_on_this_node)
-                    < 50
+                    < 32
                 {
                     other
                         .current_states_on_this_node
