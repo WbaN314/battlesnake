@@ -110,11 +110,11 @@ impl SimulationTree {
         self.priority_queue.push_front(EDirectionVec::new());
         while self.priority_queue.len() > 0 && !self.parameters.is_time_up() {
             let id = self.priority_queue.pop_back().unwrap();
+            if self.print {
+                println!("{}-> {}", id, self.map.get(&id).unwrap().borrow());
+            }
             self.simulate_and_add_children(&id);
             self.prioritize_priority_queue();
-        }
-        if self.print {
-            println!("{}", self);
         }
         SimulationResult::from(self)
     }

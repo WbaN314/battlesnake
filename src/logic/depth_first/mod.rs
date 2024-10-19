@@ -5,7 +5,10 @@ use simulation_tree::SimulationTree;
 
 use crate::Direction;
 
-use super::{shared::e_game_state::EGameState, Brain};
+use super::{
+    shared::{e_direction::EDirection, e_game_state::EGameState},
+    Brain,
+};
 
 mod direction_rating;
 mod node;
@@ -23,14 +26,15 @@ impl DepthFirstSnake {
         Self {}
     }
 
-    fn depth_first_simulation(&self, game_state: &EGameState) {
+    fn depth_first_simulation(&self, game_state: &EGameState) -> EDirection {
         let parameters = SimulationParameters::new()
             .prune_hash_radius(6)
             .move_snake_heads_radius(10)
             .simulation_duration(Duration::from_millis(200));
-        let _result = SimulationTree::from(game_state.clone())
+        let result = SimulationTree::from(game_state.clone())
             .parameters(parameters)
             .simulate_timed();
+        result.get_best_direction()
     }
 }
 
@@ -43,8 +47,6 @@ impl Brain for DepthFirstSnake {
         you: &crate::Battlesnake,
     ) -> Direction {
         let game_state = EGameState::from(board, you);
-
-        self.depth_first_simulation(&game_state);
-        todo!()
+        self.depth_first_simulation(&game_state).to_direction()
     }
 }

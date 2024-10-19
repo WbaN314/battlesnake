@@ -92,9 +92,21 @@ impl Eq for NodeRating<Running> {}
 
 impl Ord for NodeRating<Running> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other
-            .highest_snakes_alive
-            .cmp(&self.highest_snakes_alive)
+        std::cmp::Ordering::Equal
+            .then(other.highest_snakes_alive.cmp(&self.highest_snakes_alive))
+            .then(
+                if self
+                    .current_states_on_this_node
+                    .min(other.current_states_on_this_node)
+                    < 50
+                {
+                    other
+                        .current_states_on_this_node
+                        .cmp(&self.current_states_on_this_node)
+                } else {
+                    std::cmp::Ordering::Equal
+                },
+            )
             .then(self.lowest_current_length.cmp(&other.lowest_current_length))
             .then(other.highest_food_distance.cmp(&self.highest_food_distance))
             .then(
@@ -116,5 +128,34 @@ impl From<NodeRating<Running>> for NodeRating<Finished> {
             simulation_state: PhantomData,
             ..rating
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_running_rating() {
+        let rating = NodeRating::<Running> {
+            initial_states_on_this_node: 150,
+            current_states_on_this_node: 100,
+            pruned_states_from_this_node: 50,
+            lowest_current_length: 10,
+            highest_snakes_alive: 3,
+            highest_food_distance: 4,
+            highest_middle_distance: 6,
+            simulation_state: PhantomData,
+        };
+        let mut rating_2 = rating.clone();
+        assert_eq!(rating, rating_2);
+        rating_2.highest_snakes_alive = 2;
+        assert_eq!(rating.cmp(&rating_2), std::cmp::Ordering::Less);
+        rating_2.highest_snakes_alive = 4;
+        assert_eq!(rating.cmp(&rating_2), std::cmp::Ordering::Greater);
+        rating_2.current_states_on_this_node = 30;
+        assert_eq!(rating.cmp(&rating_2), std::cmp::Ordering::Greater);
+        rating_2.highest_snakes_alive = 3;
+        assert_eq!(rating.cmp(&rating_2), std::cmp::Ordering::Less);
     }
 }

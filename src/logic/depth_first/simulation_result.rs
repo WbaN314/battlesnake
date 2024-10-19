@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use crate::logic::shared::e_direction::EDirectionVec;
+use crate::logic::shared::e_direction::{EDirection, EDirectionVec};
 
 use super::{
     node_rating::{Finished, NodeRating},
@@ -26,6 +26,17 @@ impl SimulationResult {
             .collect::<Vec<(EDirectionVec, NodeRating<Finished>)>>();
         extracted_ratings.sort_by(|a, b| a.0.cmp(&b.0));
         Self { extracted_ratings }
+    }
+
+    pub fn get_best_direction(&self) -> EDirection {
+        // TODO: Improve this
+        self.extracted_ratings
+            .last()
+            .unwrap()
+            .0
+            .first()
+            .unwrap_or(&EDirection::Up)
+            .clone()
     }
 }
 
@@ -58,12 +69,12 @@ mod tests {
         println!("{}", e_game_state);
         let parameters = SimulationParameters::new()
             .simulation_duration(Duration::from_millis(200))
-            .prune_hash_radius(4)
-            .move_snake_heads_radius(4);
+            .prune_hash_radius(10)
+            .move_snake_heads_radius(10);
         let result = SimulationTree::from(e_game_state)
             .parameters(parameters)
             .print()
             .simulate_timed();
-        println!("{}", result);
+        println!("\n{}", result);
     }
 }
