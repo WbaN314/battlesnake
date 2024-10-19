@@ -138,24 +138,6 @@ mod tests {
     }
 
     #[test]
-    fn fill_board() {
-        let game_state = read_game_state("requests/example_move_request.json");
-        let mut state = EGameState::from(&game_state.board, &game_state.you);
-        assert!(state.board.clone().fill(&ECoord::from(0, 0)).is_none());
-        assert!(state.board.clone().fill(&ECoord::from(-1, 0)).is_none());
-        assert_eq!(state.board.fill(&ECoord::from(0, 1)).unwrap().area, 114);
-        println!("{state}");
-    }
-
-    #[test]
-    fn fill_board_2() {
-        let game_state = read_game_state("requests/example_move_request_2.json");
-        let mut state = EGameState::from(&game_state.board, &game_state.you);
-        assert_eq!(state.board.fill(&ECoord::from(0, 1)).unwrap().area, 20);
-        println!("{state}");
-    }
-
-    #[test]
     fn relevant_moves() {
         let game_state = read_game_state("requests/example_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);

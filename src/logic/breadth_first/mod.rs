@@ -14,6 +14,8 @@ use std::{env, time::Duration};
 
 use super::shared::e_scores::Scores;
 
+mod e_board_extension;
+mod e_game_state_extension;
 mod e_score_board;
 mod e_state_node;
 mod e_state_tree;
