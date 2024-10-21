@@ -3,6 +3,7 @@ use crate::{Battlesnake, Board, Direction, Game};
 
 mod d_board;
 mod d_coord;
+mod d_direction;
 mod d_field;
 mod d_game_state;
 mod d_snake;

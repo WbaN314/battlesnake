@@ -14,3 +14,9 @@ pub enum DSnake {
         tail: DCoord,
     },
 }
+
+impl DSnake {
+    pub fn from_request() -> Self {
+        todo!()
+    }
+}
