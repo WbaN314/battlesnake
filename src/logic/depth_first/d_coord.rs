@@ -2,7 +2,7 @@ use crate::Coord;
 
 use super::d_direction::DDirection;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DCoord {
     pub x: i8,
     pub y: i8,
