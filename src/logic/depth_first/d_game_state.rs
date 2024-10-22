@@ -42,6 +42,24 @@ impl Display for DGameState {
         let row = [' '; WIDTH as usize * 3];
         let mut board = [row; HEIGHT as usize * 3];
 
+        // Write head markers before board
+        for i in 0..SNAKES {
+            let snake = self.snake_cell(i).get();
+            match snake {
+                DSnake::Alive { head, id, .. } => {
+                    let id = (id + 'A' as u8) as char;
+                    let x = head.x;
+                    let y = head.y;
+                    board[y as usize * 3 + 1][x as usize * 3] = id;
+                    board[y as usize * 3 + 1][x as usize * 3 + 2] = id;
+                    board[y as usize * 3][x as usize * 3 + 1] = id;
+                    board[y as usize * 3 + 2][x as usize * 3 + 1] = id;
+                    board[y as usize * 3 + 1][x as usize * 3 + 1] = id;
+                }
+                _ => (),
+            }
+        }
+
         // Fill the board with the current state
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -72,33 +90,18 @@ impl Display for DGameState {
                                 board[y as usize * 3 + 1][x as usize * 3 + 2] = c;
                                 board[y as usize * 3 + 1][x as usize * 3 + 3] = c;
                             }
-                            None => {
-                                let ID = (id + 'A' as u8) as char;
-                                board[y as usize * 3 + 1][x as usize * 3] = ID;
-                                board[y as usize * 3 + 1][x as usize * 3 + 2] = ID;
-                                board[y as usize * 3][x as usize * 3 + 1] = ID;
-                                board[y as usize * 3 + 2][x as usize * 3 + 1] = ID;
-                                board[y as usize * 3 + 1][x as usize * 3 + 1] = ID;
-                            }
+                            None => {}
                         }
                     }
                 }
             }
         }
 
-        // Add Head and Tail markers
+        // Write tail markers over board
         for i in 0..SNAKES {
             let snake = self.snake_cell(i).get();
             match snake {
-                DSnake::Alive {
-                    head,
-                    tail,
-                    stack,
-                    id,
-                    ..
-                } => {
-                    board[head.y as usize * 3 + 1][head.x as usize * 3 + 1] =
-                        (id + 'A' as u8) as char;
+                DSnake::Alive { tail, stack, .. } => {
                     board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
                         (stack + '0' as u8) as char;
                 }
@@ -160,7 +163,9 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let gamestate = read_game_state("requests/example_move_request_2.json");
+        let gamestate = read_game_state(
+            "requests/failure_41_area_suggests_right_but_left_might_be_better.json",
+        );
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
     }
