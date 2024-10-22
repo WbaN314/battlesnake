@@ -42,30 +42,6 @@ impl Display for DGameState {
         let row = [' '; WIDTH as usize * 3];
         let mut board = [row; HEIGHT as usize * 3];
 
-        // Add Head and Tail markers
-        for i in 0..SNAKES {
-            let snake = self.snake_cell(i).get();
-            match snake {
-                DSnake::Alive {
-                    head,
-                    tail,
-                    stack,
-                    id,
-                    ..
-                } => {
-                    board[head.y as usize * 3 + 1][head.x as usize * 3 + 1] =
-                        (id + 'A' as u8) as char;
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
-                        (stack + '0' as u8) as char;
-                }
-                DSnake::Headless { tail, stack, .. } => {
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
-                        (stack + '0' as u8) as char;
-                }
-                _ => (),
-            }
-        }
-
         // Fill the board with the current state
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -97,16 +73,40 @@ impl Display for DGameState {
                                 board[y as usize * 3 + 1][x as usize * 3 + 3] = c;
                             }
                             None => {
-                                // board[y as usize * 3 + 1][x as usize * 3] = c;
-                                // board[y as usize * 3 + 1][x as usize * 3 + 2] = c;
-                                // board[y as usize * 3][x as usize * 3 + 1] = c;
-                                // board[y as usize * 3 + 2][x as usize * 3 + 1] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 + 1] =
-                                    (id + 'A' as u8) as char;
+                                let ID = (id + 'A' as u8) as char;
+                                board[y as usize * 3 + 1][x as usize * 3] = ID;
+                                board[y as usize * 3 + 1][x as usize * 3 + 2] = ID;
+                                board[y as usize * 3][x as usize * 3 + 1] = ID;
+                                board[y as usize * 3 + 2][x as usize * 3 + 1] = ID;
+                                board[y as usize * 3 + 1][x as usize * 3 + 1] = ID;
                             }
                         }
                     }
                 }
+            }
+        }
+
+        // Add Head and Tail markers
+        for i in 0..SNAKES {
+            let snake = self.snake_cell(i).get();
+            match snake {
+                DSnake::Alive {
+                    head,
+                    tail,
+                    stack,
+                    id,
+                    ..
+                } => {
+                    board[head.y as usize * 3 + 1][head.x as usize * 3 + 1] =
+                        (id + 'A' as u8) as char;
+                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
+                        (stack + '0' as u8) as char;
+                }
+                DSnake::Headless { tail, stack, .. } => {
+                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
+                        (stack + '0' as u8) as char;
+                }
+                _ => (),
             }
         }
 
@@ -134,7 +134,9 @@ impl Display for DGameState {
                     id, health, length, ..
                 } => other_info.push_str(&format!(
                     "Snake {} - Health: {}, Length: {}\n",
-                    id, health, length
+                    (id + 'A' as u8) as char,
+                    health,
+                    length
                 )),
                 _ => (),
             }
