@@ -1,11 +1,10 @@
-use crate::{Battlesnake, Board};
-
 use super::{d_coord::DCoord, d_field::DField};
+use crate::{Battlesnake, Board};
 use std::cell::Cell;
 
-const HEIGHT: i8 = 11;
-const WIDTH: i8 = 11;
-const SIZE: i8 = HEIGHT * WIDTH;
+pub const HEIGHT: i8 = 11;
+pub const WIDTH: i8 = 11;
+pub const SIZE: i8 = HEIGHT * WIDTH;
 
 pub struct DBoard {
     fields: [Cell<DField>; SIZE as usize],
@@ -37,26 +36,20 @@ impl DBoard {
                     None
                 };
                 match d_board.cell(coord.x, coord.y).unwrap().get() {
-                    DField::Snake {
-                        id: old_id,
-                        stack: old_stack,
-                        ..
-                    } => {
+                    DField::Snake { id: old_id, .. } => {
                         if id != old_id {
                             panic!("Trying to set snake on other snake");
                         }
-                        d_board.cell(coord.x, coord.y).unwrap().set(DField::Snake {
-                            id: id,
-                            stack: old_stack + 1,
-                            next,
-                        });
+                        d_board
+                            .cell(coord.x, coord.y)
+                            .unwrap()
+                            .set(DField::Snake { id: id, next });
                     }
                     DField::Empty => {
-                        d_board.cell(coord.x, coord.y).unwrap().set(DField::Snake {
-                            id: id,
-                            stack: 1,
-                            next,
-                        });
+                        d_board
+                            .cell(coord.x, coord.y)
+                            .unwrap()
+                            .set(DField::Snake { id: id, next });
                     }
                     _ => panic!("Trying to set snake on invalid field"),
                 }
@@ -125,11 +118,7 @@ mod tests {
         assert_eq!(board.cell(5, 5).unwrap().get(), DField::Food);
         assert_eq!(
             board.cell(9, 1).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                stack: 3,
-                next: None
-            }
+            DField::Snake { id: 0, next: None }
         );
 
         let mut ids = vec![0];
@@ -164,17 +153,12 @@ mod tests {
         let board = DBoard::from_request(&request.board, &request.you);
         assert_eq!(
             board.cell(0, 0).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                stack: 1,
-                next: None
-            }
+            DField::Snake { id: 0, next: None }
         );
         assert_eq!(
             board.cell(1, 0).unwrap().get(),
             DField::Snake {
                 id: 0,
-                stack: 1,
                 next: Some(DDirection::Left)
             }
         );
@@ -182,7 +166,6 @@ mod tests {
             board.cell(2, 0).unwrap().get(),
             DField::Snake {
                 id: 0,
-                stack: 1,
                 next: Some(DDirection::Left)
             }
         );

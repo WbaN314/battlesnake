@@ -4,11 +4,7 @@ use super::d_direction::DDirection;
 pub enum DField {
     Empty,
     Food,
-    Snake {
-        id: u8,
-        stack: u8,
-        next: Option<DDirection>,
-    },
+    Snake { id: u8, next: Option<DDirection> },
 }
 
 impl Default for DField {

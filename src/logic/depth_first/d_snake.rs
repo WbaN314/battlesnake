@@ -9,6 +9,7 @@ pub enum DSnake {
         length: u8,
         head: DCoord,
         tail: DCoord,
+        stack: u8,
     },
     Dead {
         id: u8,
@@ -18,6 +19,7 @@ pub enum DSnake {
         health: u8,
         length: u8,
         tail: DCoord,
+        stack: u8,
     },
     NonExistent,
 }
@@ -32,12 +34,21 @@ impl DSnake {
     pub fn from_request(snake: &Battlesnake, id: u8) -> Self {
         let head = DCoord::from(&snake.head);
         let tail = DCoord::from(snake.body.last().unwrap());
+        let mut last = snake.body[0];
+        let mut stack = 0;
+        for coord in snake.body.iter().skip(1) {
+            if *coord == last {
+                stack += 1;
+            }
+            last = *coord;
+        }
         DSnake::Alive {
             id,
             health: snake.health as u8,
             length: snake.body.len() as u8,
             head,
             tail,
+            stack,
         }
     }
 }
@@ -59,6 +70,7 @@ mod tests {
                 length: 3,
                 head: DCoord { x: 0, y: 0 },
                 tail: DCoord { x: 2, y: 0 },
+                stack: 0
             }
         );
     }

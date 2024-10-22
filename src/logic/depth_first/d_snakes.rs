@@ -51,6 +51,7 @@ mod tests {
                 length: 3,
                 head: DCoord { x: 0, y: 0 },
                 tail: DCoord { x: 2, y: 0 },
+                stack: 0
             }
         );
         assert_eq!(
@@ -61,6 +62,7 @@ mod tests {
                 length: 4,
                 head: DCoord { x: 5, y: 4 },
                 tail: DCoord { x: 6, y: 2 },
+                stack: 0
             }
         );
         assert_eq!(d_snakes.cell(2).get(), DSnake::NonExistent);
