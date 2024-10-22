@@ -1,3 +1,6 @@
+use core::panic;
+use std::cell::Cell;
+
 use super::d_coord::DCoord;
 use crate::Battlesnake;
 
@@ -21,7 +24,67 @@ pub enum DSnake {
         tail: DCoord,
         stack: u8,
     },
+    Vanished {
+        id: u8,
+    },
     NonExistent,
+}
+
+impl DSnake {
+    pub fn head(&self, value: DCoord) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Alive { ref mut head, .. } => {
+                *head = value;
+            }
+            _ => panic!("Cannot set head on this snake type"),
+        };
+        snake
+    }
+
+    pub fn tail(&self, value: DCoord) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Alive { ref mut tail, .. } | DSnake::Headless { ref mut tail, .. } => {
+                *tail = value;
+            }
+            _ => panic!("Cannot set tail on this snake type"),
+        };
+        snake
+    }
+
+    pub fn health(&self, value: u8) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Alive { ref mut health, .. } | DSnake::Headless { ref mut health, .. } => {
+                *health = value;
+            }
+            _ => panic!("Cannot set health on this snake type"),
+        };
+        snake
+    }
+
+    pub fn stack(&self, value: u8) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Alive { ref mut stack, .. } | DSnake::Headless { ref mut stack, .. } => {
+                *stack = value;
+            }
+            _ => panic!("Cannot set stack on this snake type"),
+        };
+        snake
+    }
+
+    pub fn length(&self, value: u8) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Alive { ref mut length, .. } | DSnake::Headless { ref mut length, .. } => {
+                *length = value;
+            }
+            _ => panic!("Cannot set length on this snake type"),
+        };
+        snake
+    }
 }
 
 impl Default for DSnake {
@@ -71,6 +134,35 @@ mod tests {
                 head: DCoord { x: 0, y: 0 },
                 tail: DCoord { x: 2, y: 0 },
                 stack: 0
+            }
+        );
+    }
+
+    #[test]
+    fn test_value_changers() {
+        let snake = DSnake::Alive {
+            id: 0,
+            health: 54,
+            length: 3,
+            head: DCoord { x: 0, y: 0 },
+            tail: DCoord { x: 3, y: 0 },
+            stack: 0,
+        };
+        let snake = snake
+            .head(DCoord::new(4, 0))
+            .tail(DCoord::new(0, 0))
+            .health(100)
+            .stack(1)
+            .length(4);
+        assert_eq!(
+            snake,
+            DSnake::Alive {
+                id: 0,
+                health: 100,
+                length: 4,
+                head: DCoord { x: 4, y: 0 },
+                tail: DCoord { x: 0, y: 0 },
+                stack: 1
             }
         );
     }

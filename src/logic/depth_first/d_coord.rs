@@ -9,6 +9,10 @@ pub struct DCoord {
 }
 
 impl DCoord {
+    pub fn new(x: i8, y: i8) -> Self {
+        DCoord { x, y }
+    }
+
     pub fn direction_to(&self, other: DCoord) -> Option<DDirection> {
         if self.x == other.x {
             if self.y == other.y + 1 {

@@ -1,7 +1,4 @@
-use std::{
-    cell::Cell,
-    fmt::{Display, Formatter},
-};
+use std::fmt::{Display, Formatter};
 
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
 
@@ -13,7 +10,8 @@ use super::{
     d_snakes::DSnakes,
 };
 
-pub type DMoves = [Option<DDirection>; SNAKES as usize];
+pub type DMove = Option<DDirection>;
+pub type DMoves = [DMove; SNAKES as usize];
 
 pub struct DGameState {
     board: DBoard,
@@ -30,25 +28,11 @@ impl DGameState {
         }
     }
 
-    pub fn board_cell(&self, x: i8, y: i8) -> Option<&Cell<DField>> {
-        self.board.cell(x, y)
-    }
-
-    pub fn snake_cell(&self, id: u8) -> &Cell<DSnake> {
-        self.snakes.cell(id)
-    }
-
     pub fn next(&mut self, moves: DMoves) {
-        for id in 0..SNAKES {}
         todo!()
     }
 
-    fn move_tail(&mut self, id: u8) {
-        match self.snake_cell(id).get() {
-            DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {}
-            _ => (),
-        }
-    }
+    fn move_tail(&mut self, id: u8) {}
 }
 
 impl Display for DGameState {
@@ -58,7 +42,7 @@ impl Display for DGameState {
 
         // Write head markers before board
         for i in 0..SNAKES {
-            let snake = self.snake_cell(i).get();
+            let snake = self.snakes.cell(i).get();
             match snake {
                 DSnake::Alive { head, id, .. } => {
                     let id = (id + 'A' as u8) as char;
@@ -77,7 +61,7 @@ impl Display for DGameState {
         // Fill the board with the current state
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                match self.board_cell(x, y).unwrap().get() {
+                match self.board.cell(x, y).unwrap().get() {
                     DField::Empty => {
                         board[y as usize * 3 + 1][x as usize * 3 + 1] = '.';
                     }
@@ -113,7 +97,7 @@ impl Display for DGameState {
 
         // Write tail markers over board
         for i in 0..SNAKES {
-            let snake = self.snake_cell(i).get();
+            let snake = self.snakes.cell(i).get();
             match snake {
                 DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {
                     board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
@@ -142,7 +126,7 @@ impl Display for DGameState {
 
         let mut other_info = String::from('\n');
         for i in 0..SNAKES {
-            match self.snake_cell(i).get() {
+            match self.snakes.cell(i).get() {
                 DSnake::Alive {
                     id, health, length, ..
                 }
