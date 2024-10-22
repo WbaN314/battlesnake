@@ -13,6 +13,8 @@ use super::{
     d_snakes::DSnakes,
 };
 
+pub type DMoves = [Option<DDirection>; SNAKES as usize];
+
 pub struct DGameState {
     board: DBoard,
     snakes: DSnakes,
@@ -34,6 +36,18 @@ impl DGameState {
 
     pub fn snake_cell(&self, id: u8) -> &Cell<DSnake> {
         self.snakes.cell(id)
+    }
+
+    pub fn next(&mut self, moves: DMoves) {
+        for id in 0..SNAKES {}
+        todo!()
+    }
+
+    fn move_tail(&mut self, id: u8) {
+        match self.snake_cell(id).get() {
+            DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {}
+            _ => (),
+        }
     }
 }
 
@@ -101,11 +115,7 @@ impl Display for DGameState {
         for i in 0..SNAKES {
             let snake = self.snake_cell(i).get();
             match snake {
-                DSnake::Alive { tail, stack, .. } => {
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
-                        (stack + '0' as u8) as char;
-                }
-                DSnake::Headless { tail, stack, .. } => {
+                DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {
                     board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
                         (stack + '0' as u8) as char;
                 }
@@ -134,6 +144,9 @@ impl Display for DGameState {
         for i in 0..SNAKES {
             match self.snake_cell(i).get() {
                 DSnake::Alive {
+                    id, health, length, ..
+                }
+                | DSnake::Headless {
                     id, health, length, ..
                 } => other_info.push_str(&format!(
                     "Snake {} - Health: {}, Length: {}\n",
