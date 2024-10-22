@@ -1,3 +1,4 @@
+use core::panic;
 use std::fmt::{Display, Formatter};
 
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
@@ -29,10 +30,34 @@ impl DGameState {
     }
 
     pub fn next(&mut self, moves: DMoves) {
+        for i in 0..SNAKES {
+            self.move_tail(i);
+        }
         todo!()
     }
 
-    fn move_tail(&mut self, id: u8) {}
+    fn move_tail(&mut self, id: u8) {
+        let snake = self.snakes.cell(id).get();
+        match snake {
+            DSnake::Alive { stack, .. } | DSnake::Headless { stack, .. } if stack > 0 => {
+                self.snakes.cell(id).set(snake.stack(stack - 1));
+            }
+            DSnake::Alive { tail, .. } | DSnake::Headless { tail, .. } => {
+                match self.board.cell(tail.x, tail.y).unwrap().get() {
+                    DField::Snake {
+                        next: Some(direction),
+                        ..
+                    } => {
+                        self.snakes.cell(id).set(snake.tail(tail + direction));
+                    }
+                    _ => {
+                        panic!("Snake tail is on invalid field");
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
 }
 
 impl Display for DGameState {

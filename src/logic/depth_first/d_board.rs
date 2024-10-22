@@ -1,4 +1,4 @@
-use super::{d_coord::DCoord, d_field::DField};
+use super::{d_coord::DCoord, d_direction::DDirection, d_field::DField};
 use crate::{Battlesnake, Board};
 use std::cell::Cell;
 
@@ -30,8 +30,8 @@ impl DBoard {
             let mut last: Option<DCoord> = None;
             for coord in snake.body.iter() {
                 let coord: DCoord = coord.into();
-                let next = if let Some(last) = last {
-                    coord.direction_to(last)
+                let next: Option<DDirection> = if let Some(last) = last {
+                    (last - coord).try_into().ok()
                 } else {
                     None
                 };

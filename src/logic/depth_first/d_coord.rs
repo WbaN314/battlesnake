@@ -1,3 +1,5 @@
+use std::ops::{Add, AddAssign, Sub, SubAssign};
+
 use crate::Coord;
 
 use super::d_direction::DDirection;
@@ -12,28 +14,6 @@ impl DCoord {
     pub fn new(x: i8, y: i8) -> Self {
         DCoord { x, y }
     }
-
-    pub fn direction_to(&self, other: DCoord) -> Option<DDirection> {
-        if self.x == other.x {
-            if self.y == other.y + 1 {
-                Some(DDirection::Down)
-            } else if self.y == other.y - 1 {
-                Some(DDirection::Up)
-            } else {
-                None
-            }
-        } else if self.y == other.y {
-            if self.x == other.x + 1 {
-                Some(DDirection::Left)
-            } else if self.x == other.x - 1 {
-                Some(DDirection::Right)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
 }
 
 impl From<&Coord> for DCoord {
@@ -45,20 +25,55 @@ impl From<&Coord> for DCoord {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl From<DDirection> for DCoord {
+    fn from(direction: DDirection) -> Self {
+        match direction {
+            DDirection::Up => DCoord { x: 0, y: 1 },
+            DDirection::Down => DCoord { x: 0, y: -1 },
+            DDirection::Left => DCoord { x: -1, y: 0 },
+            DDirection::Right => DCoord { x: 1, y: 0 },
+        }
+    }
+}
 
-    #[test]
-    fn test_direction_to() {
-        let start = DCoord { x: 1, y: 1 };
-        let up = DCoord { x: 1, y: 2 };
-        let down = DCoord { x: 1, y: 0 };
-        let left = DCoord { x: 0, y: 1 };
-        let right = DCoord { x: 2, y: 1 };
-        assert_eq!(start.direction_to(up), Some(DDirection::Up));
-        assert_eq!(start.direction_to(down), Some(DDirection::Down));
-        assert_eq!(start.direction_to(left), Some(DDirection::Left));
-        assert_eq!(start.direction_to(right), Some(DDirection::Right));
+impl Add<DCoord> for DCoord {
+    type Output = DCoord;
+
+    fn add(self, rhs: DCoord) -> Self::Output {
+        DCoord {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub<DCoord> for DCoord {
+    type Output = DCoord;
+
+    fn sub(self, rhs: DCoord) -> Self::Output {
+        DCoord {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl SubAssign for DCoord {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl Add<DDirection> for DCoord {
+    type Output = DCoord;
+
+    fn add(self, rhs: DDirection) -> Self::Output {
+        self + DCoord::from(rhs)
+    }
+}
+
+impl AddAssign for DCoord {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
