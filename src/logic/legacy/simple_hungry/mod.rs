@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Battlesnake, Board, Coord, Direction, Game};
+use crate::{Coord, Direction, GameState};
 
 use super::shared::brain::Brain;
 
@@ -13,7 +13,7 @@ impl SimpleHungrySnake {
 }
 
 impl Brain for SimpleHungrySnake {
-    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(&self, gamestate: &GameState) -> Direction {
         let mut is_move_safe: HashMap<Direction, _> = vec![
             (Direction::Up, true),
             (Direction::Down, true),
@@ -22,9 +22,9 @@ impl Brain for SimpleHungrySnake {
         ]
         .into_iter()
         .collect();
-        let my_head = &you.body[0];
-        let board_width = board.width;
-        let board_height = board.height as i32;
+        let my_head = &gamestate.you.body[0];
+        let board_width = gamestate.board.width;
+        let board_height = gamestate.board.height as i32;
         if my_head.x + 1 == board_width {
             is_move_safe.insert(Direction::Right, false);
         }
@@ -37,7 +37,7 @@ impl Brain for SimpleHungrySnake {
         if my_head.y == 0 {
             is_move_safe.insert(Direction::Down, false);
         }
-        let snakes = &board.snakes;
+        let snakes = &gamestate.board.snakes;
         for s in snakes {
             for i in 0..s.body.len() {
                 if s.body[i].y == my_head.y {
@@ -58,7 +58,7 @@ impl Brain for SimpleHungrySnake {
                 }
             }
         }
-        let foods = &board.food;
+        let foods = &gamestate.board.food;
         let middle = Coord {
             x: board_width / 2,
             y: board_height / 2,

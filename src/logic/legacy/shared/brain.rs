@@ -1,5 +1,5 @@
-use crate::{Battlesnake, Board, Direction, Game};
+use crate::{Direction, GameState};
 
 pub trait Brain {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction;
+    fn logic(&self, gamestate: &GameState) -> Direction;
 }

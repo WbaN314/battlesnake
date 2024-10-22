@@ -35,13 +35,7 @@ fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     let variant = env::var("VARIANT").unwrap_or(String::from("breadth_first"));
 
     move_req = Json(r);
-    let response = logic::get_move(
-        &move_req.game,
-        &move_req.turn,
-        &move_req.board,
-        &move_req.you,
-        variant,
-    );
+    let response = logic::get_move(&move_req, variant);
 
     Json(json!({ "move": response }))
 }

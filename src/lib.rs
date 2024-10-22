@@ -95,15 +95,12 @@ pub fn read_game_state(path: &str) -> GameState {
 }
 
 pub fn get_move_from_json_file(path: &str) -> Direction {
-    let game_state = read_game_state(&(DIR.to_string() + path));
-    let print = EGameState::from(&game_state.board, &game_state.you);
+    let gamestate = read_game_state(&(DIR.to_string() + path));
+    let print = EGameState::from(&gamestate.board, &gamestate.you);
     println!("{}", print);
     env::set_var("MODE", "test");
     let m = get_move(
-        &game_state.game,
-        &game_state.turn,
-        &game_state.board,
-        &game_state.you,
+        &gamestate,
         env::var("VARIANT").unwrap_or("breadth_first".to_string()),
     );
     m

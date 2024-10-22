@@ -15,7 +15,7 @@ use log::info;
 use serde_json::{json, Value};
 use std::env;
 
-use crate::{Battlesnake, Board, Direction, Game};
+use crate::{Battlesnake, Board, Direction, Game, GameState};
 
 mod depth_first;
 pub mod legacy;
@@ -52,13 +52,7 @@ pub fn end(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
 // move is called on every turn and returns your next move
 // Valid moves are Move::Up, Move::Down, Move::Left, or Move::Right
 // See https://docs.battlesnake.com/api/example-move for available data
-pub fn get_move(
-    game: &Game,
-    turn: &i32,
-    board: &Board,
-    you: &Battlesnake,
-    variant: String,
-) -> Direction {
+pub fn get_move(gamestate: &GameState, variant: String) -> Direction {
     let brain: Box<dyn Brain> = match variant.as_str() {
         "simple_hungry" => Box::new(legacy::simple_hungry::SimpleHungrySnake::new()),
         "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),
@@ -66,7 +60,7 @@ pub fn get_move(
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-    let next_move = brain.logic(game, turn, board, you);
+    let next_move = brain.logic(gamestate);
     // info!("MOVE {}: {}", turn, next_move);
     return next_move;
 }

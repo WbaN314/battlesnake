@@ -6,7 +6,7 @@ use crate::{
         },
         Brain, Direction,
     },
-    Battlesnake, Board, Game,
+    Board, GameState,
 };
 use e_score_board::EScoreBoard;
 use e_state_tree::EStateTree;
@@ -208,13 +208,13 @@ impl BreadthFirstSnake {
 }
 
 impl Brain for BreadthFirstSnake {
-    fn logic(&self, game: &Game, turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
+    fn logic(&self, gamestate: &GameState) -> Direction {
         let distance = 10;
         let simulate_duration = 200;
 
         // _chickens.lock().unwrap().insert("Test".to_string(), true);
 
-        let game_state = EGameState::from(board, you);
+        let game_state = EGameState::from(&gamestate.board, &gamestate.you);
         let mut scores = Scores::new();
 
         // movable
@@ -238,7 +238,7 @@ impl Brain for BreadthFirstSnake {
         scores.push(self.captures(&game_state));
 
         // food
-        scores.push(self.food(board, &game_state));
+        scores.push(self.food(&gamestate.board, &game_state));
 
         // close weights
         scores.push(self.close_weights(&game_state));
@@ -250,7 +250,7 @@ impl Brain for BreadthFirstSnake {
         let result = scores.evaluate();
 
         // Print the results
-        scores.print_log(game, turn, result);
+        scores.print_log(&gamestate.game, &gamestate.turn, result);
 
         result.to_direction()
     }

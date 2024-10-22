@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::{Battlesnake, Board, Coord, Direction, Game};
+use crate::{Board, Coord, Direction, GameState};
 
 use super::shared::brain::Brain;
 
@@ -238,20 +238,24 @@ impl SimpleTreeSearchSnake {
 }
 
 impl Brain for SimpleTreeSearchSnake {
-    fn logic(&self, _game: &Game, _turn: &i32, board: &Board, you: &Battlesnake) -> Direction {
-        let (mut new_boards, mut move_scores) = step(board, &you.id);
+    fn logic(&self, gamestate: &GameState) -> Direction {
+        let (mut new_boards, mut move_scores) = step(&gamestate.board, &gamestate.you.id);
 
-        let depth = if board.snakes.len() == 2 { 3 } else { 1 };
+        let depth = if gamestate.board.snakes.len() == 2 {
+            3
+        } else {
+            1
+        };
 
         let new_combinations_number =
-            4_i32.pow(board.snakes.len() as u32) * new_boards.len() as i32;
+            4_i32.pow(gamestate.board.snakes.len() as u32) * new_boards.len() as i32;
         for _ in 0..depth {
             for i in 0..4 {
                 move_scores[i] = move_scores[i].saturating_mul(new_combinations_number);
             }
             let mut tmp_boards = Vec::with_capacity(new_combinations_number as usize);
             for board in new_boards.iter() {
-                let (mut b, s) = step(board, &you.id);
+                let (mut b, s) = step(board, &gamestate.you.id);
                 for i in 0..4 {
                     move_scores[i] = move_scores[i].saturating_add(s[i]);
                 }

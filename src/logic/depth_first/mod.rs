@@ -1,5 +1,5 @@
 use crate::logic::legacy::shared::brain::Brain;
-use crate::{Battlesnake, Board, Direction, Game};
+use crate::{Direction, GameState};
 
 mod d_board;
 mod d_coord;
@@ -18,7 +18,7 @@ impl DepthFirstSnake {
 }
 
 impl Brain for DepthFirstSnake {
-    fn logic(&self, _game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) -> Direction {
+    fn logic(&self, _gamestate: &GameState) -> Direction {
         todo!()
     }
 }
