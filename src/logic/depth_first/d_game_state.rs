@@ -33,7 +33,6 @@ impl DGameState {
         for i in 0..SNAKES {
             self.move_tail(i);
         }
-        todo!()
     }
 
     fn move_tail(&mut self, id: u8) {
@@ -49,6 +48,7 @@ impl DGameState {
                         ..
                     } => {
                         self.snakes.cell(id).set(snake.tail(tail + direction));
+                        self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
                     }
                     _ => {
                         panic!("Snake tail is on invalid field");
@@ -154,16 +154,27 @@ impl Display for DGameState {
             match self.snakes.cell(i).get() {
                 DSnake::Alive {
                     id, health, length, ..
-                }
-                | DSnake::Headless {
-                    id, health, length, ..
                 } => other_info.push_str(&format!(
-                    "Snake {} - Health: {}, Length: {}\n",
+                    "Snake {} (Alive) - Health: {}, Length: {}\n",
                     (id + 'A' as u8) as char,
                     health,
                     length
                 )),
-                _ => (),
+                DSnake::Headless {
+                    id, health, length, ..
+                } => other_info.push_str(&format!(
+                    "Snake {} (Headless) - Health: {}, Length: {}\n",
+                    (id + 'A' as u8) as char,
+                    health,
+                    length
+                )),
+                DSnake::Dead { id, .. } => {
+                    other_info.push_str(&format!("Snake {} (Dead)\n", (id + 'A' as u8) as char))
+                }
+                DSnake::Vanished { id, .. } => {
+                    other_info.push_str(&format!("Snake {} (Vanished)\n", (id + 'A' as u8) as char))
+                }
+                DSnake::NonExistent => (),
             }
         }
         output.push_str(&other_info);
@@ -188,8 +199,12 @@ mod tests {
         let gamestate = read_game_state(
             "requests/failure_41_area_suggests_right_but_left_might_be_better.json",
         );
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
+        for _ in 0..10 {
+            state.next([None, None, None, None]);
+            println!("{}", state);
+        }
     }
 
     #[test]
