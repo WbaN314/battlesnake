@@ -30,32 +30,36 @@ impl DGameState {
     }
 
     pub fn next(&mut self, moves: DMoves) {
-        for i in 0..SNAKES {
-            self.move_tail(i);
-        }
+        self.move_tails();
     }
 
-    fn move_tail(&mut self, id: u8) {
-        let snake = self.snakes.cell(id).get();
-        match snake {
-            DSnake::Alive { stack, .. } | DSnake::Headless { stack, .. } if stack > 0 => {
-                self.snakes.cell(id).set(snake.stack(stack - 1));
-            }
-            DSnake::Alive { tail, .. } | DSnake::Headless { tail, .. } => {
-                match self.board.cell(tail.x, tail.y).unwrap().get() {
-                    DField::Snake {
-                        next: Some(direction),
-                        ..
-                    } => {
-                        self.snakes.cell(id).set(snake.tail(tail + direction));
-                        self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
-                    }
-                    _ => {
-                        panic!("Snake tail is on invalid field");
+    fn move_tails(&mut self) {
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            match snake {
+                DSnake::Alive { stack, .. } | DSnake::Headless { stack, .. } if stack > 0 => {
+                    self.snakes.cell(id).set(snake.stack(stack - 1));
+                }
+                DSnake::Alive { tail, .. } | DSnake::Headless { tail, .. } => {
+                    match self.board.cell(tail.x, tail.y).unwrap().get() {
+                        DField::Snake {
+                            next: Some(direction),
+                            ..
+                        } => {
+                            self.snakes.cell(id).set(snake.tail(tail + direction));
+                            self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                        }
+                        DField::Snake { next: None, .. } => {
+                            self.snakes.cell(id).set(snake.to_vanished());
+                            self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                        }
+                        _ => {
+                            panic!("Snake tail is on invalid field");
+                        }
                     }
                 }
+                _ => (),
             }
-            _ => (),
         }
     }
 }
@@ -201,10 +205,39 @@ mod tests {
         );
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
-        for _ in 0..10 {
+        for _ in 0..25 {
             state.next([None, None, None, None]);
             println!("{}", state);
         }
+    }
+
+    #[test]
+    fn test_move_tails() {
+        let gamestate = read_game_state("requests/example_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        state.move_tails();
+        assert_eq!(
+            state.snakes.cell(0).get(),
+            DSnake::Alive {
+                id: 0,
+                health: 54,
+                length: 3,
+                head: DCoord { x: 0, y: 0 },
+                tail: DCoord { x: 2, y: 0 },
+                stack: 0
+            }
+        );
+        assert_eq!(
+            state.snakes.cell(1).get(),
+            DSnake::Alive {
+                id: 1,
+                health: 16,
+                length: 4,
+                head: DCoord { x: 5, y: 4 },
+                tail: DCoord { x: 6, y: 2 },
+                stack: 0
+            }
+        );
     }
 
     #[test]

@@ -37,7 +37,7 @@ impl DSnake {
             DSnake::Alive { ref mut head, .. } => {
                 *head = value;
             }
-            _ => panic!("Cannot set head on this snake type"),
+            _ => panic!("Cannot set head on snake {:?}", self),
         };
         snake
     }
@@ -48,7 +48,7 @@ impl DSnake {
             DSnake::Alive { ref mut tail, .. } | DSnake::Headless { ref mut tail, .. } => {
                 *tail = value;
             }
-            _ => panic!("Cannot set tail on this snake type"),
+            _ => panic!("Cannot set tail on snake {:?}", self),
         };
         snake
     }
@@ -59,7 +59,7 @@ impl DSnake {
             DSnake::Alive { ref mut health, .. } | DSnake::Headless { ref mut health, .. } => {
                 *health = value;
             }
-            _ => panic!("Cannot set health on this snake type"),
+            _ => panic!("Cannot set health on snake {:?}", self),
         };
         snake
     }
@@ -70,7 +70,7 @@ impl DSnake {
             DSnake::Alive { ref mut stack, .. } | DSnake::Headless { ref mut stack, .. } => {
                 *stack = value;
             }
-            _ => panic!("Cannot set stack on this snake type"),
+            _ => panic!("Cannot set stack on snake {:?}", self),
         };
         snake
     }
@@ -81,9 +81,17 @@ impl DSnake {
             DSnake::Alive { ref mut length, .. } | DSnake::Headless { ref mut length, .. } => {
                 *length = value;
             }
-            _ => panic!("Cannot set length on this snake type"),
+            _ => panic!("Cannot set length on snake {:?}", self),
         };
         snake
+    }
+
+    pub fn to_vanished(&self) -> Self {
+        match self {
+            DSnake::Alive { id, .. } => DSnake::Vanished { id: *id },
+            DSnake::Headless { id, .. } => DSnake::Vanished { id: *id },
+            _ => panic!("Cannot vanish snake {:?}", self),
+        }
     }
 }
 
