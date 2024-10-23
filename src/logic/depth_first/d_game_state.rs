@@ -1,4 +1,3 @@
-use core::panic;
 use std::fmt::{Display, Formatter};
 
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
@@ -33,7 +32,7 @@ impl DGameState {
         self.move_tails();
     }
 
-    fn move_tails(&mut self) {
+    fn move_tails(&mut self) -> &mut Self {
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
             match snake {
@@ -61,6 +60,7 @@ impl DGameState {
                 _ => (),
             }
         }
+        self
     }
 }
 
@@ -207,31 +207,72 @@ mod tests {
 
     #[test]
     fn test_move_tails() {
-        let gamestate = read_game_state("requests/example_move_request.json");
+        let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        state.move_tails();
+        match state.snakes.cell(0).get() {
+            DSnake::Alive { stack, tail, .. } => {
+                assert_eq!(stack, 0);
+                assert_eq!(tail, DCoord { x: 2, y: 0 });
+            }
+            _ => panic!("Problem with Snake A"),
+        }
+        match state.snakes.cell(2).get() {
+            DSnake::Alive { stack, tail, .. } => {
+                assert_eq!(stack, 1);
+                assert_eq!(tail, DCoord { x: 9, y: 2 });
+            }
+            _ => panic!("Problem with Snake C"),
+        }
         assert_eq!(
-            state.snakes.cell(0).get(),
-            DSnake::Alive {
+            state.board.cell(2, 0).unwrap().get(),
+            DField::Snake {
                 id: 0,
-                health: 54,
-                length: 3,
-                head: DCoord { x: 0, y: 0 },
-                tail: DCoord { x: 2, y: 0 },
-                stack: 0
+                next: Some(DDirection::Left)
             }
         );
+        state.move_tails();
+        assert_eq!(state.board.cell(2, 0).unwrap().get(), DField::Empty);
         assert_eq!(
-            state.snakes.cell(1).get(),
-            DSnake::Alive {
-                id: 1,
-                health: 16,
-                length: 4,
-                head: DCoord { x: 5, y: 4 },
-                tail: DCoord { x: 6, y: 2 },
-                stack: 0
+            state.board.cell(9, 2).unwrap().get(),
+            DField::Snake {
+                id: 2,
+                next: Some(DDirection::Down)
             }
         );
+        match state.snakes.cell(0).get() {
+            DSnake::Alive { stack, tail, .. } => {
+                assert_eq!(stack, 0);
+                assert_eq!(tail, DCoord { x: 1, y: 0 });
+            }
+            _ => panic!("Problem with Snake A"),
+        }
+        match state.snakes.cell(2).get() {
+            DSnake::Alive { stack, tail, .. } => {
+                assert_eq!(stack, 0);
+                assert_eq!(tail, DCoord { x: 9, y: 2 });
+            }
+            _ => panic!("Problem with Snake C"),
+        }
+        state.move_tails().move_tails();
+        assert_eq!(state.board.cell(0, 0).unwrap().get(), DField::Empty);
+        assert_eq!(
+            state.board.cell(9, 0).unwrap().get(),
+            DField::Snake { id: 2, next: None }
+        );
+        match state.snakes.cell(0).get() {
+            DSnake::Vanished { id, .. } => assert_eq!(id, 0),
+            _ => panic!("Problem with Snake A"),
+        }
+        match state.snakes.cell(2).get() {
+            DSnake::Alive {
+                stack, tail, head, ..
+            } => {
+                assert_eq!(stack, 0);
+                assert_eq!(tail, DCoord { x: 9, y: 0 });
+                assert_eq!(head, DCoord { x: 9, y: 0 });
+            }
+            _ => panic!("Problem with Snake C"),
+        }
     }
 
     #[test]

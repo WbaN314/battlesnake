@@ -30,30 +30,27 @@ impl DBoard {
             let mut last: Option<DCoord> = None;
             for coord in snake.body.iter() {
                 let coord: DCoord = coord.into();
-                let next: Option<DDirection> = if let Some(last) = last {
-                    (last - coord).try_into().ok()
-                } else {
-                    None
-                };
+
+                match last {
+                    Some(last) if last == coord => continue, // skip duplicate, is added to snake stack in snakes
+                    _ => (),
+                }
+
                 match d_board.cell(coord.x, coord.y).unwrap().get() {
-                    DField::Snake { id: old_id, .. } => {
-                        if id != old_id {
-                            panic!("Trying to set snake on other snake");
-                        }
-                        d_board
-                            .cell(coord.x, coord.y)
-                            .unwrap()
-                            .set(DField::Snake { id: id, next });
-                    }
                     DField::Empty => {
+                        let next: Option<DDirection> = if let Some(last) = last {
+                            (last - coord).try_into().ok()
+                        } else {
+                            None
+                        };
                         d_board
                             .cell(coord.x, coord.y)
                             .unwrap()
                             .set(DField::Snake { id: id, next });
+                        last = Some(coord);
                     }
                     _ => panic!("Trying to set snake on invalid field"),
                 }
-                last = Some(coord);
             }
         }
         d_board
@@ -169,9 +166,23 @@ mod tests {
                 next: Some(DDirection::Left)
             }
         );
-        match board.cell(5, 4).unwrap().get() {
-            DField::Snake { next, .. } => assert_eq!(next, Some(DDirection::Down)),
-            _ => panic!("Not a snake"),
-        }
+        assert_eq!(
+            board.cell(9, 2).unwrap().get(),
+            DField::Snake {
+                id: 2,
+                next: Some(DDirection::Down)
+            }
+        );
+        assert_eq!(
+            board.cell(9, 1).unwrap().get(),
+            DField::Snake {
+                id: 2,
+                next: Some(DDirection::Down)
+            }
+        );
+        assert_eq!(
+            board.cell(9, 0).unwrap().get(),
+            DField::Snake { id: 2, next: None }
+        );
     }
 }
