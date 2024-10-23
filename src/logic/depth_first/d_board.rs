@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_from_request() {
-        let request = read_game_state("requests/example_game_start.json");
+        let request = read_game_state("requests/test_game_start.json");
         let board = DBoard::from_request(&request.board, &request.you);
         assert_eq!(board.cell(0, 0).unwrap().get(), DField::Empty);
         assert_eq!(board.cell(0, 8).unwrap().get(), DField::Food);
@@ -149,7 +149,7 @@ mod tests {
             assert!(ids.contains(&id), "Snake with id {} not found", id);
         }
 
-        let request = read_game_state("requests/example_move_request.json");
+        let request = read_game_state("requests/test_move_request.json");
         let board = DBoard::from_request(&request.board, &request.you);
         assert_eq!(
             board.cell(0, 0).unwrap().get(),
@@ -169,5 +169,9 @@ mod tests {
                 next: Some(DDirection::Left)
             }
         );
+        match board.cell(5, 4).unwrap().get() {
+            DField::Snake { next, .. } => assert_eq!(next, Some(DDirection::Down)),
+            _ => panic!("Not a snake"),
+        }
     }
 }

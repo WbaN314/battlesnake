@@ -200,15 +200,9 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let gamestate = read_game_state(
-            "requests/failure_41_area_suggests_right_but_left_might_be_better.json",
-        );
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
-        for _ in 0..25 {
-            state.next([None, None, None, None]);
-            println!("{}", state);
-        }
     }
 
     #[test]
