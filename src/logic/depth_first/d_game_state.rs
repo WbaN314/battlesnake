@@ -29,6 +29,9 @@ impl DGameState {
     }
 
     pub fn next(&mut self, moves: DMoves) {
+        // Elimination handling https://github.com/BattlesnakeOfficial/rules/blob/main/standard.go#L172
+        // Eliminate starved snakes first (moving on food with 1 health in previous round is allowed, moving on non food will die now)
+        // Evaluate and eliminate collisions after
         self.move_tails();
     }
 
