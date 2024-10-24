@@ -31,11 +31,11 @@ impl DGameState {
         }
     }
 
-    pub fn next_state(&mut self, moves: DMoves) {
+    pub fn next_state(&mut self, moves: DMoves) -> &mut Self {
         // Elimination handling https://github.com/BattlesnakeOfficial/rules/blob/main/standard.go#L172
         // Eliminate starved snakes first (moving on food with 1 health in previous round is allowed, moving on non food will die now)
         // Evaluate and eliminate collisions after
-        self.move_tails().move_heads(moves);
+        self.move_tails().move_heads(moves)
     }
 
     fn move_heads(&mut self, moves: DMoves) -> &mut Self {
@@ -96,7 +96,11 @@ impl DGameState {
                         .cell(id)
                         .set(snake.health(health - 1).unmoved(unmoved + 1));
                 }
-                _ => panic!("Can only move head of alive snakes"),
+                (_, None) => (),
+                _ => panic!(
+                    "Can only move head of alive snakes but moved {:?} {:?}",
+                    snake, movement
+                ),
             }
         }
 
@@ -375,6 +379,90 @@ mod tests {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
+    }
+
+    #[bench]
+    // Should be < 50ns
+    fn bench_next_state(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [
+            Some(DDirection::Up),
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Down),
+        ];
+        b.iter(|| {
+            let mut state = state.clone();
+            state.next_state(moves);
+        });
+    }
+
+    #[test]
+    fn test_next_state() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let mut moves = [
+            Some(DDirection::Up),
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Down),
+        ];
+        state.next_state(moves);
+        println!("{}", state);
+        match state.snakes.cell(1).get() {
+            DSnake::Dead { .. } => (),
+            _ => panic!("Problem with Snake B"),
+        }
+        moves = [None, None, Some(DDirection::Left), Some(DDirection::Left)];
+        state.next_state(moves);
+        println!("{}", state);
+        match state.snakes.cell(0).get() {
+            DSnake::Headless { .. } => (),
+            _ => panic!("Problem with Snake A"),
+        }
+        match state.snakes.cell(3).get() {
+            DSnake::Alive {
+                head,
+                length,
+                stack,
+                ..
+            } => {
+                assert_eq!(head, DCoord::new(3, 4));
+                assert_eq!(length, 6);
+                assert_eq!(stack, 1);
+            }
+            _ => panic!("Problem with Snake D"),
+        }
+        match state.board.cell(4, 8).unwrap().get() {
+            DField::Empty => (),
+            _ => panic!("Problem with field (4, 8)"),
+        }
+        moves = [None, None, Some(DDirection::Left), Some(DDirection::Down)];
+        state.next_state(moves);
+        println!("{}", state);
+        state.next_state(moves);
+        println!("{}", state);
+        match state.snakes.cell(0).get() {
+            DSnake::Vanished { .. } => (),
+            _ => panic!("Problem with Snake A"),
+        }
+        state.next_state(moves);
+        println!("{}", state);
+        moves = [None, None, Some(DDirection::Left), Some(DDirection::Right)];
+        state.next_state(moves);
+        println!("{}", state);
+        state.next_state(moves);
+        println!("{}", state);
+        moves = [None, None, Some(DDirection::Up), Some(DDirection::Down)];
+        state.next_state(moves);
+        println!("{}", state);
+        match state.snakes.cell(3).get() {
+            DSnake::Alive { .. } => (),
+            _ => panic!("Problem with Head Tail movement order"),
+        }
     }
 
     #[test]
