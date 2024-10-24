@@ -4,6 +4,7 @@ use std::cell::Cell;
 
 const SNAKES: usize = 4;
 
+#[derive(Clone)]
 pub struct DSnakes {
     snakes: [Cell<DSnake>; SNAKES],
 }

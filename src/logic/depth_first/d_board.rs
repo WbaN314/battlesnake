@@ -6,6 +6,7 @@ pub const HEIGHT: i8 = 11;
 pub const WIDTH: i8 = 11;
 pub const SIZE: i8 = HEIGHT * WIDTH;
 
+#[derive(Clone)]
 pub struct DBoard {
     fields: [Cell<DField>; SIZE as usize],
 }
