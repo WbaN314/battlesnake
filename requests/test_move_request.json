@@ -134,32 +134,36 @@
             },
             {
                 "id": "snake-b67f4906-94ae-11ea-aaxx",
-                "name": "Another other other Snake",
+                "name": "D snek",
                 "health": 2,
                 "body": [
                     {
-                        "x": 2,
-                        "y": 2
-                    },
-                    {
-                        "x": 2,
-                        "y": 3
-                    },
-                    {
-                        "x": 2,
-                        "y": 4
-                    },
-                    {
-                        "x": 2,
+                        "x": 4,
                         "y": 5
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 5,
+                        "y": 8
                     }
                 ],
                 "latency": "222",
                 "head": {
-                    "x": 2,
-                    "y": 2
+                    "x": 4,
+                    "y": 5
                 },
-                "length": 4,
+                "length": 5,
                 "shout": "Can i go there?",
                 "customizations": {
                     "color": "#26CF04",

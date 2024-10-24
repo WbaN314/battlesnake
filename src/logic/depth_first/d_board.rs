@@ -1,4 +1,4 @@
-use super::{d_coord::DCoord, d_direction::DDirection, d_field::DField};
+use super::{d_coord::DCoord, d_direction::DDirection, d_field::DField, d_snake::DSnake};
 use crate::{Battlesnake, Board};
 use std::cell::Cell;
 
@@ -62,6 +62,34 @@ impl DBoard {
             return None;
         }
         self.fields.get(index as usize)
+    }
+
+    pub fn remove_snake(&self, snake: DSnake) {
+        match snake {
+            DSnake::Alive {
+                id: snake_id,
+                mut tail,
+                ..
+            }
+            | DSnake::Headless {
+                id: snake_id,
+                mut tail,
+                ..
+            } => loop {
+                match self.cell(tail.x, tail.y).unwrap().get() {
+                    DField::Snake { id, next } if snake_id == id => {
+                        self.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                        if let Some(next) = next {
+                            tail += next.into();
+                        } else {
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+            },
+            _ => panic!("Cannot remove snake {:?} from board", snake),
+        }
     }
 }
 

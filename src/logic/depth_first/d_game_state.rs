@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
 
+use rocket::data::N;
+
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
 
 use super::{
@@ -32,7 +34,158 @@ impl DGameState {
         // Elimination handling https://github.com/BattlesnakeOfficial/rules/blob/main/standard.go#L172
         // Eliminate starved snakes first (moving on food with 1 health in previous round is allowed, moving on non food will die now)
         // Evaluate and eliminate collisions after
-        self.move_tails();
+        self.move_tails().move_heads(moves);
+    }
+
+    fn move_heads(&mut self, moves: DMoves) -> &mut Self {
+        // Calculate potential new heads and handle headless snakes and non moves and food and health
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            let movement = moves[id as usize];
+            match (snake, movement) {
+                (DSnake::Alive { head, health, .. }, Some(direction)) => {
+                    let new_head = head + direction;
+                    match self.board.cell(new_head.x, new_head.y) {
+                        None => {
+                            self.board.remove_snake(snake);
+                            self.snakes.cell(id).set(snake.to_dead()); // Eliminate moved out of bounds directly
+                        }
+                        Some(field) => {
+                            self.board.cell(head.x, head.y).unwrap().set(DField::Snake {
+                                id,
+                                next: Some(direction),
+                            });
+                            if field.get() == DField::Food {
+                                self.snakes.cell(id).set(snake.health(100).head(new_head));
+                            } else {
+                                self.snakes
+                                    .cell(id)
+                                    .set(snake.health(health - 1).head(new_head));
+                            }
+                        }
+                    }
+                }
+                (DSnake::Alive { health, .. }, None) => {
+                    self.snakes
+                        .cell(id)
+                        .set(snake.health(health - 1).to_headless().unmoved(1));
+                }
+                (
+                    DSnake::Headless {
+                        health, unmoved, ..
+                    },
+                    None,
+                ) => {
+                    self.snakes
+                        .cell(id)
+                        .set(snake.health(health - 1).unmoved(unmoved + 1));
+                }
+                _ => panic!("Can only move head of alive snakes"),
+            }
+        }
+
+        // Remove starved snakes
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            match snake {
+                DSnake::Alive { health, .. } | DSnake::Headless { health, .. } if health == 0 => {
+                    self.board.remove_snake(snake);
+                    self.snakes.cell(id).set(snake.to_dead());
+                }
+                _ => (),
+            }
+        }
+
+        // Find head conflicts
+        let mut head_conflicts = [None; SNAKES as usize];
+        for id_1 in 0..SNAKES - 1 {
+            if let DSnake::Alive { head, .. } = self.snakes.cell(id_1).get() {
+                for id_2 in id_1 + 1..SNAKES {
+                    if let DSnake::Alive {
+                        head: other_head, ..
+                    } = self.snakes.cell(id_2).get()
+                    {
+                        if head == other_head {
+                            head_conflicts[id_1 as usize] = Some(id_2);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut snakes_to_remove: [Option<DSnake>; SNAKES as usize] = [None; SNAKES as usize];
+
+        // Handle head conflicts
+        for id_1 in 0..SNAKES {
+            if let Some(id_2) = head_conflicts[id_1 as usize] {
+                let snake_1 = self.snakes.cell(id_1).get();
+                let snake_2 = self.snakes.cell(id_2).get();
+                match (snake_1, snake_2) {
+                    (
+                        DSnake::Alive {
+                            health: health_1, ..
+                        },
+                        DSnake::Alive {
+                            health: health_2, ..
+                        },
+                    ) => {
+                        if health_1 > health_2 {
+                            snakes_to_remove[id_2 as usize] = Some(snake_2);
+                            self.snakes.cell(id_2).set(snake_2.to_dead());
+                        } else if health_1 < health_2 {
+                            snakes_to_remove[id_1 as usize] = Some(snake_1);
+                            self.snakes.cell(id_1).set(snake_1.to_dead());
+                        } else {
+                            snakes_to_remove[id_1 as usize] = Some(snake_1);
+                            snakes_to_remove[id_2 as usize] = Some(snake_2);
+                            self.snakes.cell(id_1).set(snake_1.to_dead());
+                            self.snakes.cell(id_2).set(snake_2.to_dead());
+                        }
+                    }
+                    _ => panic!("Head conflicts can only happen between alive snakes"),
+                }
+            }
+        }
+
+        // Head body collisions
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            match snake {
+                DSnake::Alive { head, .. } => {
+                    match self.board.cell(head.x, head.y).unwrap().get() {
+                        DField::Snake { .. } => {
+                            snakes_to_remove[id as usize] = Some(snake);
+                            self.snakes.cell(id).set(snake.to_dead());
+                        }
+                        _ => (),
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        // Remove all snakes that need to be removed
+        for id in 0..SNAKES {
+            if let Some(snake) = snakes_to_remove[id as usize] {
+                self.board.remove_snake(snake);
+            }
+        }
+
+        // Set the head board fields for all alive snakes
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            match snake {
+                DSnake::Alive { head, .. } => {
+                    self.board
+                        .cell(head.x, head.y)
+                        .unwrap()
+                        .set(DField::Snake { id, next: None });
+                }
+                _ => (),
+            }
+        }
+
+        self
     }
 
     fn move_tails(&mut self) -> &mut Self {
@@ -204,7 +357,13 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        state.move_heads([
+            Some(DDirection::Up),
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Down),
+        ]);
         println!("{}", state);
     }
 

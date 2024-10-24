@@ -23,6 +23,7 @@ pub enum DSnake {
         length: u8,
         tail: DCoord,
         stack: u8,
+        unmoved: u8,
     },
     Vanished {
         id: u8,
@@ -86,11 +87,53 @@ impl DSnake {
         snake
     }
 
+    pub fn unmoved(&self, value: u8) -> Self {
+        let mut snake = self.clone();
+        match snake {
+            DSnake::Headless {
+                ref mut unmoved, ..
+            } => {
+                *unmoved = value;
+            }
+            _ => panic!("Cannot set unmoved on snake {:?}", self),
+        }
+        snake
+    }
+
     pub fn to_vanished(&self) -> Self {
         match self {
             DSnake::Alive { id, .. } => DSnake::Vanished { id: *id },
             DSnake::Headless { id, .. } => DSnake::Vanished { id: *id },
             _ => panic!("Cannot vanish snake {:?}", self),
+        }
+    }
+
+    pub fn to_headless(&self) -> Self {
+        match self {
+            DSnake::Alive {
+                id,
+                health,
+                length,
+                tail,
+                stack,
+                ..
+            } => DSnake::Headless {
+                id: *id,
+                health: *health,
+                length: *length,
+                tail: *tail,
+                stack: *stack,
+                unmoved: 0,
+            },
+            _ => panic!("Cannot make snake headless {:?}", self),
+        }
+    }
+
+    pub fn to_dead(&self) -> Self {
+        match self {
+            DSnake::Alive { id, .. } => DSnake::Dead { id: *id },
+            DSnake::Headless { id, .. } => DSnake::Dead { id: *id },
+            _ => panic!("Cannot kill snake {:?}", self),
         }
     }
 }
