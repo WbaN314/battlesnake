@@ -1,19 +1,13 @@
-use std::fmt::{Display, Formatter};
-
-use rocket::data::N;
-
-use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
-
 use super::{
     d_board::{DBoard, HEIGHT, WIDTH},
-    d_direction::DDirection,
+    d_direction::{DDirection, D_DIRECTION_LIST},
     d_field::DField,
+    d_moves_set::{DMoves, DMovesSet},
     d_snake::DSnake,
     d_snakes::DSnakes,
 };
-
-pub type DMove = Option<DDirection>;
-pub type DMoves = [DMove; SNAKES as usize];
+use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub struct DGameState {
@@ -240,6 +234,33 @@ impl DGameState {
     }
 }
 
+impl DGameState {
+    // MovesSet Generation
+    pub fn possible_moves(&self) -> DMovesSet {
+        let mut possible_moves = [[false; 4]; SNAKES as usize];
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            match snake {
+                DSnake::Alive { head, .. } => {
+                    for direction in D_DIRECTION_LIST {
+                        let new_head = head + direction;
+                        if let Some(field) = self.board.cell(new_head.x, new_head.y) {
+                            match field.get() {
+                                DField::Empty | DField::Food => {
+                                    possible_moves[id as usize][direction as usize] = true;
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        DMovesSet::new(possible_moves)
+    }
+}
+
 impl Display for DGameState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let row = [' '; WIDTH as usize * 3];
@@ -397,6 +418,25 @@ mod tests {
             let mut state = state.clone();
             state.next_state(moves);
         });
+    }
+
+    #[bench]
+    fn bench_possible_moves(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        b.iter(|| {
+            let _ = state.possible_moves();
+        });
+    }
+
+    #[test]
+    fn test_possible_moves() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = state.possible_moves();
+        println!("{:#?}", moves);
     }
 
     #[test]
