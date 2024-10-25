@@ -1098,6 +1098,31 @@ mod tests {
 
     use super::*;
 
+    #[bench]
+    fn bench_next_state(b: &mut test::Bencher) {
+        let game_state = read_game_state("requests/test_move_request.json");
+        let board = EGameState::from(&game_state.board, &game_state.you);
+        let moves = [
+            Some(EDirection::Up),
+            Some(EDirection::Left),
+            Some(EDirection::Left),
+            Some(EDirection::Down),
+        ];
+        b.iter(|| {
+            let mut new_board = board.clone();
+            new_board.move_snakes(moves, u8::MAX, true).unwrap();
+        });
+    }
+
+    #[bench]
+    fn bench_possible_moves(b: &mut test::Bencher) {
+        let game_state = read_game_state("requests/test_move_request.json");
+        let board = EGameState::from(&game_state.board, &game_state.you);
+        b.iter(|| {
+            let _ = board.relevant_moves(u8::MAX);
+        });
+    }
+
     #[test]
     fn test_print_capture_iteration() {
         let game_state = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
