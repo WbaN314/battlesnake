@@ -232,10 +232,7 @@ impl DGameState {
         }
         self
     }
-}
 
-impl DGameState {
-    // MovesSet Generation
     pub fn possible_moves(&self) -> DMovesSet {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
         for id in 0..SNAKES {
@@ -421,6 +418,7 @@ mod tests {
     }
 
     #[bench]
+    // SHould be < 10ns
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
