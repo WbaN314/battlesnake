@@ -230,7 +230,7 @@ impl DGameState {
         self
     }
 
-    fn move_reachable(&mut self, moves: DMoves) -> &mut Self {
+    fn move_reachable(&mut self, moves: DMoves, min: u8) -> &mut Self {
         let mut reachable_board = [[[0; SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -264,13 +264,14 @@ impl DGameState {
                                                 {
                                                     reachable_board[y as usize][x as usize]
                                                         [i as usize] =
-                                                        reachable_other[i as usize] + 1;
+                                                        (reachable_other[i as usize] + 1).max(min);
                                                 } else {
                                                     reachable_board[y as usize][x as usize]
                                                         [i as usize] = reachable_board[y as usize]
                                                         [x as usize]
                                                         [i as usize]
-                                                        .min(reachable_other[i as usize] + 1);
+                                                        .min(reachable_other[i as usize] + 1)
+                                                        .max(min);
                                                 }
                                             }
                                         }
@@ -299,7 +300,7 @@ impl DGameState {
             }
         }
 
-        // Create reachable fields for alive snakes that have no movement
+        // Create reachable fields for headless snakes that have no movement
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
             let movement = moves[id as usize];
@@ -309,8 +310,7 @@ impl DGameState {
                         last_head: head, ..
                     },
                     None,
-                )
-                | (DSnake::Alive { head, .. }, None) => {
+                ) => {
                     for d in D_DIRECTION_LIST {
                         let to_reach = head + d;
                         if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
@@ -592,7 +592,7 @@ mod tests {
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
         b.iter(|| {
             let mut state = state.clone();
-            state.move_reachable(moves);
+            state.move_reachable(moves, 1);
         });
     }
 
@@ -604,7 +604,7 @@ mod tests {
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
         state.next_state(moves);
         println!("{}", state);
-        state.move_reachable(moves);
+        state.move_reachable(moves, 1);
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
@@ -612,14 +612,20 @@ mod tests {
             }
             _ => panic!("Problem with field (4, 4)"),
         }
-        state.next_state(moves).move_reachable(moves);
+        state.next_state(moves).move_reachable(moves, 2);
         println!("{}", state);
-        state.next_state(moves).move_reachable(moves);
+        state.next_state(moves).move_reachable(moves, 3);
         println!("{}", state);
-        state.next_state(moves).move_reachable(moves);
+        state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
-        state.next_state(moves).move_reachable(moves);
+        state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
+        match state.board.cell(4, 5).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 5, 0, 5]);
+            }
+            _ => panic!("Problem with field (4, 5)"),
+        }
     }
 
     #[test]
@@ -628,7 +634,7 @@ mod tests {
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
-        state.move_reachable(moves);
+        state.move_heads(moves).move_reachable(moves, 1);
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
@@ -642,7 +648,7 @@ mod tests {
             }
             _ => panic!("Problem with field (6, 4)"),
         }
-        state.move_reachable(moves);
+        state.move_reachable(moves, 2);
         println!("{}", state);
         match state.board.cell(3, 4).unwrap().get() {
             DField::Food { reachable } => {
