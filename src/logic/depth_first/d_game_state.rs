@@ -81,9 +81,6 @@ impl DGameState {
                         .cell(id)
                         .set(snake.health(health - 1).to_headless());
                 }
-                (DSnake::Headless { health, .. }, None) => {
-                    self.snakes.cell(id).set(snake.health(health - 1));
-                }
                 (_, None) => (),
                 _ => panic!(
                     "Can only move head of alive snakes but moved {:?} {:?}",
