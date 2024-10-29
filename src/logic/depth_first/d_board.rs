@@ -175,7 +175,10 @@ mod tests {
         let request = read_game_state("requests/test_move_request.json");
         let board = DBoard::from_request(&request.board, &request.you);
         assert_eq!(board.cell(0, 0).unwrap().get(), DField::Snake(0, None));
-        assert_eq!(board.cell(1, 0).unwrap().get(), DField::Snake(0, None));
+        assert_eq!(
+            board.cell(1, 0).unwrap().get(),
+            DField::Snake(0, Some(DDirection::Left))
+        );
         assert_eq!(
             board.cell(2, 0).unwrap().get(),
             DField::Snake(0, Some(DDirection::Left))
