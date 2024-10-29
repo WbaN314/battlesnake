@@ -79,17 +79,10 @@ impl DGameState {
                 (DSnake::Alive { health, .. }, None) => {
                     self.snakes
                         .cell(id)
-                        .set(snake.health(health - 1).to_headless().unmoved(1));
+                        .set(snake.health(health - 1).to_headless());
                 }
-                (
-                    DSnake::Headless {
-                        health, unmoved, ..
-                    },
-                    None,
-                ) => {
-                    self.snakes
-                        .cell(id)
-                        .set(snake.health(health - 1).unmoved(unmoved + 1));
+                (DSnake::Headless { health, .. }, None) => {
+                    self.snakes.cell(id).set(snake.health(health - 1));
                 }
                 (_, None) => (),
                 _ => panic!(
@@ -314,8 +307,13 @@ impl DGameState {
             let snake = self.snakes.cell(id).get();
             let movement = moves[id as usize];
             match (snake, movement) {
-                (DSnake::Alive { head, .. }, None) => {
-                    self.snakes.cell(id).set(snake.to_headless());
+                (
+                    DSnake::Headless {
+                        last_head: head, ..
+                    },
+                    None,
+                )
+                | (DSnake::Alive { head, .. }, None) => {
                     for d in D_DIRECTION_LIST {
                         let to_reach = head + d;
                         if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
@@ -531,12 +529,7 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        println!("{}", state);
-        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
-        state.move_tails().move_reachable(moves).move_heads(moves);
-        println!("{}", state);
-        state.move_tails().move_reachable(moves).move_heads(moves);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
     }
 
@@ -587,7 +580,9 @@ mod tests {
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
-        state.next_state(moves).move_reachable(moves);
+        state.next_state(moves);
+        println!("{}", state);
+        state.move_reachable(moves);
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
@@ -595,6 +590,14 @@ mod tests {
             }
             _ => panic!("Problem with field (4, 4)"),
         }
+        state.next_state(moves).move_reachable(moves);
+        println!("{}", state);
+        state.next_state(moves).move_reachable(moves);
+        println!("{}", state);
+        state.next_state(moves).move_reachable(moves);
+        println!("{}", state);
+        state.next_state(moves).move_reachable(moves);
+        println!("{}", state);
     }
 
     #[test]

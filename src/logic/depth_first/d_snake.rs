@@ -1,5 +1,4 @@
 use core::panic;
-use std::cell::Cell;
 
 use super::d_coord::DCoord;
 use crate::Battlesnake;
@@ -23,7 +22,7 @@ pub enum DSnake {
         length: u8,
         tail: DCoord,
         stack: u8,
-        unmoved: u8,
+        last_head: DCoord,
     },
     Vanished {
         id: u8,
@@ -87,19 +86,6 @@ impl DSnake {
         snake
     }
 
-    pub fn unmoved(&self, value: u8) -> Self {
-        let mut snake = self.clone();
-        match snake {
-            DSnake::Headless {
-                ref mut unmoved, ..
-            } => {
-                *unmoved = value;
-            }
-            _ => panic!("Cannot set unmoved on snake {:?}", self),
-        }
-        snake
-    }
-
     pub fn to_vanished(&self) -> Self {
         match self {
             DSnake::Alive { id, .. } => DSnake::Vanished { id: *id },
@@ -116,6 +102,7 @@ impl DSnake {
                 length,
                 tail,
                 stack,
+                head,
                 ..
             } => DSnake::Headless {
                 id: *id,
@@ -123,7 +110,7 @@ impl DSnake {
                 length: *length,
                 tail: *tail,
                 stack: *stack,
-                unmoved: 0,
+                last_head: *head,
             },
             _ => panic!("Cannot make snake headless {:?}", self),
         }
