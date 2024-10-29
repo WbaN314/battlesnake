@@ -18,7 +18,7 @@ impl DBoard {
             d_board
                 .cell(food.x as i8, food.y as i8)
                 .unwrap()
-                .set(DField::Food);
+                .set(DField::Food());
         }
         let mut snake_id = 0;
         for snake in board.snakes.iter() {
@@ -38,7 +38,7 @@ impl DBoard {
                 }
 
                 match d_board.cell(coord.x, coord.y).unwrap().get() {
-                    DField::Empty => {
+                    DField::Empty { .. } => {
                         let next: Option<DDirection> = if let Some(last) = last {
                             (last - coord).try_into().ok()
                         } else {
@@ -47,7 +47,7 @@ impl DBoard {
                         d_board
                             .cell(coord.x, coord.y)
                             .unwrap()
-                            .set(DField::Snake { id: id, next });
+                            .set(DField::Snake(id, next));
                         last = Some(coord);
                     }
                     _ => panic!("Trying to set snake on invalid field"),
@@ -79,7 +79,7 @@ impl DBoard {
             } => loop {
                 match self.cell(tail.x, tail.y).unwrap().get() {
                     DField::Snake { id, next } if snake_id == id => {
-                        self.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                        self.cell(tail.x, tail.y).unwrap().set(DField::Empty());
                         if let Some(next) = next {
                             tail += next.into();
                         } else {
@@ -96,7 +96,7 @@ impl DBoard {
 
 impl Default for DBoard {
     fn default() -> Self {
-        let fields = std::array::from_fn(|_| Cell::new(DField::default()));
+        let fields = std::array::from_fn(|_| Cell::new(DField::Empty()));
         Self { fields }
     }
 }
@@ -111,10 +111,10 @@ mod tests {
         let board = DBoard::default();
         assert_eq!(board.fields.len(), SIZE as usize);
         for field in board.fields.iter() {
-            assert_eq!(field.get(), DField::default());
+            assert_eq!(field.get(), DField::Empty());
         }
-        board.cell(0, 0).unwrap().set(DField::Food);
-        assert_eq!(board.cell(0, 0).unwrap().get(), DField::Food);
+        board.cell(0, 0).unwrap().set(DField::Food());
+        assert_eq!(board.cell(0, 0).unwrap().get(), DField::Food());
     }
 
     #[test]
@@ -129,23 +129,20 @@ mod tests {
     #[should_panic]
     fn test_cell_panic() {
         let board = DBoard::default();
-        board.cell(HEIGHT, WIDTH).unwrap().set(DField::Food);
+        board.cell(HEIGHT, WIDTH).unwrap().set(DField::Food());
     }
 
     #[test]
     fn test_from_request() {
         let request = read_game_state("requests/test_game_start.json");
         let board = DBoard::from_request(&request.board, &request.you);
-        assert_eq!(board.cell(0, 0).unwrap().get(), DField::Empty);
-        assert_eq!(board.cell(0, 8).unwrap().get(), DField::Food);
-        assert_eq!(board.cell(2, 0).unwrap().get(), DField::Food);
-        assert_eq!(board.cell(10, 8).unwrap().get(), DField::Food);
-        assert_eq!(board.cell(8, 0).unwrap().get(), DField::Food);
-        assert_eq!(board.cell(5, 5).unwrap().get(), DField::Food);
-        assert_eq!(
-            board.cell(9, 1).unwrap().get(),
-            DField::Snake { id: 0, next: None }
-        );
+        assert_eq!(board.cell(0, 0).unwrap().get(), DField::Empty());
+        assert_eq!(board.cell(0, 8).unwrap().get(), DField::Food());
+        assert_eq!(board.cell(2, 0).unwrap().get(), DField::Food());
+        assert_eq!(board.cell(10, 8).unwrap().get(), DField::Food());
+        assert_eq!(board.cell(8, 0).unwrap().get(), DField::Food());
+        assert_eq!(board.cell(5, 5).unwrap().get(), DField::Food());
+        assert_eq!(board.cell(9, 1).unwrap().get(), DField::Snake(0, None));
 
         let mut ids = vec![0];
 
@@ -177,41 +174,20 @@ mod tests {
 
         let request = read_game_state("requests/test_move_request.json");
         let board = DBoard::from_request(&request.board, &request.you);
-        assert_eq!(
-            board.cell(0, 0).unwrap().get(),
-            DField::Snake { id: 0, next: None }
-        );
-        assert_eq!(
-            board.cell(1, 0).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                next: Some(DDirection::Left)
-            }
-        );
+        assert_eq!(board.cell(0, 0).unwrap().get(), DField::Snake(0, None));
+        assert_eq!(board.cell(1, 0).unwrap().get(), DField::Snake(0, None));
         assert_eq!(
             board.cell(2, 0).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                next: Some(DDirection::Left)
-            }
+            DField::Snake(0, Some(DDirection::Left))
         );
         assert_eq!(
             board.cell(9, 2).unwrap().get(),
-            DField::Snake {
-                id: 2,
-                next: Some(DDirection::Down)
-            }
+            DField::Snake(2, Some(DDirection::Down))
         );
         assert_eq!(
             board.cell(9, 1).unwrap().get(),
-            DField::Snake {
-                id: 2,
-                next: Some(DDirection::Down)
-            }
+            DField::Snake(2, Some(DDirection::Down))
         );
-        assert_eq!(
-            board.cell(9, 0).unwrap().get(),
-            DField::Snake { id: 2, next: None }
-        );
+        assert_eq!(board.cell(9, 0).unwrap().get(), DField::Snake(2, None));
     }
 }

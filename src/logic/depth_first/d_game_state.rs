@@ -1,5 +1,6 @@
 use super::{
     d_board::{DBoard, HEIGHT, WIDTH},
+    d_coord::DCoord,
     d_direction::{DDirection, D_DIRECTION_LIST},
     d_field::DField,
     d_moves_set::{DMoves, DMovesSet},
@@ -55,11 +56,11 @@ impl DGameState {
                             self.snakes.cell(id).set(snake.to_dead()); // Eliminate moved out of bounds directly
                         }
                         Some(field) => {
-                            self.board.cell(head.x, head.y).unwrap().set(DField::Snake {
-                                id,
-                                next: Some(direction),
-                            });
-                            if field.get() == DField::Food {
+                            self.board
+                                .cell(head.x, head.y)
+                                .unwrap()
+                                .set(DField::Snake(id, Some(direction)));
+                            if let DField::Food { .. } = field.get() {
                                 self.snakes.cell(id).set(
                                     snake
                                         .health(100)
@@ -193,7 +194,7 @@ impl DGameState {
                     self.board
                         .cell(head.x, head.y)
                         .unwrap()
-                        .set(DField::Snake { id, next: None });
+                        .set(DField::Snake(id, None));
                 }
                 _ => (),
             }
@@ -216,11 +217,17 @@ impl DGameState {
                             ..
                         } => {
                             self.snakes.cell(id).set(snake.tail(tail + direction));
-                            self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                            self.board
+                                .cell(tail.x, tail.y)
+                                .unwrap()
+                                .set(DField::Empty());
                         }
                         DField::Snake { next: None, .. } => {
                             self.snakes.cell(id).set(snake.to_vanished());
-                            self.board.cell(tail.x, tail.y).unwrap().set(DField::Empty);
+                            self.board
+                                .cell(tail.x, tail.y)
+                                .unwrap()
+                                .set(DField::Empty());
                         }
                         _ => {
                             panic!("Snake tail is on invalid field");
@@ -230,6 +237,103 @@ impl DGameState {
                 _ => (),
             }
         }
+        self
+    }
+
+    fn move_reachable(&mut self, moves: DMoves) -> &mut Self {
+        let mut reachable_board = [[[0; SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                match self.board.cell(x, y).unwrap().get() {
+                    DField::Empty {
+                        reachable: reachable_original,
+                    }
+                    | DField::Food {
+                        reachable: reachable_original,
+                    } => {
+                        reachable_board[y as usize][x as usize] = reachable_original;
+                        for d in 0..4 {
+                            let neighbor = DCoord::new(x, y) + D_DIRECTION_LIST[d];
+                            if let Some(cell) = self.board.cell(neighbor.x, neighbor.y) {
+                                match cell.get() {
+                                    DField::Empty {
+                                        reachable: reachable_other,
+                                        ..
+                                    }
+                                    | DField::Food {
+                                        reachable: reachable_other,
+                                        ..
+                                    } => {
+                                        for i in 0..SNAKES {
+                                            if reachable_original[i as usize] == 0
+                                                && reachable_other[i as usize] > 0
+                                            {
+                                                if reachable_board[y as usize][x as usize]
+                                                    [i as usize]
+                                                    == 0
+                                                {
+                                                    reachable_board[y as usize][x as usize]
+                                                        [i as usize] =
+                                                        reachable_other[i as usize] + 1;
+                                                } else {
+                                                    reachable_board[y as usize][x as usize]
+                                                        [i as usize] = reachable_board[y as usize]
+                                                        [x as usize]
+                                                        [i as usize]
+                                                        .min(reachable_other[i as usize] + 1);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                match self.board.cell(x, y).unwrap().get() {
+                    field @ DField::Empty { .. } | field @ DField::Food { .. } => {
+                        self.board
+                            .cell(x, y)
+                            .unwrap()
+                            .set(field.reachable(reachable_board[y as usize][x as usize]));
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // Create reachable fields for alive snakes that have no movement
+        for id in 0..SNAKES {
+            let snake = self.snakes.cell(id).get();
+            let movement = moves[id as usize];
+            match (snake, movement) {
+                (DSnake::Alive { head, .. }, None) => {
+                    self.snakes.cell(id).set(snake.to_headless());
+                    for d in D_DIRECTION_LIST {
+                        let to_reach = head + d;
+                        if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
+                            match cell.get() {
+                                DField::Empty { mut reachable }
+                                | DField::Food { mut reachable } => {
+                                    reachable[id as usize] = reachable[id as usize].max(1);
+                                    cell.set(DField::Empty().reachable(reachable));
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+
         self
     }
 
@@ -243,7 +347,7 @@ impl DGameState {
                         let new_head = head + direction;
                         if let Some(field) = self.board.cell(new_head.x, new_head.y) {
                             match field.get() {
-                                DField::Empty | DField::Food => {
+                                DField::Empty { .. } | DField::Food { .. } => {
                                     possible_moves[id as usize][direction as usize] = true;
                                 }
                                 _ => (),
@@ -285,11 +389,43 @@ impl Display for DGameState {
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 match self.board.cell(x, y).unwrap().get() {
-                    DField::Empty => {
+                    DField::Empty { reachable, .. } => {
                         board[y as usize * 3 + 1][x as usize * 3 + 1] = '.';
+                        if reachable[0] > 0 {
+                            board[y as usize * 3 + 2][x as usize * 3 + 1] =
+                                (reachable[0] + b'0') as char;
+                        }
+                        if reachable[1] > 0 {
+                            board[y as usize * 3 + 1][x as usize * 3 + 2] =
+                                (reachable[1] + b'0') as char;
+                        }
+                        if reachable[2] > 0 {
+                            board[y as usize * 3][x as usize * 3 + 1] =
+                                (reachable[2] + b'0') as char;
+                        }
+                        if reachable[3] > 0 {
+                            board[y as usize * 3 + 1][x as usize * 3] =
+                                (reachable[3] + b'0') as char;
+                        }
                     }
-                    DField::Food => {
+                    DField::Food { reachable, .. } => {
                         board[y as usize * 3 + 1][x as usize * 3 + 1] = 'X';
+                        if reachable[0] > 0 {
+                            board[y as usize * 3 + 2][x as usize * 3 + 1] =
+                                (reachable[0] + b'0') as char;
+                        }
+                        if reachable[1] > 0 {
+                            board[y as usize * 3 + 1][x as usize * 3 + 2] =
+                                (reachable[1] + b'0') as char;
+                        }
+                        if reachable[2] > 0 {
+                            board[y as usize * 3][x as usize * 3 + 1] =
+                                (reachable[2] + b'0') as char;
+                        }
+                        if reachable[3] > 0 {
+                            board[y as usize * 3 + 1][x as usize * 3] =
+                                (reachable[3] + b'0') as char;
+                        }
                     }
                     DField::Snake { id, next } => {
                         let c = (id + 'a' as u8) as char;
@@ -395,7 +531,12 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
+        state.move_tails().move_reachable(moves).move_heads(moves);
+        println!("{}", state);
+        state.move_tails().move_reachable(moves).move_heads(moves);
         println!("{}", state);
     }
 
@@ -426,6 +567,88 @@ mod tests {
         b.iter(|| {
             let _ = state.possible_moves();
         });
+    }
+
+    #[bench]
+    fn bench_move_reachable(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
+        b.iter(|| {
+            let mut state = state.clone();
+            state.move_reachable(moves);
+        });
+    }
+
+    #[test]
+    fn test_next_state_with_move_reachable() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
+        state.next_state(moves).move_reachable(moves);
+        println!("{}", state);
+        match state.board.cell(4, 4).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 1, 0, 1]);
+            }
+            _ => panic!("Problem with field (4, 4)"),
+        }
+    }
+
+    #[test]
+    fn test_move_reachable() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
+        state.move_reachable(moves);
+        println!("{}", state);
+        match state.board.cell(4, 4).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 1, 0, 1]);
+            }
+            _ => panic!("Problem with field (4, 4)"),
+        }
+        match state.board.cell(6, 4).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 1, 0, 0]);
+            }
+            _ => panic!("Problem with field (6, 4)"),
+        }
+        state.move_reachable(moves);
+        println!("{}", state);
+        match state.board.cell(3, 4).unwrap().get() {
+            DField::Food { reachable } => {
+                assert_eq!(reachable, [0, 2, 0, 2]);
+            }
+            _ => panic!("Problem with field (3, 4)"),
+        }
+        match state.board.cell(2, 5).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 0, 0, 2]);
+            }
+            _ => panic!("Problem with field (2, 5)"),
+        }
+        match state.board.cell(4, 4).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 1, 0, 1]);
+            }
+            _ => panic!("Problem with field (4, 4)"),
+        }
+        match state.board.cell(6, 4).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 1, 0, 0]);
+            }
+            _ => panic!("Problem with field (6, 4)"),
+        }
+        match state.board.cell(1, 5).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 0, 0, 0]);
+            }
+            _ => panic!("Problem with field (1, 5)"),
+        }
     }
 
     #[test]
@@ -475,7 +698,7 @@ mod tests {
             _ => panic!("Problem with Snake D"),
         }
         match state.board.cell(4, 8).unwrap().get() {
-            DField::Empty => (),
+            DField::Empty { .. } => (),
             _ => panic!("Problem with field (4, 8)"),
         }
         moves = [None, None, Some(DDirection::Left), Some(DDirection::Down)];
@@ -637,11 +860,11 @@ mod tests {
             _ => panic!("Problem with field (4, 5)"),
         }
         match state.board.cell(5, 4).unwrap().get() {
-            DField::Empty => (),
+            DField::Empty { .. } => (),
             _ => panic!("Problem with field (5, 4)"),
         }
         match state.board.cell(9, 0).unwrap().get() {
-            DField::Empty => (),
+            DField::Empty { .. } => (),
             _ => panic!("Problem with field (9, 0)"),
         }
     }
@@ -666,19 +889,13 @@ mod tests {
         }
         assert_eq!(
             state.board.cell(2, 0).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                next: Some(DDirection::Left)
-            }
+            DField::Snake(0, Some(DDirection::Left))
         );
         state.move_tails();
-        assert_eq!(state.board.cell(2, 0).unwrap().get(), DField::Empty);
+        assert_eq!(state.board.cell(2, 0).unwrap().get(), DField::Empty());
         assert_eq!(
             state.board.cell(9, 2).unwrap().get(),
-            DField::Snake {
-                id: 2,
-                next: Some(DDirection::Down)
-            }
+            DField::Snake(2, Some(DDirection::Down))
         );
         match state.snakes.cell(0).get() {
             DSnake::Alive { stack, tail, .. } => {
@@ -695,10 +912,10 @@ mod tests {
             _ => panic!("Problem with Snake C"),
         }
         state.move_tails().move_tails();
-        assert_eq!(state.board.cell(0, 0).unwrap().get(), DField::Empty);
+        assert_eq!(state.board.cell(0, 0).unwrap().get(), DField::Empty());
         assert_eq!(
             state.board.cell(9, 0).unwrap().get(),
-            DField::Snake { id: 2, next: None }
+            DField::Snake(2, None)
         );
         match state.snakes.cell(0).get() {
             DSnake::Vanished { id, .. } => assert_eq!(id, 0),
@@ -722,18 +939,15 @@ mod tests {
         let d_gamestate = DGameState::from_request(&gamestate.board, &gamestate.you);
         assert_eq!(
             d_gamestate.board.cell(0, 0).unwrap().get(),
-            DField::Snake { id: 0, next: None }
+            DField::Snake(0, None)
         );
         assert_eq!(
             d_gamestate.board.cell(1, 0).unwrap().get(),
-            DField::Snake {
-                id: 0,
-                next: Some(DDirection::Left)
-            }
+            DField::Snake(0, Some(DDirection::Left))
         );
         assert_eq!(
             d_gamestate.board.cell(5, 4).unwrap().get(),
-            DField::Snake { id: 1, next: None }
+            DField::Snake(1, None)
         );
         assert_eq!(
             d_gamestate.snakes.cell(0).get(),
