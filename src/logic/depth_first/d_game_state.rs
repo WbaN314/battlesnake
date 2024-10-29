@@ -230,7 +230,7 @@ impl DGameState {
         self
     }
 
-    fn move_reachable(&mut self, moves: DMoves, min: u8) -> &mut Self {
+    fn move_reachable(&mut self, moves: DMoves, turn: u8) -> &mut Self {
         let mut reachable_board = [[[0; SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -258,21 +258,8 @@ impl DGameState {
                                             if reachable_original[i as usize] == 0
                                                 && reachable_other[i as usize] > 0
                                             {
-                                                if reachable_board[y as usize][x as usize]
-                                                    [i as usize]
-                                                    == 0
-                                                {
-                                                    reachable_board[y as usize][x as usize]
-                                                        [i as usize] =
-                                                        (reachable_other[i as usize] + 1).max(min);
-                                                } else {
-                                                    reachable_board[y as usize][x as usize]
-                                                        [i as usize] = reachable_board[y as usize]
-                                                        [x as usize]
-                                                        [i as usize]
-                                                        .min(reachable_other[i as usize] + 1)
-                                                        .max(min);
-                                                }
+                                                reachable_board[y as usize][x as usize]
+                                                    [i as usize] = turn;
                                             }
                                         }
                                     }
