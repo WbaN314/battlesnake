@@ -359,7 +359,7 @@ impl DGameState {
 
 impl Display for DGameState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let row = [' '; WIDTH as usize * 3];
+        let row = [' '; WIDTH as usize * 3 * 2];
         let mut board = [row; HEIGHT as usize * 3];
 
         // Write head markers before board
@@ -370,11 +370,11 @@ impl Display for DGameState {
                     let id = (id + 'A' as u8) as char;
                     let x = head.x;
                     let y = head.y;
-                    board[y as usize * 3 + 1][x as usize * 3] = id;
-                    board[y as usize * 3 + 1][x as usize * 3 + 2] = id;
-                    board[y as usize * 3][x as usize * 3 + 1] = id;
-                    board[y as usize * 3 + 2][x as usize * 3 + 1] = id;
-                    board[y as usize * 3 + 1][x as usize * 3 + 1] = id;
+                    board[y as usize * 3 + 1][x as usize * 3 * 2] = id;
+                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = id;
+                    board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = id;
+                    board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = id;
+                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = id;
                 }
                 _ => (),
             }
@@ -385,62 +385,88 @@ impl Display for DGameState {
             for x in 0..WIDTH {
                 match self.board.cell(x, y).unwrap().get() {
                     DField::Empty { reachable, .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 + 1] = '.';
-                        if reachable[0] > 0 {
-                            board[y as usize * 3 + 2][x as usize * 3 + 1] =
-                                (reachable[0] + b'0') as char;
+                        if reachable.iter().any(|&r| r > 0) {
+                            let best = reachable.iter().filter(|x| **x > 0).min().unwrap();
+                            let mut lengths = [0; SNAKES as usize];
+                            for id in 0..SNAKES {
+                                if reachable[id as usize] == *best {
+                                    match self.snakes.cell(id).get() {
+                                        DSnake::Alive { length, .. }
+                                        | DSnake::Headless { length, .. }
+                                        | DSnake::Vanished { length, .. } => {
+                                            lengths[id as usize] = length;
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            let highest_length = lengths.iter().max().unwrap();
+                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
+                                let id =
+                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
+                                let c = (id as u8 + b'A') as char;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best + '0' as u8) as char;
+                            } else {
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best + '0' as u8) as char;
+                            }
                         }
-                        if reachable[1] > 0 {
-                            board[y as usize * 3 + 1][x as usize * 3 + 2] =
-                                (reachable[1] + b'0') as char;
-                        }
-                        if reachable[2] > 0 {
-                            board[y as usize * 3][x as usize * 3 + 1] =
-                                (reachable[2] + b'0') as char;
-                        }
-                        if reachable[3] > 0 {
-                            board[y as usize * 3 + 1][x as usize * 3] =
-                                (reachable[3] + b'0') as char;
-                        }
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '.';
                     }
                     DField::Food { reachable, .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 + 1] = 'X';
-                        if reachable[0] > 0 {
-                            board[y as usize * 3 + 2][x as usize * 3 + 1] =
-                                (reachable[0] + b'0') as char;
+                        if reachable.iter().any(|&r| r > 0) {
+                            let best = reachable.iter().filter(|x| **x > 0).min().unwrap();
+                            let mut lengths = [0; SNAKES as usize];
+                            for id in 0..SNAKES {
+                                if reachable[id as usize] == *best {
+                                    match self.snakes.cell(id).get() {
+                                        DSnake::Alive { length, .. }
+                                        | DSnake::Headless { length, .. }
+                                        | DSnake::Vanished { length, .. } => {
+                                            lengths[id as usize] = length;
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            let highest_length = lengths.iter().max().unwrap();
+                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
+                                let id =
+                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
+                                let c = (id as u8 + b'A') as char;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best + '0' as u8) as char;
+                            } else {
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best + '0' as u8) as char;
+                            }
                         }
-                        if reachable[1] > 0 {
-                            board[y as usize * 3 + 1][x as usize * 3 + 2] =
-                                (reachable[1] + b'0') as char;
-                        }
-                        if reachable[2] > 0 {
-                            board[y as usize * 3][x as usize * 3 + 1] =
-                                (reachable[2] + b'0') as char;
-                        }
-                        if reachable[3] > 0 {
-                            board[y as usize * 3 + 1][x as usize * 3] =
-                                (reachable[3] + b'0') as char;
-                        }
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = 'X';
                     }
                     DField::Snake { id, next } => {
                         let c = (id + 'a' as u8) as char;
-                        board[y as usize * 3 + 1][x as usize * 3 + 1] = '*';
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '*';
                         match next {
                             Some(DDirection::Up) => {
-                                board[y as usize * 3 + 2][x as usize * 3 + 1] = c;
-                                board[y as usize * 3 + 3][x as usize * 3 + 1] = c;
+                                board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = c;
+                                board[y as usize * 3 + 3][x as usize * 3 * 2 + 1 * 2] = c;
                             }
                             Some(DDirection::Down) => {
-                                board[y as usize * 3][x as usize * 3 + 1] = c;
-                                board[y as usize * 3 - 1][x as usize * 3 + 1] = c;
+                                board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = c;
+                                board[y as usize * 3 - 1][x as usize * 3 * 2 + 1 * 2] = c;
                             }
                             Some(DDirection::Left) => {
-                                board[y as usize * 3 + 1][x as usize * 3] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 - 1] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 - 1 * 2] = c;
                             }
                             Some(DDirection::Right) => {
-                                board[y as usize * 3 + 1][x as usize * 3 + 2] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 + 3] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3 * 2] = c;
                             }
                             None => {}
                         }
@@ -454,7 +480,7 @@ impl Display for DGameState {
             let snake = self.snakes.cell(i).get();
             match snake {
                 DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 + 1] =
+                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 * 2 + 1 * 2] =
                         (stack + '0' as u8) as char;
                 }
                 _ => (),
@@ -469,9 +495,8 @@ impl Display for DGameState {
         for y in (0..board.len()).rev() {
             output.push(left[y]);
             output.push(' ');
-            for x in 0..board.len() {
+            for x in 0..board[0].len() {
                 output.push(board[y][x]);
-                output.push(' ');
             }
             output.push(left[y]);
             output.push('\n');
