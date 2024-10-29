@@ -561,7 +561,7 @@ mod tests {
     }
 
     #[bench]
-    // SHould be < 10ns
+    // Should be < 10ns
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
@@ -572,6 +572,7 @@ mod tests {
     }
 
     #[bench]
+    // Should be < 760ns
     fn bench_move_reachable(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
