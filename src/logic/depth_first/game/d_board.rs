@@ -104,7 +104,7 @@ impl Default for DBoard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{logic::depth_first::d_direction::DDirection, read_game_state};
+    use crate::{logic::depth_first::game::d_direction::DDirection, read_game_state};
 
     #[test]
     fn test_basics() {

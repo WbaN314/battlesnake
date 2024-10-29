@@ -50,7 +50,7 @@ impl DMovesSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::{logic::depth_first::d_game_state::DGameState, read_game_state};
+    use crate::{logic::depth_first::game::d_game_state::DGameState, read_game_state};
 
     use super::*;
 

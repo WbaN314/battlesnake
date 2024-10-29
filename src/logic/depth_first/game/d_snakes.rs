@@ -38,7 +38,7 @@ impl DSnakes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logic::depth_first::d_coord::DCoord;
+    use crate::logic::depth_first::game::d_coord::DCoord;
 
     #[test]
     fn test_from_request() {

@@ -529,7 +529,7 @@ impl Display for DGameState {
 mod tests {
     use super::*;
     use crate::{
-        logic::depth_first::{
+        logic::depth_first::game::{
             d_coord::DCoord, d_direction::DDirection, d_field::DField, d_snake::DSnake,
         },
         read_game_state,
