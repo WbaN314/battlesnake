@@ -230,7 +230,7 @@ impl DGameState {
         self
     }
 
-    fn move_reachable(&mut self, moves: DMoves, turn: u8) -> &mut Self {
+    pub fn move_reachable(&mut self, moves: DMoves, turn: u8) -> &mut Self {
         let mut reachable_board = [[[0; SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {

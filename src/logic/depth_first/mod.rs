@@ -2,6 +2,7 @@ use crate::logic::legacy::shared::brain::Brain;
 use crate::{Direction, GameState};
 
 mod game;
+mod simulation;
 
 pub struct DepthFirstSnake {}
 
