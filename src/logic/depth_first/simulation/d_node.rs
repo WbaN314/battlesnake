@@ -19,8 +19,8 @@ impl Display for DNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DNode::Scoped { id, base } => {
-                writeln!(f, "{} (Scoped)\n", id);
-                writeln!(f, "{}", base);
+                writeln!(f, "{} (Scoped)\n", id)?;
+                writeln!(f, "{}", base)?;
             }
         }
         Ok(())
