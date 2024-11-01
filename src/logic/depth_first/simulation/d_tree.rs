@@ -53,7 +53,15 @@ mod tests {
         id.push(DDirection::Up);
         let uu = tree.nodes.get(&id).unwrap();
         println!("{}", uu);
-        match uu {
+        tree.scope(&id, DDirection::Up);
+        id.push(DDirection::Up);
+        let uuu = tree.nodes.get(&id).unwrap();
+        println!("{}", uuu);
+        tree.scope(&id, DDirection::Up);
+        id.push(DDirection::Up);
+        let uuuu = tree.nodes.get(&id).unwrap();
+        println!("{}", uuuu);
+        match uuuu {
             DNode::Scoped { id: node_id, .. } => {
                 assert_eq!(id, *node_id);
             }

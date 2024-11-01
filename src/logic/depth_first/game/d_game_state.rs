@@ -589,7 +589,7 @@ mod tests {
         let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
-        let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
+        let moves = [Some(DDirection::Up), None, None, None];
         state.next_state(moves);
         println!("{}", state);
         state.move_reachable(moves, 1);
@@ -606,6 +606,12 @@ mod tests {
         println!("{}", state);
         state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
+        match state.board.cell(0, 1).unwrap().get() {
+            DField::Empty { reachable } => {
+                assert_eq!(reachable, [0, 0, 0, 0]);
+            }
+            _ => panic!("Problem with field (0, 1)"),
+        }
         state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
         match state.board.cell(4, 5).unwrap().get() {

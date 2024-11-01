@@ -59,7 +59,7 @@ impl DBoard {
 
     pub fn cell(&self, x: i8, y: i8) -> Option<&Cell<DField>> {
         let index = y as i16 * WIDTH as i16 + x as i16;
-        if index < 0 || index >= SIZE as i16 {
+        if x < 0 || y < 0 {
             return None;
         }
         self.fields.get(index as usize)
