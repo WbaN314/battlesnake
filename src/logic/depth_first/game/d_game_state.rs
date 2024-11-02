@@ -319,6 +319,72 @@ impl DGameState {
         self
     }
 
+    pub fn scope_moves(&self, turn: u8) -> [bool; 4] {
+        let mut helper = [None; 4];
+        match self.snakes.cell(0).get() {
+            DSnake::Alive { head, .. } => {
+                for direction in D_DIRECTION_LIST {
+                    let new_head = head + direction;
+                    if let Some(field) = self.board.cell(new_head.x, new_head.y) {
+                        match field.get() {
+                            DField::Empty { reachable, .. } | DField::Food { reachable, .. } => {
+                                helper[direction as usize] = Some(reachable);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
+
+        let mut counts = [[0, 0, 0]; SNAKES as usize]; // turns, >=turn-2s, >t=urn-4s
+        for i in 1..SNAKES {
+            for d in 0..4 {
+                if let Some(reachable) = helper[d] {
+                    if reachable[i as usize] > 0 {
+                        if reachable[i as usize] == turn {
+                            counts[i as usize][0] += 1;
+                        }
+                        if reachable[i as usize] + 2 >= turn {
+                            counts[i as usize][1] += 1;
+                        }
+                        if reachable[i as usize] + 4 >= turn {
+                            counts[i as usize][2] += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut result = [true; 4];
+        for i in 1..SNAKES {
+            for d in 0..4 {
+                if let Some(reachable) = helper[d] {
+                    if reachable[i as usize] > 0 {
+                        if reachable[i as usize] == turn {
+                            if counts[i as usize][0] <= 1 {
+                                result[d as usize] = false;
+                            }
+                        } else if reachable[i as usize] + 2 >= turn {
+                            if counts[i as usize][1] <= 2 {
+                                result[d as usize] = false;
+                            }
+                        } else if reachable[i as usize] + 4 >= turn {
+                            if counts[i as usize][2] <= 3 {
+                                result[d as usize] = false;
+                            }
+                        }
+                    }
+                } else {
+                    result[d as usize] = false;
+                }
+            }
+        }
+
+        result
+    }
+
     pub fn possible_moves(&self) -> DMovesSet {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
         for id in 0..SNAKES {
@@ -512,9 +578,11 @@ impl Display for DGameState {
                 DSnake::Dead { id, .. } => {
                     other_info.push_str(&format!("Snake {} (Dead)\n", (id + 'A' as u8) as char))
                 }
-                DSnake::Vanished { id, .. } => {
-                    other_info.push_str(&format!("Snake {} (Vanished)\n", (id + 'A' as u8) as char))
-                }
+                DSnake::Vanished { id, length, .. } => other_info.push_str(&format!(
+                    "Snake {} (Vanished) - Length: {}\n",
+                    (id + 'A' as u8) as char,
+                    length
+                )),
                 DSnake::NonExistent => (),
             }
         }
@@ -582,6 +650,23 @@ mod tests {
             let mut state = state.clone();
             state.move_reachable(moves, 1);
         });
+    }
+
+    #[test]
+    fn test_scope_moves() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, None, None];
+        state.next_state(moves).move_reachable(moves, 1);
+        state.next_state(moves).move_reachable(moves, 2);
+        state.next_state(moves).move_reachable(moves, 3);
+        state.next_state(moves).move_reachable(moves, 4);
+        println!("{}", state);
+        assert_eq!(state.scope_moves(4), [true, false, false, false]);
+        state.next_state(moves).move_reachable(moves, 5);
+        println!("{}", state);
+        assert_eq!(state.scope_moves(5), [false, false, false, false]);
     }
 
     #[test]
@@ -683,6 +768,7 @@ mod tests {
         println!("{}", state);
         let moves = state.possible_moves();
         println!("{:#?}", moves);
+        assert_eq!(moves.generate().len(), 18);
     }
 
     #[test]
