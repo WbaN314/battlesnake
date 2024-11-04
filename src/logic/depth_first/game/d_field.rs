@@ -48,26 +48,23 @@ impl DField {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct DReached {
-    before: Option<DDirection>,
-    turn: u8,
-}
+pub struct DReached {}
 
 impl DReached {
     pub fn new(before: Option<DDirection>, turn: u8) -> Self {
-        DReached { before, turn }
+        DReached {}
     }
 
     pub fn is_set(&self) -> bool {
-        self.turn > 0
+        todo!()
     }
 
     pub fn turn(&self) -> u8 {
-        self.turn
+        todo!()
     }
 
     pub fn before(&self) -> Option<DDirection> {
-        self.before
+        todo!()
     }
 }
 
@@ -79,7 +76,7 @@ impl Default for DReached {
 
 impl Ord for DReached {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.turn.cmp(&other.turn)
+        todo!()
     }
 }
 
@@ -93,6 +90,6 @@ impl Eq for DReached {}
 
 impl PartialEq for DReached {
     fn eq(&self, other: &Self) -> bool {
-        self.turn == other.turn
+        todo!()
     }
 }

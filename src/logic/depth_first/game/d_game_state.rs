@@ -613,7 +613,7 @@ mod tests {
     fn bench_next_state(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        println!("{}", state);
+        // println!("{}", state);
         let moves = [
             Some(DDirection::Up),
             Some(DDirection::Left),
