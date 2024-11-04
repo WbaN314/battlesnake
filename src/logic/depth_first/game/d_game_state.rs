@@ -59,7 +59,7 @@ impl DGameState {
                             self.board
                                 .cell(head.x, head.y)
                                 .unwrap()
-                                .set(DField::Snake(id, Some(direction)));
+                                .set(DField::snake(id, Some(direction)));
                             if let DField::Food { .. } = field.get() {
                                 self.snakes.cell(id).set(
                                     snake
@@ -184,7 +184,7 @@ impl DGameState {
                     self.board
                         .cell(head.x, head.y)
                         .unwrap()
-                        .set(DField::Snake(id, None));
+                        .set(DField::snake(id, None));
                 }
                 _ => (),
             }
@@ -210,14 +210,14 @@ impl DGameState {
                             self.board
                                 .cell(tail.x, tail.y)
                                 .unwrap()
-                                .set(DField::Empty());
+                                .set(DField::empty());
                         }
                         DField::Snake { next: None, .. } => {
                             self.snakes.cell(id).set(snake.to_vanished());
                             self.board
                                 .cell(tail.x, tail.y)
                                 .unwrap()
-                                .set(DField::Empty());
+                                .set(DField::empty());
                         }
                         _ => {
                             panic!("Snake tail is on invalid field");
@@ -311,7 +311,7 @@ impl DGameState {
                                     if !reachable[id as usize].is_set() {
                                         reachable[id as usize] =
                                             DReached::new(Some(d.inverse()), 1);
-                                        cell.set(DField::Empty().reachable(reachable));
+                                        cell.set(DField::empty().reachable(reachable));
                                     }
                                 }
                                 _ => (),
@@ -998,13 +998,13 @@ mod tests {
         }
         assert_eq!(
             state.board.cell(2, 0).unwrap().get(),
-            DField::Snake(0, Some(DDirection::Left))
+            DField::snake(0, Some(DDirection::Left))
         );
         state.move_tails();
-        assert_eq!(state.board.cell(2, 0).unwrap().get(), DField::Empty());
+        assert_eq!(state.board.cell(2, 0).unwrap().get(), DField::empty());
         assert_eq!(
             state.board.cell(9, 2).unwrap().get(),
-            DField::Snake(2, Some(DDirection::Down))
+            DField::snake(2, Some(DDirection::Down))
         );
         match state.snakes.cell(0).get() {
             DSnake::Alive { stack, tail, .. } => {
@@ -1021,10 +1021,10 @@ mod tests {
             _ => panic!("Problem with Snake C"),
         }
         state.move_tails().move_tails();
-        assert_eq!(state.board.cell(0, 0).unwrap().get(), DField::Empty());
+        assert_eq!(state.board.cell(0, 0).unwrap().get(), DField::empty());
         assert_eq!(
             state.board.cell(9, 0).unwrap().get(),
-            DField::Snake(2, None)
+            DField::snake(2, None)
         );
         match state.snakes.cell(0).get() {
             DSnake::Vanished { id, .. } => assert_eq!(id, 0),
@@ -1048,15 +1048,15 @@ mod tests {
         let d_gamestate = DGameState::from_request(&gamestate.board, &gamestate.you);
         assert_eq!(
             d_gamestate.board.cell(0, 0).unwrap().get(),
-            DField::Snake(0, None)
+            DField::snake(0, None)
         );
         assert_eq!(
             d_gamestate.board.cell(1, 0).unwrap().get(),
-            DField::Snake(0, Some(DDirection::Left))
+            DField::snake(0, Some(DDirection::Left))
         );
         assert_eq!(
             d_gamestate.board.cell(5, 4).unwrap().get(),
-            DField::Snake(1, None)
+            DField::snake(1, None)
         );
         assert_eq!(
             d_gamestate.snakes.cell(0).get(),

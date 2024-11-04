@@ -20,21 +20,21 @@ pub enum DField {
 
 impl DField {
     #[allow(non_snake_case)]
-    pub fn Empty() -> Self {
+    pub fn empty() -> Self {
         DField::Empty {
             reachable: [DReached::default(); SNAKES as usize],
         }
     }
 
     #[allow(non_snake_case)]
-    pub fn Food() -> Self {
+    pub fn food() -> Self {
         DField::Food {
             reachable: [DReached::default(); SNAKES as usize],
         }
     }
 
     #[allow(non_snake_case)]
-    pub fn Snake(id: u8, next: Option<DDirection>) -> Self {
+    pub fn snake(id: u8, next: Option<DDirection>) -> Self {
         DField::Snake { id, next }
     }
 
@@ -94,5 +94,15 @@ impl Eq for DReached {}
 impl PartialEq for DReached {
     fn eq(&self, other: &Self) -> bool {
         self.turn == other.turn
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memory_size() {
+        assert_eq!(std::mem::size_of::<DField>(), 2);
     }
 }
