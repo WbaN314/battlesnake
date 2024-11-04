@@ -91,7 +91,7 @@ mod tests {
     fn bench_simulate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        let mut tree = DTree::new(state);
+        let tree = DTree::new(state);
         b.iter(|| {
             let mut tree = tree.clone();
             tree.simulate();

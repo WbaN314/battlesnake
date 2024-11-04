@@ -2,7 +2,7 @@ use super::{
     d_board::{DBoard, HEIGHT, WIDTH},
     d_coord::DCoord,
     d_direction::{DDirection, D_DIRECTION_LIST},
-    d_field::DField,
+    d_field::{DField, DReached},
     d_moves_set::{DMoves, DMovesSet},
     d_snake::DSnake,
     d_snakes::DSnakes,
@@ -231,7 +231,8 @@ impl DGameState {
     }
 
     pub fn move_reachable(&mut self, moves: DMoves, turn: u8) -> &mut Self {
-        let mut reachable_board = [[[0; SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
+        let mut reachable_board =
+            [[[DReached::default(); SNAKES as usize]; WIDTH as usize]; HEIGHT as usize];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 match self.board.cell(x, y).unwrap().get() {
@@ -255,11 +256,14 @@ impl DGameState {
                                         ..
                                     } => {
                                         for i in 0..SNAKES {
-                                            if reachable_original[i as usize] == 0
-                                                && reachable_other[i as usize] > 0
+                                            if !reachable_original[i as usize].is_set()
+                                                && reachable_other[i as usize].is_set()
                                             {
                                                 reachable_board[y as usize][x as usize]
-                                                    [i as usize] = turn;
+                                                    [i as usize] = DReached::new(
+                                                    Some(D_DIRECTION_LIST[d].inverse()),
+                                                    turn,
+                                                );
                                             }
                                         }
                                     }
@@ -304,8 +308,11 @@ impl DGameState {
                             match cell.get() {
                                 DField::Empty { mut reachable }
                                 | DField::Food { mut reachable } => {
-                                    reachable[id as usize] = reachable[id as usize].max(1);
-                                    cell.set(DField::Empty().reachable(reachable));
+                                    if !reachable[id as usize].is_set() {
+                                        reachable[id as usize] =
+                                            DReached::new(Some(d.inverse()), 1);
+                                        cell.set(DField::Empty().reachable(reachable));
+                                    }
                                 }
                                 _ => (),
                             }
@@ -342,14 +349,14 @@ impl DGameState {
         for i in 1..SNAKES {
             for d in 0..4 {
                 if let Some(reachable) = helper[d] {
-                    if reachable[i as usize] > 0 {
-                        if reachable[i as usize] == turn {
+                    if reachable[i as usize].is_set() {
+                        if reachable[i as usize].turn() == turn {
                             counts[i as usize][0] += 1;
                         }
-                        if reachable[i as usize] + 2 >= turn {
+                        if reachable[i as usize].turn() + 2 >= turn {
                             counts[i as usize][1] += 1;
                         }
-                        if reachable[i as usize] + 4 >= turn {
+                        if reachable[i as usize].turn() + 4 >= turn {
                             counts[i as usize][2] += 1;
                         }
                     }
@@ -361,16 +368,16 @@ impl DGameState {
         for i in 1..SNAKES {
             for d in 0..4 {
                 if let Some(reachable) = helper[d] {
-                    if reachable[i as usize] > 0 {
-                        if reachable[i as usize] == turn {
+                    if reachable[i as usize].is_set() {
+                        if reachable[i as usize].turn() == turn {
                             if counts[i as usize][0] <= 1 {
                                 result[d as usize] = false;
                             }
-                        } else if reachable[i as usize] + 2 >= turn {
+                        } else if reachable[i as usize].turn() + 2 >= turn {
                             if counts[i as usize][1] <= 2 {
                                 result[d as usize] = false;
                             }
-                        } else if reachable[i as usize] + 4 >= turn {
+                        } else if reachable[i as usize].turn() + 4 >= turn {
                             if counts[i as usize][2] <= 3 {
                                 result[d as usize] = false;
                             }
@@ -433,72 +440,63 @@ impl Display for DGameState {
             }
         }
 
+        // Handle reachable
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                match self.board.cell(x, y).unwrap().get() {
+                    DField::Empty { reachable, .. } | DField::Food { reachable, .. } => {
+                        if reachable.iter().any(|&r| r.is_set()) {
+                            let best = reachable.iter().filter(|x| x.is_set()).min().unwrap();
+                            let mut lengths = [0; SNAKES as usize];
+                            for id in 0..SNAKES {
+                                if reachable[id as usize] == *best {
+                                    match self.snakes.cell(id).get() {
+                                        DSnake::Alive { length, .. }
+                                        | DSnake::Headless { length, .. }
+                                        | DSnake::Vanished { length, .. } => {
+                                            lengths[id as usize] = length;
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            let highest_length = lengths.iter().max().unwrap();
+                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
+                                let id =
+                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
+                                let c = (id as u8 + b'A') as char;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best.turn() + '0' as u8) as char;
+                                if best.before() == Some(DDirection::Up) {
+                                    board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = '^';
+                                } else if best.before() == Some(DDirection::Down) {
+                                    board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = 'v';
+                                } else if best.before() == Some(DDirection::Left) {
+                                    board[y as usize * 3 + 1][x as usize * 3 * 2] = '<';
+                                } else if best.before() == Some(DDirection::Right) {
+                                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = '>';
+                                }
+                            } else {
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
+                                    (best.turn() + '0' as u8) as char;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
         // Fill the board with the current state
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 match self.board.cell(x, y).unwrap().get() {
-                    DField::Empty { reachable, .. } => {
-                        if reachable.iter().any(|&r| r > 0) {
-                            let best = reachable.iter().filter(|x| **x > 0).min().unwrap();
-                            let mut lengths = [0; SNAKES as usize];
-                            for id in 0..SNAKES {
-                                if reachable[id as usize] == *best {
-                                    match self.snakes.cell(id).get() {
-                                        DSnake::Alive { length, .. }
-                                        | DSnake::Headless { length, .. }
-                                        | DSnake::Vanished { length, .. } => {
-                                            lengths[id as usize] = length;
-                                        }
-                                        _ => (),
-                                    }
-                                }
-                            }
-                            let highest_length = lengths.iter().max().unwrap();
-                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
-                                let id =
-                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
-                                let c = (id as u8 + b'A') as char;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best + '0' as u8) as char;
-                            } else {
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best + '0' as u8) as char;
-                            }
-                        }
+                    DField::Empty { .. } => {
                         board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '.';
                     }
-                    DField::Food { reachable, .. } => {
-                        if reachable.iter().any(|&r| r > 0) {
-                            let best = reachable.iter().filter(|x| **x > 0).min().unwrap();
-                            let mut lengths = [0; SNAKES as usize];
-                            for id in 0..SNAKES {
-                                if reachable[id as usize] == *best {
-                                    match self.snakes.cell(id).get() {
-                                        DSnake::Alive { length, .. }
-                                        | DSnake::Headless { length, .. }
-                                        | DSnake::Vanished { length, .. } => {
-                                            lengths[id as usize] = length;
-                                        }
-                                        _ => (),
-                                    }
-                                }
-                            }
-                            let highest_length = lengths.iter().max().unwrap();
-                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
-                                let id =
-                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
-                                let c = (id as u8 + b'A') as char;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best + '0' as u8) as char;
-                            } else {
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best + '0' as u8) as char;
-                            }
-                        }
+                    DField::Food { .. } => {
                         board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = 'X';
                     }
                     DField::Snake { id, next } => {
@@ -681,7 +679,7 @@ mod tests {
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 1, 0, 1]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 1]);
             }
             _ => panic!("Problem with field (4, 4)"),
         }
@@ -693,7 +691,7 @@ mod tests {
         println!("{}", state);
         match state.board.cell(0, 1).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 0, 0, 0]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 0, 0, 0]);
             }
             _ => panic!("Problem with field (0, 1)"),
         }
@@ -701,7 +699,7 @@ mod tests {
         println!("{}", state);
         match state.board.cell(4, 5).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 5, 0, 5]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 5, 0, 5]);
             }
             _ => panic!("Problem with field (4, 5)"),
         }
@@ -717,13 +715,13 @@ mod tests {
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 1, 0, 1]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 1]);
             }
             _ => panic!("Problem with field (4, 4)"),
         }
         match state.board.cell(6, 4).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 1, 0, 0]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 0]);
             }
             _ => panic!("Problem with field (6, 4)"),
         }
@@ -731,31 +729,31 @@ mod tests {
         println!("{}", state);
         match state.board.cell(3, 4).unwrap().get() {
             DField::Food { reachable } => {
-                assert_eq!(reachable, [0, 2, 0, 2]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 2, 0, 2]);
             }
             _ => panic!("Problem with field (3, 4)"),
         }
         match state.board.cell(2, 5).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 0, 0, 2]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 0, 0, 2]);
             }
             _ => panic!("Problem with field (2, 5)"),
         }
         match state.board.cell(4, 4).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 1, 0, 1]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 1]);
             }
             _ => panic!("Problem with field (4, 4)"),
         }
         match state.board.cell(6, 4).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 1, 0, 0]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 0]);
             }
             _ => panic!("Problem with field (6, 4)"),
         }
         match state.board.cell(1, 5).unwrap().get() {
             DField::Empty { reachable } => {
-                assert_eq!(reachable, [0, 0, 0, 0]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 0, 0, 0]);
             }
             _ => panic!("Problem with field (1, 5)"),
         }
