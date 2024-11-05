@@ -1,48 +1,80 @@
+use super::d_direction::DDirection;
+use crate::logic::legacy::shared::e_snakes::SNAKES;
 use core::panic;
 
-use crate::logic::legacy::shared::e_snakes::SNAKES;
+pub trait DField: Copy {
+    const EMPTY: u8 = 0;
+    const FOOD: u8 = 1;
+    const SNAKE: u8 = 2;
 
-use super::d_direction::DDirection;
+    fn empty() -> Self;
+    fn food() -> Self;
+    fn snake(id: u8, next: Option<DDirection>) -> Self;
+    fn get_id(&self) -> u8;
+    fn get_next(&self) -> Option<DDirection>;
+    fn get_type(&self) -> u8;
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DField {
+pub enum DSlowField {
     Empty {
-        reachable: [DReached; SNAKES as usize],
-    },
-    Food {
         reachable: [DReached; SNAKES as usize],
     },
     Snake {
         id: u8,
         next: Option<DDirection>,
     },
+    Food {
+        reachable: [DReached; SNAKES as usize],
+    },
 }
 
-impl DField {
-    #[allow(non_snake_case)]
-    pub fn empty() -> Self {
-        DField::Empty {
+impl DField for DSlowField {
+    fn empty() -> Self {
+        DSlowField::Empty {
             reachable: [DReached::default(); SNAKES as usize],
         }
     }
 
-    #[allow(non_snake_case)]
-    pub fn food() -> Self {
-        DField::Food {
+    fn food() -> Self {
+        DSlowField::Food {
             reachable: [DReached::default(); SNAKES as usize],
         }
     }
 
-    #[allow(non_snake_case)]
-    pub fn snake(id: u8, next: Option<DDirection>) -> Self {
-        DField::Snake { id, next }
+    fn snake(id: u8, next: Option<DDirection>) -> Self {
+        DSlowField::Snake { id, next }
     }
 
+    fn get_id(&self) -> u8 {
+        match self {
+            DSlowField::Snake { id, .. } => *id,
+            _ => panic!("Trying to get id from non-snake field"),
+        }
+    }
+
+    fn get_next(&self) -> Option<DDirection> {
+        match self {
+            DSlowField::Snake { next, .. } => *next,
+            _ => panic!("Trying to get next from non-snake field"),
+        }
+    }
+
+    fn get_type(&self) -> u8 {
+        match self {
+            DSlowField::Empty { .. } => DSlowField::EMPTY,
+            DSlowField::Food { .. } => DSlowField::FOOD,
+            DSlowField::Snake { .. } => DSlowField::SNAKE,
+        }
+    }
+}
+
+impl DSlowField {
     pub fn reachable(&self, values: [DReached; SNAKES as usize]) -> Self {
         match self {
-            DField::Empty { .. } => DField::Empty { reachable: values },
-            DField::Food { .. } => DField::Food { reachable: values },
-            DField::Snake { .. } => panic!("Trying to set reachable on snake field"),
+            DSlowField::Empty { .. } => DSlowField::Empty { reachable: values },
+            DSlowField::Food { .. } => DSlowField::Food { reachable: values },
+            DSlowField::Snake { .. } => panic!("Trying to set reachable on snake field"),
         }
     }
 }
@@ -103,6 +135,6 @@ mod tests {
 
     #[test]
     fn test_memory_size() {
-        assert_eq!(std::mem::size_of::<DField>(), 2);
+        assert_eq!(std::mem::size_of::<DSlowField>(), 9);
     }
 }

@@ -50,7 +50,10 @@ impl DMovesSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::{logic::depth_first::game::d_game_state::DGameState, read_game_state};
+    use crate::{
+        logic::depth_first::game::{d_field::DSlowField, d_game_state::DGameState},
+        read_game_state,
+    };
 
     use super::*;
 
@@ -58,7 +61,7 @@ mod tests {
     // Should be < 45ns
     fn bench_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
         println!("{:#?}", state.possible_moves());
         b.iter(|| {
             state.possible_moves().generate();
@@ -114,7 +117,7 @@ mod tests {
         );
 
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
         let moves_set = state.possible_moves();
         let moves_list = moves_set.generate();
 

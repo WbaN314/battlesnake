@@ -1,5 +1,7 @@
 use super::{d_node::DNode, d_node_id::DNodeId};
-use crate::logic::depth_first::game::{d_direction::DDirection, d_game_state::DGameState};
+use crate::logic::depth_first::game::{
+    d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState,
+};
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt::Display,
@@ -12,7 +14,7 @@ pub struct DTree {
 }
 
 impl DTree {
-    pub fn new(start: DGameState) -> Self {
+    pub fn new(start: DGameState<DSlowField>) -> Self {
         let mut nodes = BTreeMap::new();
         let mut queue = VecDeque::new();
         nodes.insert(DNodeId::default(), DNode::Scoped(DNodeId::default(), start));

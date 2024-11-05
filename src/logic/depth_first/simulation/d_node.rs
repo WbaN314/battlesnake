@@ -1,17 +1,20 @@
 use std::fmt::Display;
 
-use crate::logic::depth_first::game::d_game_state::DGameState;
+use crate::logic::depth_first::game::{d_field::DSlowField, d_game_state::DGameState};
 
 use super::d_node_id::DNodeId;
 
 #[derive(Clone)]
 pub enum DNode {
-    Scoped { id: DNodeId, base: DGameState },
+    Scoped {
+        id: DNodeId,
+        base: DGameState<DSlowField>,
+    },
 }
 
 impl DNode {
     #[allow(non_snake_case)]
-    pub fn Scoped(id: DNodeId, base: DGameState) -> Self {
+    pub fn Scoped(id: DNodeId, base: DGameState<DSlowField>) -> Self {
         DNode::Scoped { id, base }
     }
 }
