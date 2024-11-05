@@ -20,12 +20,12 @@ pub enum DSlowField {
     Empty {
         reachable: [DReached; SNAKES as usize],
     },
+    Food {
+        reachable: [DReached; SNAKES as usize],
+    },
     Snake {
         id: u8,
         next: Option<DDirection>,
-    },
-    Food {
-        reachable: [DReached; SNAKES as usize],
     },
 }
 
