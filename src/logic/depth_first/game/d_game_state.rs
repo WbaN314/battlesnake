@@ -2,7 +2,7 @@ use super::{
     d_board::{DBoard, HEIGHT, WIDTH},
     d_coord::DCoord,
     d_direction::{DDirection, D_DIRECTION_LIST},
-    d_field::{DField, DReached, DSlowField},
+    d_field::{DFastField, DField, DReached, DSlowField},
     d_moves_set::{DMoves, DMovesSet},
     d_snake::DSnake,
     d_snakes::DSnakes,
@@ -399,8 +399,46 @@ impl DGameState<DSlowField> {
     }
 }
 
-impl Display for DGameState<DSlowField> {
+impl From<DGameState<DSlowField>> for DGameState<DFastField> {
+    fn from(value: DGameState<DSlowField>) -> Self {
+        let new_board = DBoard::<DFastField>::default();
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let old_cell = value.board.cell(x, y).unwrap().get();
+                new_board.cell(x, y).unwrap().set(old_cell.into());
+            }
+        }
+        DGameState {
+            board: new_board,
+            snakes: value.snakes,
+        }
+    }
+}
+
+impl From<DGameState<DFastField>> for DGameState<DSlowField> {
+    fn from(value: DGameState<DFastField>) -> Self {
+        let new_board = DBoard::<DSlowField>::default();
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let old_cell = value.board.cell(x, y).unwrap().get();
+                new_board.cell(x, y).unwrap().set(old_cell.into());
+            }
+        }
+        DGameState {
+            board: new_board,
+            snakes: value.snakes,
+        }
+    }
+}
+
+impl<T> Display for DGameState<T>
+where
+    T: DField,
+    DGameState<DSlowField>: From<DGameState<T>>,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let this: DGameState<DSlowField> = self.clone().into();
+
         let row = [' '; WIDTH as usize * 3 * 2];
         let mut board = [row; HEIGHT as usize * 3];
 
@@ -425,7 +463,7 @@ impl Display for DGameState<DSlowField> {
         // Handle reachable
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                match self.board.cell(x, y).unwrap().get() {
+                match this.board.cell(x, y).unwrap().get() {
                     DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
                         if reachable.iter().any(|&r| r.is_set()) {
                             let best = reachable.iter().filter(|x| x.is_set()).min().unwrap();
@@ -474,7 +512,7 @@ impl Display for DGameState<DSlowField> {
         // Fill the board with the current state
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                match self.board.cell(x, y).unwrap().get() {
+                match this.board.cell(x, y).unwrap().get() {
                     DSlowField::Empty { .. } => {
                         board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '.';
                     }
@@ -578,7 +616,10 @@ mod tests {
     use super::*;
     use crate::{
         logic::depth_first::game::{
-            d_coord::DCoord, d_direction::DDirection, d_field::DSlowField, d_snake::DSnake,
+            d_coord::DCoord,
+            d_direction::DDirection,
+            d_field::{DFastField, DSlowField},
+            d_snake::DSnake,
         },
         read_game_state,
     };
@@ -586,15 +627,33 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
     }
 
     #[bench]
     // Should be < 50ns
-    fn bench_next_state(b: &mut test::Bencher) {
+    fn bench_next_state_slow(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [
+            Some(DDirection::Up),
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Down),
+        ];
+        b.iter(|| {
+            let mut state = state.clone();
+            state.next_state(moves);
+        });
+    }
+
+    #[bench]
+    // Should be < 50ns
+    fn bench_next_state_fast(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         let moves = [
             Some(DDirection::Up),
@@ -612,7 +671,7 @@ mod tests {
     // Should be < 10ns
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         b.iter(|| {
             let _ = state.possible_moves();
@@ -744,7 +803,7 @@ mod tests {
     #[test]
     fn test_possible_moves() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         let moves = state.possible_moves();
         println!("{:#?}", moves);
@@ -820,7 +879,7 @@ mod tests {
     #[test]
     fn test_move_heads_headless() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         state.move_heads([
             Some(DDirection::Up),
@@ -838,7 +897,7 @@ mod tests {
     #[test]
     fn test_move_heads_food() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
         println!("{}", state);
         state.move_heads([
             Some(DDirection::Up),

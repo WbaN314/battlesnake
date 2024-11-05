@@ -129,6 +129,69 @@ impl PartialEq for DReached {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum DFastField {
+    Empty,
+    Food,
+    Snake { id: u8, next: Option<DDirection> },
+}
+
+impl DField for DFastField {
+    fn empty() -> Self {
+        DFastField::Empty
+    }
+
+    fn food() -> Self {
+        DFastField::Food
+    }
+
+    fn snake(id: u8, next: Option<DDirection>) -> Self {
+        DFastField::Snake { id, next }
+    }
+
+    fn get_id(&self) -> u8 {
+        match self {
+            DFastField::Snake { id, .. } => *id,
+            _ => panic!("Trying to get id from non-snake field"),
+        }
+    }
+
+    fn get_next(&self) -> Option<DDirection> {
+        match self {
+            DFastField::Snake { next, .. } => *next,
+            _ => panic!("Trying to get next from non-snake field"),
+        }
+    }
+
+    fn get_type(&self) -> u8 {
+        match self {
+            DFastField::Empty => DFastField::EMPTY,
+            DFastField::Food => DFastField::FOOD,
+            DFastField::Snake { .. } => DFastField::SNAKE,
+        }
+    }
+}
+
+impl From<DSlowField> for DFastField {
+    fn from(field: DSlowField) -> Self {
+        match field {
+            DSlowField::Empty { .. } => DFastField::Empty,
+            DSlowField::Food { .. } => DFastField::Food,
+            DSlowField::Snake { id, next } => DFastField::Snake { id, next },
+        }
+    }
+}
+
+impl From<DFastField> for DSlowField {
+    fn from(field: DFastField) -> Self {
+        match field {
+            DFastField::Empty => DSlowField::empty(),
+            DFastField::Food => DSlowField::food(),
+            DFastField::Snake { id, next } => DSlowField::snake(id, next),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
