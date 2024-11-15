@@ -488,15 +488,6 @@ where
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
                                     (best.turn() + '0' as u8) as char;
-                                if best.before() == Some(DDirection::Up) {
-                                    board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = '^';
-                                } else if best.before() == Some(DDirection::Down) {
-                                    board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = 'v';
-                                } else if best.before() == Some(DDirection::Left) {
-                                    board[y as usize * 3 + 1][x as usize * 3 * 2] = '<';
-                                } else if best.before() == Some(DDirection::Right) {
-                                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = '>';
-                                }
                             } else {
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
