@@ -1,1 +1,0 @@
-../battlesnake_local/battlesnake play -W 11 -H 11 --name snake1 --url http://localhost:8000 --name snake2 --url http://localhost:8001 -v
