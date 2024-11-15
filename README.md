@@ -23,3 +23,7 @@ VARIANT=depth_first cargo test
 VARIANT=breadth_first cargo test
 ```
 
+## Benchmarks
+
+https://wban314.github.io/battlesnake/dev/bench
+
