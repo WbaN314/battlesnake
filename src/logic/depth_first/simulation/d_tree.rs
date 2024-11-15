@@ -1,9 +1,9 @@
-use super::{d_node::DNode, d_node_id::DNodeId};
+use super::{d_node::DNode, d_node_id::DNodeId, d_state_id::DStateId};
 use crate::logic::depth_first::game::{
     d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState,
 };
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::Display,
 };
 
@@ -17,9 +17,11 @@ impl DTree {
     pub fn new(start: DGameState<DSlowField>) -> Self {
         let mut nodes = BTreeMap::new();
         let mut queue = VecDeque::new();
+        let mut states = HashMap::new();
+        states.insert(DStateId::default(), start.clone().into());
         nodes.insert(
             DNodeId::default(),
-            DNode::simulated(DNodeId::default(), start.clone(), vec![start.into()]),
+            DNode::simulated(DNodeId::default(), start.clone(), states),
         );
         queue.push_back(DNodeId::default());
         Self { nodes, queue }
@@ -55,12 +57,14 @@ impl DTree {
                 };
                 match base_node {
                     DNode::Scoped { base, .. } => {
-                        let mut child_states = Vec::new();
-                        for state in states {
+                        let mut child_states = HashMap::new();
+                        for (state_id, state) in states {
                             for mve in state.possible_moves().generate() {
                                 let mut new_state = state.clone();
+                                let mut new_id = state_id.clone();
+                                new_id.push(mve);
                                 new_state.next_state(mve);
-                                child_states.push(new_state);
+                                child_states.insert(new_id, new_state);
                             }
                         }
                         return (
@@ -184,23 +188,6 @@ mod tests {
             let mut tree = tree.clone();
             let mut id = DNodeId::default();
             for _ in 0..3 {
-                let (new_id, new_node) = tree.simulate_node(&id, DDirection::Up);
-                tree.nodes.insert(new_id, new_node);
-                id.push(DDirection::Up);
-                tree.nodes.get(&id).unwrap();
-            }
-        });
-    }
-
-    #[bench]
-    fn bench_simulate_node_4_up(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        let tree = DTree::new(state);
-        b.iter(|| {
-            let mut tree = tree.clone();
-            let mut id = DNodeId::default();
-            for _ in 0..4 {
                 let (new_id, new_node) = tree.simulate_node(&id, DDirection::Up);
                 tree.nodes.insert(new_id, new_node);
                 id.push(DDirection::Up);

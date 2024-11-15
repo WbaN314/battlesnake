@@ -9,7 +9,7 @@ pub static D_DIRECTION_LIST: [DDirection; 4] = [
     DDirection::Right,
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DDirection {
     Up,
     Down,

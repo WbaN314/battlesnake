@@ -1,11 +1,11 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::logic::depth_first::game::{
     d_field::{DFastField, DSlowField},
     d_game_state::DGameState,
 };
 
-use super::d_node_id::DNodeId;
+use super::{d_node_id::DNodeId, d_state_id::DStateId};
 
 #[derive(Clone)]
 pub enum DNode {
@@ -16,7 +16,7 @@ pub enum DNode {
     Simulated {
         id: DNodeId,
         base: DGameState<DSlowField>,
-        states: Vec<DGameState<DFastField>>,
+        states: HashMap<DStateId, DGameState<DFastField>>,
     },
 }
 
@@ -28,7 +28,7 @@ impl DNode {
     pub fn simulated(
         id: DNodeId,
         base: DGameState<DSlowField>,
-        states: Vec<DGameState<DFastField>>,
+        states: HashMap<DStateId, DGameState<DFastField>>,
     ) -> Self {
         DNode::Simulated { id, base, states }
     }
