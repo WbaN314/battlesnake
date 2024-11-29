@@ -27,6 +27,7 @@ pub enum DSnake {
     Vanished {
         id: u8,
         length: u8,
+        last_head: DCoord,
     },
     NonExistent,
 }
@@ -89,13 +90,22 @@ impl DSnake {
 
     pub fn to_vanished(&self) -> Self {
         match self {
-            DSnake::Alive { id, length, .. } => DSnake::Vanished {
+            DSnake::Alive {
+                id, length, head, ..
+            } => DSnake::Vanished {
                 id: *id,
                 length: *length,
+                last_head: *head,
             },
-            DSnake::Headless { id, length, .. } => DSnake::Vanished {
+            DSnake::Headless {
+                id,
+                length,
+                last_head,
+                ..
+            } => DSnake::Vanished {
                 id: *id,
                 length: *length,
+                last_head: *last_head,
             },
             _ => panic!("Cannot vanish snake {:?}", self),
         }

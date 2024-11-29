@@ -1,3 +1,6 @@
+use arrayvec::ArrayVec;
+use itertools::Itertools;
+
 use super::{
     d_board::{DBoard, HEIGHT, WIDTH},
     d_coord::DCoord,
@@ -265,10 +268,7 @@ impl DGameState<DSlowField> {
                                                 && reachable_other[i as usize].is_set()
                                             {
                                                 reachable_board[y as usize][x as usize]
-                                                    [i as usize] = DReached::new(
-                                                    Some(D_DIRECTION_LIST[d].inverse()),
-                                                    turn,
-                                                );
+                                                    [i as usize] = DReached::new(turn);
                                             }
                                         }
                                     }
@@ -314,8 +314,7 @@ impl DGameState<DSlowField> {
                                 DSlowField::Empty { mut reachable }
                                 | DSlowField::Food { mut reachable } => {
                                     if !reachable[id as usize].is_set() {
-                                        reachable[id as usize] =
-                                            DReached::new(Some(d.inverse()), 1);
+                                        reachable[id as usize] = DReached::new(1);
                                         cell.set(DSlowField::empty().reachable(reachable));
                                     }
                                 }
@@ -396,6 +395,114 @@ impl DGameState<DSlowField> {
         }
 
         result
+    }
+
+    /// Checks if the current reachable configuration gives a valid board where no next move is possible
+    pub fn check_dead_end(&self, turn: u8) -> bool {
+        // Observation: Snakes can reach a fixed point with the head only every second move
+
+        // Check if there are any problematic snakes
+        let mut problematic_snakes = ArrayVec::<_, 3>::new();
+        let mut movable_fields = ArrayVec::<_, 4>::new();
+        let my_head = match self.snakes.cell(0).get() {
+            DSnake::Alive { head, .. } => head,
+            _ => panic!("Dead snake can't be checked for dead end"),
+        };
+        for d in D_DIRECTION_LIST {
+            let neighbor_coord = my_head + d;
+            let neighbor_field = self.board.cell(neighbor_coord.x, neighbor_coord.y);
+            if let Some(field) = neighbor_field {
+                match field.get() {
+                    DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
+                        movable_fields.push((neighbor_coord, reachable));
+                        for id in 1..SNAKES {
+                            if reachable[id as usize].is_set() {
+                                problematic_snakes.push(id);
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // No movable fields available
+        if movable_fields.len() == 0 {
+            return true;
+        }
+
+        // No problematic snakes
+        if problematic_snakes.len() == 0 {
+            return false;
+        }
+
+        // Get distribution of required points to problematic snakes
+        // 1  12   13
+        // -> 1 1 1
+        let mut snakes_for_fields = ArrayVec::<_, 4>::new();
+        for (_, reachable) in movable_fields.iter() {
+            let mut allowed_snakes = ArrayVec::<_, 3>::new();
+            for id in 1..SNAKES {
+                if reachable[id as usize].is_set() {
+                    allowed_snakes.push(id);
+                }
+            }
+            snakes_for_fields.push(allowed_snakes);
+        }
+        let fields_to_snakes = snakes_for_fields.into_iter().multi_cartesian_product();
+
+        // Get distribution of required DCoords to problematic snakes
+        let mut snake_coord_distributions = Vec::new();
+        for field_distribution in fields_to_snakes {
+            let mut required_coords = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+            for id in 1..SNAKES {
+                for coord_id in 0..field_distribution.len() {
+                    if field_distribution[coord_id] == id {
+                        required_coords[id as usize].push(movable_fields[coord_id].0);
+                    }
+                }
+            }
+            snake_coord_distributions.push(required_coords);
+        }
+
+        'snake_coords: for snake_coords in snake_coord_distributions {
+            'snakes: for id in 1..SNAKES {
+                if snake_coords[id as usize].len() > 0 {
+                    for coords in snake_coords[id as usize]
+                        .iter()
+                        .permutations(snake_coords[id as usize].len())
+                    {
+                        let total_distance = coords
+                            .iter()
+                            .zip(coords.iter().skip(1))
+                            .fold(0, |acc, (a, &&b)| acc + a.distance_to(b));
+
+                        match self.snakes.cell(id).get() {
+                            DSnake::Headless { last_head, .. } => {
+                                if total_distance + coords.last().unwrap().distance_to(last_head)
+                                    <= turn
+                                {
+                                    continue 'snakes;
+                                }
+                            }
+                            DSnake::Vanished {
+                                last_head, length, ..
+                            } => {
+                                if total_distance + coords.last().unwrap().distance_to(last_head)
+                                    <= turn + turn - length + 1
+                                {
+                                    continue 'snakes;
+                                }
+                            }
+                            _ => panic!("Invalid Snake for dead end check"),
+                        }
+                    }
+                    break 'snake_coords;
+                }
+            }
+            return true;
+        }
+        false
     }
 }
 
@@ -482,9 +589,8 @@ where
                             }
                             let highest_length = lengths.iter().max().unwrap();
                             if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
-                                let id =
-                                    lengths.iter().position(|x| *x == *highest_length).unwrap();
-                                let c = (id as u8 + b'A') as char;
+                                let left_side = lengths.iter().filter(|&x| *x > 0).count();
+                                let c = (left_side as u8 + b'0') as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
                                     (best.turn() + '0' as u8) as char;
@@ -680,6 +786,38 @@ mod tests {
             let mut state = state.clone();
             state.move_reachable(moves, 1);
         });
+    }
+
+    #[bench]
+    fn bench_check_dead_end(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let moves = [Some(DDirection::Up), None, None, None];
+        state.next_state(moves).move_reachable(moves, 1);
+        state.next_state(moves).move_reachable(moves, 2);
+        state.next_state(moves).move_reachable(moves, 3);
+        state.next_state(moves).move_reachable(moves, 4);
+        b.iter(|| {
+            let _ = state.check_dead_end(4);
+        });
+    }
+
+    #[test]
+    fn test_check_dead_end() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, None, None];
+        assert!(!state.check_dead_end(0));
+        state.next_state(moves).move_reachable(moves, 1);
+        assert!(!state.check_dead_end(1));
+        state.next_state(moves).move_reachable(moves, 2);
+        assert!(!state.check_dead_end(2));
+        state.next_state(moves).move_reachable(moves, 3);
+        assert!(!state.check_dead_end(3));
+        state.next_state(moves).move_reachable(moves, 4);
+        println!("{}", state);
+        assert!(state.check_dead_end(4));
     }
 
     #[test]

@@ -21,6 +21,6 @@ mod tests {
 
     #[test]
     fn test_size() {
-        assert_eq!(std::mem::size_of::<DStateId>(), 0);
+        assert_eq!(std::mem::size_of::<DStateId>(), 24);
     }
 }

@@ -1,9 +1,8 @@
+use crate::logic::depth_first::game::d_direction::DDirection;
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
 };
-
-use crate::logic::depth_first::game::d_direction::DDirection;
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct DNodeId(Vec<DDirection>);

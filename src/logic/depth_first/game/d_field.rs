@@ -81,13 +81,12 @@ impl DSlowField {
 
 #[derive(Copy, Clone, Debug)]
 pub struct DReached {
-    before: Option<DDirection>,
     turn: u8,
 }
 
 impl DReached {
-    pub fn new(before: Option<DDirection>, turn: u8) -> Self {
-        DReached { before, turn }
+    pub fn new(turn: u8) -> Self {
+        DReached { turn }
     }
 
     pub fn is_set(&self) -> bool {
@@ -97,15 +96,11 @@ impl DReached {
     pub fn turn(&self) -> u8 {
         self.turn
     }
-
-    pub fn before(&self) -> Option<DDirection> {
-        self.before
-    }
 }
 
 impl Default for DReached {
     fn default() -> Self {
-        DReached::new(None, 0)
+        DReached::new(0)
     }
 }
 
@@ -198,6 +193,6 @@ mod tests {
 
     #[test]
     fn test_memory_size() {
-        assert_eq!(std::mem::size_of::<DSlowField>(), 9);
+        assert_eq!(std::mem::size_of::<DSlowField>(), 5);
     }
 }

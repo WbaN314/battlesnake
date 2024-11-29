@@ -14,6 +14,10 @@ impl DCoord {
     pub fn new(x: i8, y: i8) -> Self {
         DCoord { x, y }
     }
+
+    pub fn distance_to(&self, other: DCoord) -> u8 {
+        (self.x - other.x).abs() as u8 + (self.y - other.y).abs() as u8
+    }
 }
 
 impl From<&Coord> for DCoord {
@@ -75,5 +79,22 @@ impl Add<DDirection> for DCoord {
 impl AddAssign for DCoord {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_distance_to() {
+        use super::*;
+
+        let a = DCoord::new(0, 0);
+        let b = DCoord::new(0, 1);
+        let c = DCoord::new(1, 0);
+        let d = DCoord::new(1, 1);
+
+        assert_eq!(a.distance_to(b), 1);
+        assert_eq!(a.distance_to(c), 1);
+        assert_eq!(a.distance_to(d), 2);
     }
 }
