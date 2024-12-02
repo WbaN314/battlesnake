@@ -32,10 +32,7 @@ impl PartialOrd for DNodeId {
 
 impl Ord for DNodeId {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0
-            .len()
-            .cmp(&other.0.len())
-            .then(self.0.iter().cmp(other.0.iter()))
+        self.0.iter().cmp(other.0.iter())
     }
 }
 
