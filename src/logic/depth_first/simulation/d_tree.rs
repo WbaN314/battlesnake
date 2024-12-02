@@ -1,3 +1,5 @@
+use serde::de;
+
 use super::{d_node::DNode, d_node_id::DNodeId, d_state_id::DStateId};
 use crate::logic::depth_first::game::{
     d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState,
@@ -85,7 +87,7 @@ impl DTree {
             let mut new_nodes = Vec::new();
             match self.queue.pop_front() {
                 Some(next) => match self.nodes.get(&next) {
-                    Some(DNode::Scoped { base, id }) => {
+                    Some(DNode::Scoped { id, base }) | Some(DNode::Simulated { id, base, .. }) => {
                         let moves = base.scope_moves(id.len() as u8);
                         for i in 0..4 {
                             if moves[i as usize] {

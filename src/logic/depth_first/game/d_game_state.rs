@@ -330,94 +330,29 @@ impl DGameState<DSlowField> {
         self
     }
 
-    pub fn scope_moves(&self, turn: u8) -> [bool; 4] {
-        let mut helper = [None; 4];
-        match self.snakes.cell(0).get() {
-            DSnake::Alive { head, .. } => {
-                for direction in D_DIRECTION_LIST {
-                    let new_head = head + direction;
-                    if let Some(field) = self.board.cell(new_head.x, new_head.y) {
-                        match field.get() {
-                            DSlowField::Empty { reachable, .. }
-                            | DSlowField::Food { reachable, .. } => {
-                                helper[direction as usize] = Some(reachable);
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-            }
-            _ => (),
-        }
-
-        let mut counts = [[0, 0, 0]; SNAKES as usize]; // turns, >=turn-2s, >t=urn-4s
-        for i in 1..SNAKES {
-            for d in 0..4 {
-                if let Some(reachable) = helper[d] {
-                    if reachable[i as usize].is_set() {
-                        if reachable[i as usize].turn() == turn {
-                            counts[i as usize][0] += 1;
-                        }
-                        if reachable[i as usize].turn() + 2 >= turn {
-                            counts[i as usize][1] += 1;
-                        }
-                        if reachable[i as usize].turn() + 4 >= turn {
-                            counts[i as usize][2] += 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut result = [true; 4];
-        for i in 1..SNAKES {
-            for d in 0..4 {
-                if let Some(reachable) = helper[d] {
-                    if reachable[i as usize].is_set() {
-                        if reachable[i as usize].turn() == turn {
-                            if counts[i as usize][0] <= 1 {
-                                result[d as usize] = false;
-                            }
-                        } else if reachable[i as usize].turn() + 2 >= turn {
-                            if counts[i as usize][1] <= 2 {
-                                result[d as usize] = false;
-                            }
-                        } else if reachable[i as usize].turn() + 4 >= turn {
-                            if counts[i as usize][2] <= 3 {
-                                result[d as usize] = false;
-                            }
-                        }
-                    }
-                } else {
-                    result[d as usize] = false;
-                }
-            }
-        }
-
-        result
-    }
-
     /// Checks if the current reachable configuration gives a valid board where no next move is possible
-    pub fn check_dead_end(&self, turn: u8) -> bool {
+    pub fn scope_moves(&self, turn: u8) -> [bool; 4] {
         // Observation: Snakes can reach a fixed point with the head only every second move
 
         // Check if there are any problematic snakes
-        let mut problematic_snakes = ArrayVec::<_, 3>::new();
+        let mut problematic_snakes = [false; SNAKES as usize];
         let mut movable_fields = ArrayVec::<_, 4>::new();
+        let mut movable_fields_list = [false; 4];
         let my_head = match self.snakes.cell(0).get() {
             DSnake::Alive { head, .. } => head,
             _ => panic!("Dead snake can't be checked for dead end"),
         };
-        for d in D_DIRECTION_LIST {
-            let neighbor_coord = my_head + d;
+        for i in 0..4 {
+            let neighbor_coord = my_head + D_DIRECTION_LIST[i];
             let neighbor_field = self.board.cell(neighbor_coord.x, neighbor_coord.y);
             if let Some(field) = neighbor_field {
                 match field.get() {
                     DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
                         movable_fields.push((neighbor_coord, reachable));
+                        movable_fields_list[i] = true;
                         for id in 1..SNAKES {
                             if reachable[id as usize].is_set() {
-                                problematic_snakes.push(id);
+                                problematic_snakes[id as usize] = true;
                             }
                         }
                     }
@@ -428,12 +363,12 @@ impl DGameState<DSlowField> {
 
         // No movable fields available
         if movable_fields.len() == 0 {
-            return true;
+            return [false; 4];
         }
 
         // No problematic snakes
-        if problematic_snakes.len() == 0 {
-            return false;
+        if problematic_snakes.iter().all(|&e| e == false) {
+            return movable_fields_list;
         }
 
         // Get distribution of required points to problematic snakes
@@ -500,9 +435,9 @@ impl DGameState<DSlowField> {
                     break 'snake_coords;
                 }
             }
-            return true;
+            return [false; 4];
         }
-        false
+        return movable_fields_list;
     }
 }
 
@@ -789,7 +724,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_check_dead_end(b: &mut test::Bencher) {
+    fn bench_scope_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
         let moves = [Some(DDirection::Up), None, None, None];
@@ -798,26 +733,8 @@ mod tests {
         state.next_state(moves).move_reachable(moves, 3);
         state.next_state(moves).move_reachable(moves, 4);
         b.iter(|| {
-            let _ = state.check_dead_end(4);
+            let _ = state.scope_moves(4);
         });
-    }
-
-    #[test]
-    fn test_check_dead_end() {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
-        println!("{}", state);
-        let moves = [Some(DDirection::Up), None, None, None];
-        assert!(!state.check_dead_end(0));
-        state.next_state(moves).move_reachable(moves, 1);
-        assert!(!state.check_dead_end(1));
-        state.next_state(moves).move_reachable(moves, 2);
-        assert!(!state.check_dead_end(2));
-        state.next_state(moves).move_reachable(moves, 3);
-        assert!(!state.check_dead_end(3));
-        state.next_state(moves).move_reachable(moves, 4);
-        println!("{}", state);
-        assert!(state.check_dead_end(4));
     }
 
     #[test]
@@ -829,9 +746,11 @@ mod tests {
         state.next_state(moves).move_reachable(moves, 1);
         state.next_state(moves).move_reachable(moves, 2);
         state.next_state(moves).move_reachable(moves, 3);
+        println!("{}", state);
+        assert_eq!(state.scope_moves(3), [true, false, false, true]);
         state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
-        assert_eq!(state.scope_moves(4), [true, false, false, false]);
+        assert_eq!(state.scope_moves(4), [false, false, false, false]);
         state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
         assert_eq!(state.scope_moves(5), [false, false, false, false]);
