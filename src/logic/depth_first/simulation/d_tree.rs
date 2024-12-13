@@ -205,7 +205,8 @@ mod tests {
 
     #[test]
     fn test_scope_timed() {
-        let gamestate = read_game_state("requests/test_move_request.json");
+        let gamestate =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let mut tree = DTree::new(state.clone());
@@ -304,7 +305,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(&id, node_id);
-                assert_eq!(states.len(), 8103);
+                assert_eq!(states.len(), 7215);
             }
             _ => panic!("Wrong node type"),
         }

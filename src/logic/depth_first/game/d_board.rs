@@ -50,7 +50,7 @@ impl<T: DField> DBoard<T> {
 
     pub fn cell(&self, x: i8, y: i8) -> Option<&Cell<T>> {
         let index = y as i16 * WIDTH as i16 + x as i16;
-        if x < 0 || y < 0 {
+        if x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT {
             return None;
         }
         self.fields.get(index as usize)
@@ -117,6 +117,8 @@ mod tests {
         assert_eq!(board.cell(-1, 0), None);
         assert_eq!(board.cell(0, -1), None);
         assert_eq!(board.cell(HEIGHT, WIDTH), None);
+        assert_eq!(board.cell(WIDTH, 0), None);
+        assert_eq!(board.cell(0, HEIGHT), None);
     }
 
     #[test]
@@ -176,10 +178,7 @@ mod tests {
             board.cell(1, 0).unwrap().get(),
             DSlowField::snake(0, Some(DDirection::Left))
         );
-        assert_eq!(
-            board.cell(2, 0).unwrap().get(),
-            DSlowField::empty()
-        );
+        assert_eq!(board.cell(2, 0).unwrap().get(), DSlowField::empty());
         assert_eq!(
             board.cell(9, 2).unwrap().get(),
             DSlowField::snake(2, Some(DDirection::Down))

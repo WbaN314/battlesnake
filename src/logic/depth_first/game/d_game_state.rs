@@ -973,6 +973,27 @@ mod tests {
     }
 
     #[test]
+    fn test_next_state_2() {
+        let gamestate =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let moves = [
+            Some(DDirection::Right),
+            Some(DDirection::Down),
+            Some(DDirection::Down),
+            Some(DDirection::Down),
+        ];
+        state.next_state(moves);
+        println!("{}", state);
+        assert!(!state.is_alive());
+    }
+
+    #[test]
     fn test_move_heads_headless() {
         let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::<DFastField>::from_request(
