@@ -450,6 +450,25 @@ impl DGameState<DSlowField> {
         }
         return movable_fields_list;
     }
+
+    pub fn play(mut self, moves_string: [&str; SNAKES as usize]) {
+        for i in 0..moves_string.iter().map(|s| s.len()).max().unwrap() {
+            let mut moves: DMoves = [None; SNAKES as usize];
+            for id in 0..SNAKES {
+                if let Some(c) = moves_string[id as usize].chars().nth(i) {
+                    moves[id as usize] = Some(match c {
+                        'U' => DDirection::Up,
+                        'D' => DDirection::Down,
+                        'L' => DDirection::Left,
+                        'R' => DDirection::Right,
+                        _ => panic!("Invalid move character"),
+                    });
+                }
+            }
+            self.next_state(moves);
+            println!("{}", self);
+        }
+    }
 }
 
 impl From<DGameState<DSlowField>> for DGameState<DFastField> {
@@ -1274,5 +1293,17 @@ mod tests {
         ]);
         println!("{}", d_gamestate);
         assert_eq!(d_gamestate.is_alive(), false);
+    }
+
+    #[test]
+    fn play_state() {
+        let gamestate = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        state.play(["RRRRRRULLLLLLUUUUUUU", "DRRRRDRURDDLLDLLLLLL", "", ""]);
     }
 }
