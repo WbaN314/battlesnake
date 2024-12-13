@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_scope_timed() {
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let mut tree = DTree::new(state.clone());
