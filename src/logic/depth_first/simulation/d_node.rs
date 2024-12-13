@@ -18,6 +18,9 @@ pub enum DNode {
         base: DGameState<DSlowField>,
         states: HashMap<DStateId, DGameState<DFastField>>,
     },
+    Dead {
+        id: DNodeId,
+    },
 }
 
 impl DNode {
@@ -32,6 +35,23 @@ impl DNode {
     ) -> Self {
         DNode::Simulated { id, base, states }
     }
+
+    pub fn dead(id: DNodeId) -> Self {
+        DNode::Dead { id }
+    }
+
+    pub fn id(&self) -> &DNodeId {
+        match self {
+            DNode::Scoped { id, .. } | DNode::Simulated { id, .. } | DNode::Dead { id } => id,
+        }
+    }
+
+    pub fn base(&self) -> &DGameState<DSlowField> {
+        match self {
+            DNode::Scoped { base, .. } | DNode::Simulated { base, .. } => base,
+            DNode::Dead { .. } => panic!("Cannot get base from dead node"),
+        }
+    }
 }
 
 impl Display for DNode {
@@ -45,6 +65,9 @@ impl Display for DNode {
                 writeln!(f, "{} {} (Simulated)\n", id.len(), id)?;
                 writeln!(f, "{}", base)?;
                 writeln!(f, "States: {}", states.len())?;
+            }
+            DNode::Dead { id } => {
+                writeln!(f, "{} {} (Dead)\n", id.len(), id)?;
             }
         }
         Ok(())

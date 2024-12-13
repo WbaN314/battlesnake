@@ -168,14 +168,17 @@ mod tests {
 
         let request = read_game_state("requests/test_move_request.json");
         let board = DBoard::<DSlowField>::from_request(&request.board, &request.you);
-        assert_eq!(board.cell(0, 0).unwrap().get(), DSlowField::snake(0, None));
+        assert_eq!(
+            board.cell(0, 0).unwrap().get(),
+            DSlowField::snake(0, Some(DDirection::Up))
+        );
         assert_eq!(
             board.cell(1, 0).unwrap().get(),
             DSlowField::snake(0, Some(DDirection::Left))
         );
         assert_eq!(
             board.cell(2, 0).unwrap().get(),
-            DSlowField::snake(0, Some(DDirection::Left))
+            DSlowField::empty()
         );
         assert_eq!(
             board.cell(9, 2).unwrap().get(),
@@ -194,15 +197,15 @@ mod tests {
         let board = DBoard::<DSlowField>::from_request(&request.board, &request.you);
         let snake = DSnake::Alive {
             id: 0,
-            tail: DCoord { x: 2, y: 0 },
-            head: DCoord { x: 0, y: 0 },
+            tail: DCoord { x: 1, y: 0 },
+            head: DCoord { x: 0, y: 1 },
             health: 54,
             length: 3,
             stack: 0,
         };
         board.remove_snake(snake);
+        assert_eq!(board.cell(0, 1).unwrap().get(), DSlowField::empty());
         assert_eq!(board.cell(0, 0).unwrap().get(), DSlowField::empty());
         assert_eq!(board.cell(1, 0).unwrap().get(), DSlowField::empty());
-        assert_eq!(board.cell(2, 0).unwrap().get(), DSlowField::empty());
     }
 }

@@ -39,8 +39,13 @@ impl DTree {
                 new_base
                     .next_state(moves)
                     .move_reachable(moves, new_id.len() as u8);
-                return (new_id.clone(), DNode::scoped(new_id, new_base));
+                if new_base.is_alive() {
+                    return (new_id.clone(), DNode::scoped(new_id, new_base));
+                } else {
+                    return (new_id.clone(), DNode::dead(new_id));
+                }
             }
+            Some(_) => panic!("Invalid node type for scoping"),
             None => panic!("Invalid node id for scoping"),
         }
     }
@@ -50,39 +55,32 @@ impl DTree {
             Some(DNode::Simulated { id, states, .. }) => {
                 let mut new_id = id.clone();
                 new_id.push(direction);
-                let base_node = match self.nodes.get(&new_id) {
+                let scoped_node = match self.nodes.get(&new_id) {
                     Some(node @ DNode::Scoped { .. }) => node.clone(),
-                    Some(DNode::Simulated { .. }) => {
-                        panic!("Child node is already simulated");
-                    }
                     None => self.scope_node(id, direction).1,
-                };
-                match base_node {
-                    DNode::Scoped { base, .. } => {
-                        let mut child_states = HashMap::new();
-                        for (state_id, state) in states {
-                            for mve in state.possible_moves().generate() {
-                                let mut new_state = state.clone();
-                                let mut new_id = state_id.clone();
-                                new_id.push(mve);
-                                new_state.next_state(mve);
-                                child_states.insert(new_id, new_state);
-                            }
-                        }
-                        return (
-                            new_id.clone(),
-                            DNode::simulated(new_id, base.clone(), child_states),
-                        );
+                    Some(_) => {
+                        panic!("Child node is exists but is not type Scoped");
                     }
-                    _ => panic!("Child node should be scoped by now"),
+                };
+                let base = scoped_node.base().clone();
+                let mut child_states = HashMap::new();
+                for (state_id, state) in states {
+                    for mve in state.possible_moves().generate() {
+                        let mut new_state = state.clone();
+                        let mut new_id = state_id.clone();
+                        new_id.push(mve);
+                        new_state.next_state(mve);
+                        child_states.insert(new_id, new_state);
+                    }
                 }
+                return (new_id.clone(), DNode::simulated(new_id, base, child_states));
             }
-            Some(DNode::Scoped { .. }) => panic!("Scoped node cannot be used to simulate children"),
+            Some(_) => panic!("Invalid node type for scoping"),
             None => panic!("Invalid node id for simulation"),
         }
     }
 
-    fn simulate_timed(&mut self) -> &mut Self {
+    fn scope_timed(&mut self) -> &mut Self {
         loop {
             let mut new_nodes = Vec::new();
             match self.queue.pop_front() {
@@ -93,9 +91,9 @@ impl DTree {
                             if moves[i as usize] {
                                 let (next_id, next_node) =
                                     self.scope_node(id, (i as u8).try_into().unwrap());
-                                let mut id = id.clone();
-                                id.push(DDirection::from((i as u8).try_into().unwrap()));
-                                self.queue.push_back(id);
+                                if let DNode::Scoped { .. } = next_node {
+                                    self.queue.push_back(next_id.clone())
+                                }
                                 new_nodes.push((next_id, next_node));
                             }
                         }
@@ -111,6 +109,10 @@ impl DTree {
             }
         }
         self
+    }
+
+    fn simulate_timed(&mut self) -> &mut Self {
+        todo!()
     }
 }
 
@@ -130,7 +132,10 @@ impl Display for DTree {
                         states.len()
                     )?;
                 }
-                None => panic!("Invalid node type"),
+                Some(DNode::Dead { id }) => {
+                    writeln!(f, "{} {} (Dead)", id.len(), id)?;
+                }
+                None => panic!("Invalid node id"),
             }
         }
         Ok(())
@@ -145,7 +150,7 @@ mod tests {
     #[bench]
     fn bench_scope_node_1_up(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         let tree = DTree::new(state);
         b.iter(|| {
             let tree = tree.clone();
@@ -156,7 +161,7 @@ mod tests {
     #[bench]
     fn bench_simulate_node_1_up(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         let tree = DTree::new(state);
         b.iter(|| {
             let tree = tree.clone();
@@ -167,7 +172,7 @@ mod tests {
     #[bench]
     fn bench_scope_node_3_up(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         let tree = DTree::new(state);
         b.iter(|| {
             let mut tree = tree.clone();
@@ -184,7 +189,7 @@ mod tests {
     #[bench]
     fn bench_simulate_node_3_up(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         let tree = DTree::new(state);
         b.iter(|| {
             let mut tree = tree.clone();
@@ -199,19 +204,20 @@ mod tests {
     }
 
     #[test]
-    fn test_simulate_timed() {
+    fn test_scope_timed() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
-        let mut tree = DTree::new(state);
-        tree.simulate_timed();
+        let mut tree = DTree::new(state.clone());
+        tree.scope_timed();
         println!("{}", tree);
+        println!("{}", state);
     }
 
     #[test]
     fn test_scope_node() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let mut tree = DTree::new(state);
         let mut id = DNodeId::default();
@@ -251,7 +257,7 @@ mod tests {
     #[test]
     fn test_simulate_node() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let mut tree = DTree::new(state);
         let mut id = DNodeId::default();
@@ -266,7 +272,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(&id, node_id);
-                assert_eq!(states.len(), 18);
+                assert_eq!(states.len(), 36);
             }
             _ => panic!("Wrong node type"),
         }
@@ -282,7 +288,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(&id, node_id);
-                assert_eq!(states.len(), 204);
+                assert_eq!(states.len(), 510);
             }
             _ => panic!("Wrong node type"),
         }
@@ -298,24 +304,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(&id, node_id);
-                assert_eq!(states.len(), 3108);
-            }
-            _ => panic!("Wrong node type"),
-        }
-        println!("{}", uuu);
-        let (new_id, new_node) = tree.simulate_node(&id, DDirection::Up);
-        tree.nodes.insert(new_id, new_node);
-        id.push(DDirection::Up);
-        let uuuu = tree.nodes.get(&id).unwrap();
-        println!("{}", uuuu);
-        match uuuu {
-            DNode::Simulated {
-                id: ref node_id,
-                ref states,
-                ..
-            } => {
-                assert_eq!(&id, node_id);
-                assert_eq!(states.len(), 141120);
+                assert_eq!(states.len(), 8103);
             }
             _ => panic!("Wrong node type"),
         }

@@ -61,7 +61,11 @@ mod tests {
     // Should be < 45ns
     fn bench_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{:#?}", state.possible_moves());
         b.iter(|| {
             state.possible_moves().generate();
@@ -117,10 +121,14 @@ mod tests {
         );
 
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         let moves_set = state.possible_moves();
         let moves_list = moves_set.generate();
 
-        assert_eq!(moves_list.len(), 18);
+        assert_eq!(moves_list.len(), 36);
     }
 }

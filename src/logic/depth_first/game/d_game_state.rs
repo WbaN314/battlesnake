@@ -17,15 +17,17 @@ use std::fmt::{Display, Formatter};
 pub struct DGameState<T: DField> {
     board: DBoard<T>,
     snakes: DSnakes,
+    turn: i32,
 }
 
 impl<T: DField> DGameState<T> {
-    pub fn from_request(board: &Board, you: &Battlesnake) -> Self {
+    pub fn from_request(board: &Board, you: &Battlesnake, turn: &i32) -> Self {
         let snakes = DSnakes::from_request(board, you);
         let d_board = DBoard::from_request(board, you);
         DGameState {
             board: d_board,
             snakes,
+            turn: *turn,
         }
     }
 
@@ -235,6 +237,13 @@ impl<T: DField> DGameState<T> {
         }
         DMovesSet::new(possible_moves)
     }
+
+    pub fn is_alive(&self) -> bool {
+        match self.snakes.cell(0).get() {
+            DSnake::Alive { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl DGameState<DSlowField> {
@@ -266,6 +275,8 @@ impl DGameState<DSlowField> {
                                         for i in 0..SNAKES {
                                             if !reachable_original[i as usize].is_set()
                                                 && reachable_other[i as usize].is_set()
+                                                && ((neighbor.x + neighbor.y) % 2) as u8
+                                                    == ((turn as i32 + self.turn) % 2) as u8
                                             {
                                                 reachable_board[y as usize][x as usize]
                                                     [i as usize] = DReached::new(turn);
@@ -453,6 +464,7 @@ impl From<DGameState<DSlowField>> for DGameState<DFastField> {
         DGameState {
             board: new_board,
             snakes: value.snakes,
+            turn: value.turn,
         }
     }
 }
@@ -469,6 +481,7 @@ impl From<DGameState<DFastField>> for DGameState<DSlowField> {
         DGameState {
             board: new_board,
             snakes: value.snakes,
+            turn: value.turn,
         }
     }
 }
@@ -509,28 +522,22 @@ where
                     DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
                         if reachable.iter().any(|&r| r.is_set()) {
                             let best = reachable.iter().filter(|x| x.is_set()).min().unwrap();
-                            let mut lengths = [0; SNAKES as usize];
-                            for id in 0..SNAKES {
-                                if reachable[id as usize] == *best {
-                                    match self.snakes.cell(id).get() {
-                                        DSnake::Alive { length, .. }
-                                        | DSnake::Headless { length, .. }
-                                        | DSnake::Vanished { length, .. } => {
-                                            lengths[id as usize] = length;
-                                        }
-                                        _ => (),
-                                    }
-                                }
-                            }
-                            let highest_length = lengths.iter().max().unwrap();
-                            if lengths.iter().filter(|x| **x == *highest_length).count() == 1 {
-                                let left_side = lengths.iter().filter(|&x| *x > 0).count();
-                                let c = (left_side as u8 + b'0') as char;
+                            if reachable.iter().filter(|x| x.is_set()).count() == 1 {
+                                let snake = reachable
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(_, x)| x.is_set())
+                                    .next()
+                                    .unwrap()
+                                    .0;
+                                let c = (snake as u8 + b'A') as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
                                     (best.turn() + '0' as u8) as char;
                             } else {
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = '!';
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] =
+                                    (reachable.iter().filter(|x| x.is_set()).count() as u8
+                                        + '0' as u8) as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
                                     (best.turn() + '0' as u8) as char;
                             }
@@ -659,7 +666,11 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
     }
 
@@ -667,7 +678,11 @@ mod tests {
     // Should be < 50ns
     fn bench_next_state_slow(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         let moves = [
             Some(DDirection::Up),
@@ -685,7 +700,11 @@ mod tests {
     // Should be < 50ns
     fn bench_next_state_fast(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         let moves = [
             Some(DDirection::Up),
@@ -703,7 +722,11 @@ mod tests {
     // Should be < 10ns
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         b.iter(|| {
             let _ = state.possible_moves();
@@ -714,7 +737,7 @@ mod tests {
     // Should be < 760ns
     fn bench_move_reachable(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
         b.iter(|| {
@@ -726,7 +749,7 @@ mod tests {
     #[bench]
     fn bench_scope_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         let moves = [Some(DDirection::Up), None, None, None];
         state.next_state(moves).move_reachable(moves, 1);
         state.next_state(moves).move_reachable(moves, 2);
@@ -740,17 +763,20 @@ mod tests {
     #[test]
     fn test_scope_moves() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, None, None];
         state.next_state(moves).move_reachable(moves, 1);
+        println!("{}", state);
         state.next_state(moves).move_reachable(moves, 2);
+        println!("{}", state);
         state.next_state(moves).move_reachable(moves, 3);
         println!("{}", state);
         assert_eq!(state.scope_moves(3), [true, false, false, true]);
+        let moves = [Some(DDirection::Right), None, None, None];
         state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
-        assert_eq!(state.scope_moves(4), [false, false, false, false]);
+        assert_eq!(state.scope_moves(4), [true, true, false, true]);
         state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
         assert_eq!(state.scope_moves(5), [false, false, false, false]);
@@ -759,12 +785,10 @@ mod tests {
     #[test]
     fn test_next_state_with_move_reachable() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, None, None];
-        state.next_state(moves);
-        println!("{}", state);
-        state.move_reachable(moves, 1);
+        state.next_state(moves).move_reachable(moves, 1);
         println!("{}", state);
         match state.board.cell(4, 4).unwrap().get() {
             DSlowField::Empty { reachable } => {
@@ -784,20 +808,40 @@ mod tests {
             }
             _ => panic!("Problem with field (0, 1)"),
         }
+        match state.board.cell(6, 4).unwrap().get() {
+            DSlowField::Empty { reachable } => {
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 3]);
+            }
+            _ => panic!("Problem with field (6, 4)"),
+        }
         state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
         match state.board.cell(4, 5).unwrap().get() {
             DSlowField::Empty { reachable } => {
-                assert_eq!(reachable.map(|x| x.turn()), [0, 5, 0, 5]);
+                assert_eq!(reachable.map(|x| x.turn()), [0, 0, 0, 0]);
             }
             _ => panic!("Problem with field (4, 5)"),
+        }
+        state.next_state(moves).move_reachable(moves, 6);
+        println!("{}", state);
+        match state.board.cell(4, 5).unwrap().get() {
+            DSlowField::Empty { reachable } => {
+                assert_eq!(reachable.map(|x| x.turn()), [0, 6, 0, 6]);
+            }
+            _ => panic!("Problem with field (4, 5)"),
+        }
+        match state.board.cell(5, 0).unwrap().get() {
+            DSlowField::Empty { reachable } => {
+                assert_eq!(reachable.map(|x| x.turn()), [0, 6, 4, 6]);
+            }
+            _ => panic!("Problem with field (5, 0)"),
         }
     }
 
     #[test]
     fn test_move_reachable() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let moves = [Some(DDirection::Up), None, Some(DDirection::Left), None];
         state.move_heads(moves).move_reachable(moves, 1);
@@ -851,17 +895,21 @@ mod tests {
     #[test]
     fn test_possible_moves() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         let moves = state.possible_moves();
         println!("{:#?}", moves);
-        assert_eq!(moves.generate().len(), 18);
+        assert_eq!(moves.generate().len(), 36);
     }
 
     #[test]
     fn test_next_state() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let mut moves = [
             Some(DDirection::Up),
@@ -927,7 +975,11 @@ mod tests {
     #[test]
     fn test_move_heads_headless() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         state.move_heads([
             Some(DDirection::Up),
@@ -945,7 +997,11 @@ mod tests {
     #[test]
     fn test_move_heads_food() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::<DFastField>::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         println!("{}", state);
         state.move_heads([
             Some(DDirection::Up),
@@ -1004,7 +1060,7 @@ mod tests {
     #[test]
     fn test_move_heads() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         state.move_heads([
             Some(DDirection::Up),
@@ -1014,7 +1070,7 @@ mod tests {
         ]);
         println!("{}", state);
         match state.snakes.cell(0).get() {
-            DSnake::Alive { head, .. } => assert_eq!(head, DCoord { x: 0, y: 1 }),
+            DSnake::Alive { head, .. } => assert_eq!(head, DCoord { x: 0, y: 2 }),
             _ => panic!("Problem with Snake A"),
         }
         match state.snakes.cell(1).get() {
@@ -1036,7 +1092,7 @@ mod tests {
             }
             _ => panic!("Problem with field (0, 0)"),
         }
-        match state.board.cell(0, 1).unwrap().get() {
+        match state.board.cell(0, 2).unwrap().get() {
             DSlowField::Snake { id, next } => {
                 assert_eq!(id, 0);
                 assert_eq!(next, None);
@@ -1070,11 +1126,15 @@ mod tests {
     #[test]
     fn test_move_tails() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        let mut state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         match state.snakes.cell(0).get() {
             DSnake::Alive { stack, tail, .. } => {
                 assert_eq!(stack, 0);
-                assert_eq!(tail, DCoord { x: 2, y: 0 });
+                assert_eq!(tail, DCoord { x: 1, y: 0 });
             }
             _ => panic!("Problem with Snake A"),
         }
@@ -1086,11 +1146,11 @@ mod tests {
             _ => panic!("Problem with Snake C"),
         }
         assert_eq!(
-            state.board.cell(2, 0).unwrap().get(),
+            state.board.cell(1, 0).unwrap().get(),
             DSlowField::snake(0, Some(DDirection::Left))
         );
         state.move_tails();
-        assert_eq!(state.board.cell(2, 0).unwrap().get(), DSlowField::empty());
+        assert_eq!(state.board.cell(1, 0).unwrap().get(), DSlowField::empty());
         assert_eq!(
             state.board.cell(9, 2).unwrap().get(),
             DSlowField::snake(2, Some(DDirection::Down))
@@ -1098,7 +1158,7 @@ mod tests {
         match state.snakes.cell(0).get() {
             DSnake::Alive { stack, tail, .. } => {
                 assert_eq!(stack, 0);
-                assert_eq!(tail, DCoord { x: 1, y: 0 });
+                assert_eq!(tail, DCoord { x: 0, y: 0 });
             }
             _ => panic!("Problem with Snake A"),
         }
@@ -1134,7 +1194,11 @@ mod tests {
     #[test]
     fn test_from_request() {
         let gamestate = read_game_state("requests/example_move_request.json");
-        let d_gamestate = DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you);
+        let d_gamestate = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
         assert_eq!(
             d_gamestate.board.cell(0, 0).unwrap().get(),
             DSlowField::snake(0, None)
@@ -1169,5 +1233,25 @@ mod tests {
                 stack: 0
             }
         );
+    }
+
+    #[test]
+    fn test_is_alive() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut d_gamestate = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", d_gamestate);
+        assert_eq!(d_gamestate.is_alive(), true);
+        d_gamestate.next_state([
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Left),
+            Some(DDirection::Down),
+        ]);
+        println!("{}", d_gamestate);
+        assert_eq!(d_gamestate.is_alive(), false);
     }
 }
