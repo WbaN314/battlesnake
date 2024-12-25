@@ -11,12 +11,6 @@ impl DNodeId {
     pub fn new(directions: Vec<DDirection>) -> Self {
         Self(directions)
     }
-
-    pub fn child(&self, direction: DDirection) -> Self {
-        let mut new_directions = self.0.clone();
-        new_directions.push(direction);
-        Self(new_directions)
-    }
 }
 
 impl Display for DNodeId {
