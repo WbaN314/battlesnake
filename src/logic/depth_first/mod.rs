@@ -1,7 +1,12 @@
+use game::d_direction::DDirection;
+use game::d_field::DSlowField;
+use game::d_game_state::DGameState;
+use simulation::DSimulation;
+
 use crate::logic::legacy::shared::brain::Brain;
 use crate::{Direction, GameState};
 
-mod game;
+pub mod game;
 mod simulation;
 
 pub struct DepthFirstSnake {}
@@ -13,7 +18,14 @@ impl DepthFirstSnake {
 }
 
 impl Brain for DepthFirstSnake {
-    fn logic(&self, _gamestate: &GameState) -> Direction {
+    fn logic(&self, gamestate: &GameState) -> Direction {
+        let mut state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        let mut simulation = DSimulation::new(state);
+        let simulation_result = simulation.run();
         todo!()
     }
 }

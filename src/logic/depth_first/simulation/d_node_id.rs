@@ -4,14 +4,18 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use super::d_state_id::DStateId;
-
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct DNodeId(Vec<DDirection>);
 
 impl DNodeId {
     pub fn new(directions: Vec<DDirection>) -> Self {
         Self(directions)
+    }
+
+    pub fn child(&self, direction: DDirection) -> Self {
+        let mut new_directions = self.0.clone();
+        new_directions.push(direction);
+        Self(new_directions)
     }
 }
 
@@ -56,12 +60,6 @@ impl Default for DNodeId {
     }
 }
 
-impl From<DStateId> for DNodeId {
-    fn from(state_id: DStateId) -> Self {
-        DNodeId(state_id[0].clone())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,15 +79,5 @@ mod tests {
         assert!(a < c);
         assert!(a < d);
         assert!(c < d);
-    }
-
-    #[test]
-    fn test_from_state_id() {
-        let mut state_id = DStateId::default();
-        state_id.push([Some(DDirection::Up), Some(DDirection::Down), None, None]);
-        state_id.push([Some(DDirection::Down), None, None, None]);
-
-        let node_id: DNodeId = state_id.into();
-        assert_eq!(node_id, DNodeId(vec![DDirection::Up, DDirection::Down]));
     }
 }

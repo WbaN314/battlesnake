@@ -342,7 +342,8 @@ impl DGameState<DSlowField> {
     }
 
     /// Checks if the current reachable configuration gives a valid board where no next move is possible
-    pub fn scope_moves(&self, turn: u8) -> [bool; 4] {
+    /// Is optimistic such that if not all moves can be blocked, all will be viable
+    pub fn scope_moves_optimistic(&self, turn: u8) -> ArrayVec<DDirection, 4> {
         // Observation: Snakes can reach a fixed point with the head only every second move
 
         // Check if there are any problematic snakes
@@ -374,12 +375,18 @@ impl DGameState<DSlowField> {
 
         // No movable fields available
         if movable_fields.len() == 0 {
-            return [false; 4];
+            return ArrayVec::new();
         }
 
         // No problematic snakes
         if problematic_snakes.iter().all(|&e| e == false) {
-            return movable_fields_list;
+            let mut movable_directions = ArrayVec::new();
+            for d in D_DIRECTION_LIST {
+                if movable_fields_list[d as usize] {
+                    movable_directions.push(d);
+                }
+            }
+            return movable_directions;
         }
 
         // Get distribution of required points to problematic snakes
@@ -446,11 +453,49 @@ impl DGameState<DSlowField> {
                     break 'snake_coords;
                 }
             }
-            return [false; 4];
+            return ArrayVec::new();
         }
-        return movable_fields_list;
+
+        let mut movable_directions = ArrayVec::new();
+        for d in D_DIRECTION_LIST {
+            if movable_fields_list[d as usize] {
+                movable_directions.push(d);
+            }
+        }
+        movable_directions
     }
 
+    /// Checks if the current reachable configuration gives a valid board where no next move is possible
+    /// Is pessimistic such that any move that can be blocked will be blocked
+    pub fn scope_moves_pessimistic(&self) -> ArrayVec<DDirection, 4> {
+        let mut movable_fields = ArrayVec::<DDirection, 4>::new();
+
+        let head = match self.snakes.cell(0).get() {
+            DSnake::Alive { head, .. } => head,
+            _ => panic!("Dead snake can't be checked for dead end"),
+        };
+        'direction: for d in D_DIRECTION_LIST {
+            let neighbor = head + d;
+            if let Some(cell) = self.board.cell(neighbor.x, neighbor.y) {
+                match cell.get() {
+                    DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
+                        for id in 1..SNAKES {
+                            if reachable[id as usize].is_set() {
+                                continue 'direction;
+                            }
+                        }
+                        movable_fields.push(d);
+                    }
+                    _ => (),
+                }
+            }
+        }
+        movable_fields
+    }
+
+    /// Convenience method to play a game with a list of moves
+    /// Moves are given as a list of strings where each string represents the moves for a snake
+    /// Example input: ["UDDL", "DUU", "", ""]
     pub fn play(mut self, moves_string: [&str; SNAKES as usize]) {
         for i in 0..moves_string.iter().map(|s| s.len()).max().unwrap() {
             let mut moves: DMoves = [None; SNAKES as usize];
@@ -775,12 +820,12 @@ mod tests {
         state.next_state(moves).move_reachable(moves, 3);
         state.next_state(moves).move_reachable(moves, 4);
         b.iter(|| {
-            let _ = state.scope_moves(4);
+            let _ = state.scope_moves_optimistic(4);
         });
     }
 
     #[test]
-    fn test_scope_moves() {
+    fn test_scope_moves_optimistic() {
         let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
@@ -791,14 +836,55 @@ mod tests {
         println!("{}", state);
         state.next_state(moves).move_reachable(moves, 3);
         println!("{}", state);
-        assert_eq!(state.scope_moves(3), [true, false, false, true]);
+        let result = state.scope_moves_optimistic(3);
+        assert!(result.contains(&DDirection::Up));
+        assert!(result.contains(&DDirection::Right));
         let moves = [Some(DDirection::Right), None, None, None];
         state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
-        assert_eq!(state.scope_moves(4), [true, true, false, true]);
+        let result = state.scope_moves_optimistic(4);
+        assert!(result.contains(&DDirection::Up));
+        assert!(result.contains(&DDirection::Down));
+        assert!(result.contains(&DDirection::Right));
         state.next_state(moves).move_reachable(moves, 5);
         println!("{}", state);
-        assert_eq!(state.scope_moves(5), [false, false, false, false]);
+        let result = state.scope_moves_optimistic(5);
+        assert!(!result.contains(&DDirection::Up));
+        assert!(!result.contains(&DDirection::Down));
+        assert!(!result.contains(&DDirection::Left));
+        assert!(!result.contains(&DDirection::Right));
+    }
+
+    #[test]
+    fn test_scope_moves_pessimistic() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
+        println!("{}", state);
+        let moves = [Some(DDirection::Up), None, None, None];
+        state.next_state(moves).move_reachable(moves, 1);
+        println!("{}", state);
+        state.next_state(moves).move_reachable(moves, 2);
+        println!("{}", state);
+        state.next_state(moves).move_reachable(moves, 3);
+        println!("{}", state);
+        let result = state.scope_moves_pessimistic();
+        assert!(result.contains(&DDirection::Up));
+        assert!(!result.contains(&DDirection::Down));
+        assert!(!result.contains(&DDirection::Left));
+        assert!(result.contains(&DDirection::Right));
+        state.next_state(moves).move_reachable(moves, 4);
+        println!("{}", state);
+        let result = state.scope_moves_pessimistic();
+        assert!(result.contains(&DDirection::Up));
+        assert!(!result.contains(&DDirection::Down));
+        assert!(!result.contains(&DDirection::Left));
+        assert!(!result.contains(&DDirection::Right));
+        state
+            .next_state([Some(DDirection::Right), None, None, None])
+            .move_reachable(moves, 5);
+        println!("{}", state);
+        let result = state.scope_moves_pessimistic();
+        assert!(result.len() == 0);
     }
 
     #[test]
