@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use super::d_node_id::DNodeId;
 
+pub mod d_optimistic_capture_node;
 pub mod d_pessimistic_capture_node;
 
 pub trait DNode: Ord + Display {
