@@ -21,6 +21,28 @@ pub struct DGameState<T: DField> {
 }
 
 impl<T: DField> DGameState<T> {
+    /// Convenience method to play a game with a list of moves
+    /// Moves are given as a list of strings where each string represents the moves for a snake
+    /// Example input: ["UDDL", "DUU", "", ""]
+    pub fn play(mut self, moves_string: [&str; SNAKES as usize]) -> Self {
+        for i in 0..moves_string.iter().map(|s| s.len()).max().unwrap() {
+            let mut moves: DMoves = [None; SNAKES as usize];
+            for id in 0..SNAKES {
+                if let Some(c) = moves_string[id as usize].chars().nth(i) {
+                    moves[id as usize] = Some(match c {
+                        'U' => DDirection::Up,
+                        'D' => DDirection::Down,
+                        'L' => DDirection::Left,
+                        'R' => DDirection::Right,
+                        _ => panic!("Invalid move character"),
+                    });
+                }
+            }
+            self.next_state(moves);
+        }
+        self
+    }
+
     pub fn from_request(board: &Board, you: &Battlesnake, turn: &i32) -> Self {
         let snakes = DSnakes::from_request(board, you);
         let d_board = DBoard::from_request(board, you);
@@ -220,22 +242,27 @@ impl<T: DField> DGameState<T> {
     pub fn possible_moves(&self) -> DMovesSet {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
         for id in 0..SNAKES {
-            let snake = self.snakes.cell(id).get();
-            match snake {
-                DSnake::Alive { head, .. } => {
-                    for direction in D_DIRECTION_LIST {
-                        let new_head = head + direction;
-                        if let Some(field) = self.board.cell(new_head.x, new_head.y) {
-                            if field.get().get_type() <= 1 {
-                                possible_moves[id as usize][direction as usize] = true;
-                            }
-                        }
-                    }
-                }
-                _ => (),
-            }
+            possible_moves[id as usize] = self.possible_moves_for(id)
         }
         DMovesSet::new(possible_moves)
+    }
+
+    pub fn possible_moves_for(&self, id: u8) -> [bool; 4] {
+        let snake = self.snakes.cell(id).get();
+        let mut possible_moves = [false; 4];
+        let head = match snake {
+            DSnake::Alive { head, .. } => head,
+            _ => return possible_moves,
+        };
+        for direction in D_DIRECTION_LIST {
+            let new_head = head + direction;
+            if let Some(field) = self.board.cell(new_head.x, new_head.y) {
+                if field.get().get_type() <= 1 {
+                    possible_moves[direction as usize] = true;
+                }
+            }
+        }
+        possible_moves
     }
 
     pub fn is_alive(&self) -> bool {
@@ -491,28 +518,6 @@ impl DGameState<DSlowField> {
             }
         }
         movable_fields
-    }
-
-    /// Convenience method to play a game with a list of moves
-    /// Moves are given as a list of strings where each string represents the moves for a snake
-    /// Example input: ["UDDL", "DUU", "", ""]
-    pub fn play(mut self, moves_string: [&str; SNAKES as usize]) {
-        for i in 0..moves_string.iter().map(|s| s.len()).max().unwrap() {
-            let mut moves: DMoves = [None; SNAKES as usize];
-            for id in 0..SNAKES {
-                if let Some(c) = moves_string[id as usize].chars().nth(i) {
-                    moves[id as usize] = Some(match c {
-                        'U' => DDirection::Up,
-                        'D' => DDirection::Down,
-                        'L' => DDirection::Left,
-                        'R' => DDirection::Right,
-                        _ => panic!("Invalid move character"),
-                    });
-                }
-            }
-            self.next_state(moves);
-            println!("{}", self);
-        }
     }
 }
 

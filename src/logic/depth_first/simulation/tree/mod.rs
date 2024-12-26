@@ -1,43 +1,91 @@
+use arrayvec::ArrayVec;
+
 use super::{
     d_node_id::DNodeId,
-    node::{DNode, DNodeError},
+    node::{DNode, DNodeStatus},
 };
 use crate::logic::depth_first::game::d_direction::DDirection;
 use std::{
     collections::BTreeMap,
     fmt::Display,
+    os::macos::raw::stat,
     time::{Duration, Instant},
 };
+
+#[derive(Clone)]
+pub struct DTreeTime {
+    pub start: Instant,
+    pub duration: Option<Duration>,
+}
+
+impl DTreeTime {
+    pub fn new(duration: Duration) -> Self {
+        Self {
+            start: Instant::now(),
+            duration: Some(duration),
+        }
+    }
+
+    pub fn is_timed_out(&self) -> bool {
+        match self.duration {
+            Some(duration) => self.start.elapsed() > duration,
+            None => false,
+        }
+    }
+}
+
+impl Default for DTreeTime {
+    fn default() -> Self {
+        Self {
+            start: Instant::now(),
+            duration: None,
+        }
+    }
+}
 
 pub struct DTree<Node: DNode> {
     nodes: BTreeMap<DNodeId, Box<Node>>,
     queue: Vec<DNodeId>,
+    time: DTreeTime,
 }
 
 impl<Node> DTree<Node>
 where
     Node: DNode,
 {
-    pub fn new(start_node: Node) -> Self {
-        let initial_id = start_node.id();
-        let mut nodes = BTreeMap::new();
-        let mut queue = Vec::new();
-        queue.push(initial_id.clone());
-        nodes.insert(initial_id.clone(), Box::new(start_node));
-        Self { nodes, queue }
+    pub fn root(mut self, root: Node) -> Self {
+        let id = root.id().clone();
+        self.nodes.insert(id.clone(), Box::new(root));
+        self.queue.push(id);
+        self
     }
 
-    fn simulate(&mut self, duration: Duration) -> DSimulationStatus {
+    pub fn time(mut self, duration: Duration) -> Self {
+        self.time = DTreeTime::new(duration);
+        self
+    }
+
+    fn simulate(&mut self) -> DSimulationStatus {
         loop {
+            if self.time.is_timed_out() {
+                return DSimulationStatus::TimedOut;
+            }
             match self.queue.pop() {
-                Some(id) => {
-                    let parent = self.nodes.get(&id).unwrap();
-                    for direction in parent.calc_moves() {
-                        match self.calc_child(&id, direction) {
-                            Ok(_) => (),
-                            Err(DNodeError::Dead) => (),
-                            Err(DNodeError::TimedOut) => return DSimulationStatus::TimedOut,
+                Some(parent_id) => {
+                    let parent = self.nodes.get(&parent_id).unwrap();
+                    match parent.status() {
+                        DNodeStatus::Alive => {
+                            let children_status = self.calc_children(&parent_id);
+                            for (id, status) in children_status {
+                                match status {
+                                    DNodeStatus::Alive => {
+                                        self.queue.push(id);
+                                    }
+                                    _ => (),
+                                }
+                            }
                         }
+                        _ => (),
                     }
                 }
                 None => return DSimulationStatus::Finished,
@@ -45,28 +93,35 @@ where
         }
     }
 
-    fn calc_child(&mut self, id: &DNodeId, direction: DDirection) -> Result<DNodeId, DNodeError> {
+    fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
+        let mut result = Vec::new();
         match self.nodes.get(id) {
-            Some(node) if node.is_alive() => {
-                let child = node.calc_child(direction);
-                match child {
-                    Ok(child) => {
-                        let id = child.id().clone();
-                        self.queue.push(id.clone());
-                        self.nodes.insert(id.clone(), child);
-                        Ok(id)
-                    }
-                    Err(error) => Err(error),
+            Some(node) if node.status() == DNodeStatus::Alive => {
+                let children = node.calc_children();
+                for child in children.into_iter() {
+                    result.push((child.id().clone(), child.status()));
+                    self.nodes.insert(child.id().clone(), child);
                 }
             }
             _ => panic!("Node not found"),
         }
+        result
     }
 }
 
 enum DSimulationStatus {
     TimedOut,
     Finished,
+}
+
+impl<Node: DNode> Default for DTree<Node> {
+    fn default() -> Self {
+        Self {
+            nodes: BTreeMap::new(),
+            queue: Vec::new(),
+            time: DTreeTime::default(),
+        }
+    }
 }
 
 impl<Node: DNode> Display for DTree<Node> {
@@ -89,9 +144,9 @@ mod tests {
                 d_node_id::DNodeId,
                 node::{
                     d_optimistic_capture_node::DOptimisticCaptureNode,
-                    d_pessimistic_capture_node::DPessimisticCaptureNode,
+                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNodeStatus,
                 },
-                tree::DTree,
+                tree::{DTree, DTreeTime},
             },
         },
         read_game_state,
@@ -106,9 +161,14 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let start_node = DPessimisticCaptureNode::new(DNodeId::default(), state);
-        let mut tree = DTree::new(start_node);
-        tree.simulate(Duration::from_millis(100));
+        let root = DPessimisticCaptureNode::new(
+            DNodeId::default(),
+            state,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+        );
+        let mut tree = DTree::default().root(root);
+        tree.simulate();
         println!("{}", tree);
     }
 
@@ -121,9 +181,14 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let start_node = DOptimisticCaptureNode::new(DNodeId::default(), state);
-        let mut tree = DTree::new(start_node);
-        tree.simulate(Duration::from_millis(100));
+        let root = DOptimisticCaptureNode::new(
+            DNodeId::default(),
+            state,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+        );
+        let mut tree = DTree::default().root(root);
+        tree.simulate();
         println!("{}", tree);
     }
 }

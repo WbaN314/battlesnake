@@ -24,21 +24,46 @@ impl DMovesSet {
 
         let mut list: Vec<DMoves> = Vec::with_capacity(prod);
 
+        let mut b_end = 1;
+        let mut c_end = 1;
+        let mut d_end = 1;
+        for i in 1..4 {
+            if self.moves[1][i] {
+                b_end = 4;
+            }
+            if self.moves[2][i] {
+                c_end = 4;
+            }
+            if self.moves[3][i] {
+                d_end = 4;
+            }
+        }
+
         for a in 0..4 {
-            for b in 0..4 {
-                for c in 0..4 {
-                    for d in 0..4 {
+            for b in 0..b_end {
+                for c in 0..c_end {
+                    for d in 0..d_end {
                         if self.moves[0][a as usize]
-                            && self.moves[1][b as usize]
-                            && self.moves[2][c as usize]
-                            && self.moves[3][d as usize]
+                            && (self.moves[1][b as usize] || b_end == 1)
+                            && (self.moves[2][c as usize] || c_end == 1)
+                            && (self.moves[3][d as usize] || d_end == 1)
                         {
-                            list.push([
-                                Some(a.try_into().unwrap()),
-                                Some(b.try_into().unwrap()),
-                                Some(c.try_into().unwrap()),
-                                Some(d.try_into().unwrap()),
-                            ]);
+                            let b_val = if b_end == 1 {
+                                None
+                            } else {
+                                Some(b.try_into().unwrap())
+                            };
+                            let c_val = if c_end == 1 {
+                                None
+                            } else {
+                                Some(c.try_into().unwrap())
+                            };
+                            let d_val = if d_end == 1 {
+                                None
+                            } else {
+                                Some(d.try_into().unwrap())
+                            };
+                            list.push([Some(a.try_into().unwrap()), b_val, c_val, d_val]);
                         }
                     }
                 }
@@ -130,5 +155,14 @@ mod tests {
         let moves_list = moves_set.generate();
 
         assert_eq!(moves_list.len(), 36);
+
+        let one_with_no_moves = DMovesSet::new([
+            [true, true, false, true],
+            [false, false, false, false],
+            [true, false, true, false],
+            [true, true, false, true],
+        ]);
+        let moves_list = one_with_no_moves.generate();
+        assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 }
