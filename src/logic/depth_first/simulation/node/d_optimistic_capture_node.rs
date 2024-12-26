@@ -1,7 +1,7 @@
 use super::{DNode, DNodeStatus};
 use crate::logic::depth_first::{
     game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
-    simulation::{d_node_id::DNodeId, tree::DTreeTime},
+    simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 use arrayvec::ArrayVec;
 use std::{cell::Cell, fmt::Display};
@@ -93,8 +93,8 @@ mod tests {
             game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
             simulation::{
                 d_node_id::DNodeId,
+                d_tree::DTreeTime,
                 node::{DNode, DNodeStatus, DNodeStatusDead},
-                tree::DTreeTime,
             },
         },
         read_game_state,

@@ -139,14 +139,18 @@ mod tests {
 
     use crate::{
         logic::depth_first::{
-            game::{d_field::DSlowField, d_game_state::DGameState},
+            game::{
+                d_field::{DFastField, DSlowField},
+                d_game_state::DGameState,
+            },
             simulation::{
                 d_node_id::DNodeId,
+                d_tree::{DTree, DTreeTime},
                 node::{
+                    d_full_simulation_node::DFullSimulationNode,
                     d_optimistic_capture_node::DOptimisticCaptureNode,
                     d_pessimistic_capture_node::DPessimisticCaptureNode, DNodeStatus,
                 },
-                tree::{DTree, DTreeTime},
             },
         },
         read_game_state,
@@ -184,6 +188,26 @@ mod tests {
         let root = DOptimisticCaptureNode::new(
             DNodeId::default(),
             state,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+        );
+        let mut tree = DTree::default().root(root);
+        tree.simulate();
+        println!("{}", tree);
+    }
+
+    #[test]
+    fn test_simulate_full() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
             DTreeTime::default(),
             DNodeStatus::default(),
         );

@@ -6,18 +6,18 @@ use itertools::Itertools;
 use crate::logic::{
     depth_first::{
         game::{d_direction::DDirection, d_field::DFastField, d_game_state::DGameState},
-        simulation::{d_node_id::DNodeId, tree::DTreeTime},
+        simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
     },
     legacy::shared::e_snakes::SNAKES,
 };
 
 use super::{DNode, DNodeStatus, DNodeStatusDead};
 
-struct DFullSimulationNode {
-    pub id: DNodeId,
-    pub states: Vec<DGameState<DFastField>>,
-    pub time: DTreeTime,
-    pub status: Cell<DNodeStatus>,
+pub struct DFullSimulationNode {
+    id: DNodeId,
+    states: Vec<DGameState<DFastField>>,
+    time: DTreeTime,
+    status: Cell<DNodeStatus>,
 }
 
 impl DFullSimulationNode {
@@ -57,9 +57,7 @@ impl DNode for DFullSimulationNode {
         }
     }
 
-    fn calc_children(&self) -> Vec<Box<Self>> {
-        todo!()
-    }
+    fn calc_children(&self) -> Vec<Box<Self>> {}
 }
 
 impl Display for DFullSimulationNode {

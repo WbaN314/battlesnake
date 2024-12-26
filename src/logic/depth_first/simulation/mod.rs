@@ -1,6 +1,6 @@
 mod d_node_id;
+mod d_tree;
 mod node;
-mod tree;
 
 use super::game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState};
 
