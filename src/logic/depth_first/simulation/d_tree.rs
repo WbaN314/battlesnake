@@ -218,7 +218,7 @@ mod tests {
             DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root);
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree);
     }
@@ -238,7 +238,7 @@ mod tests {
             DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root);
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree);
     }

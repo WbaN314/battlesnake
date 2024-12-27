@@ -117,7 +117,7 @@ impl DNode for DFullSimulationNode {
 
 impl Ord for DFullSimulationNode {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.id.cmp(&other.id)
+        self.states.len().cmp(&other.states.len()).reverse()
     }
 }
 
