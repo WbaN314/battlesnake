@@ -19,13 +19,7 @@ pub enum DNodeStatus {
     #[default]
     Unknown,
     Alive,
-    Dead(DNodeStatusDead),
+    Dead,
     TimedOut,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum DNodeStatusDead {
-    #[default]
-    Unknown,
-    NoMove,
+    DeadEnd,
 }

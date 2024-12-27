@@ -11,6 +11,14 @@ impl DNodeId {
     pub fn new(directions: Vec<DDirection>) -> Self {
         Self(directions)
     }
+
+    pub fn from(directions: &str) -> Self {
+        let mut id = Vec::new();
+        for direction in directions.chars() {
+            id.push(direction.try_into().unwrap());
+        }
+        Self(id)
+    }
 }
 
 impl Display for DNodeId {

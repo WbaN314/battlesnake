@@ -8,7 +8,7 @@ use crate::logic::depth_first::{
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 
-use super::{DNode, DNodeStatus, DNodeStatusDead};
+use super::{DNode, DNodeStatus};
 
 pub struct DPessimisticCaptureNode {
     id: DNodeId,
@@ -42,7 +42,7 @@ impl DPessimisticCaptureNode {
             .move_reachable(moves, new_id.len() as u8);
         let status = match new_state.is_alive() {
             true => DNodeStatus::Alive,
-            false => DNodeStatus::Dead(DNodeStatusDead::Unknown),
+            false => DNodeStatus::Dead,
         };
         Self::new(new_id, new_state, self.time.clone(), status)
     }
@@ -63,7 +63,7 @@ impl DNode for DPessimisticCaptureNode {
                 if self.state.is_alive() {
                     self.status.set(DNodeStatus::Alive);
                 } else {
-                    self.status.set(DNodeStatus::Dead(DNodeStatusDead::Unknown));
+                    self.status.set(DNodeStatus::Dead);
                 }
             }
             _ => (),
@@ -96,7 +96,7 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeStatus, DNodeStatusDead},
+                node::{DNode, DNodeStatus},
             },
         },
         read_game_state,
@@ -118,10 +118,7 @@ mod tests {
         println!("{}", child_up);
         assert_eq!(child_up.status(), DNodeStatus::Alive);
         let child_left = node.calc_child(DDirection::Left);
-        assert_eq!(
-            child_left.status(),
-            DNodeStatus::Dead(DNodeStatusDead::Unknown)
-        );
+        assert_eq!(child_left.status(), DNodeStatus::Dead);
     }
 
     #[test]

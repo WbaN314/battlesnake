@@ -109,6 +109,7 @@ where
     }
 }
 
+#[derive(Debug)]
 enum DSimulationStatus {
     TimedOut,
     Finished,
@@ -126,8 +127,8 @@ impl<Node: DNode> Default for DTree<Node> {
 
 impl<Node: DNode> Display for DTree<Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (id, _) in &self.nodes {
-            writeln!(f, "{}", id)?;
+        for (id, node) in &self.nodes {
+            writeln!(f, "{} {:?}", id, node.status())?;
         }
         Ok(())
     }
@@ -211,8 +212,11 @@ mod tests {
             DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root);
-        tree.simulate();
+        let mut tree = DTree::default()
+            .root(root)
+            .time(Duration::from_millis(100000));
+        let status = tree.simulate();
         println!("{}", tree);
+        println!("{:?}", status);
     }
 }

@@ -66,3 +66,17 @@ impl TryFrom<u8> for DDirection {
         }
     }
 }
+
+impl TryFrom<char> for DDirection {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            'U' => Ok(DDirection::Up),
+            'D' => Ok(DDirection::Down),
+            'L' => Ok(DDirection::Left),
+            'R' => Ok(DDirection::Right),
+            _ => Err(()),
+        }
+    }
+}
