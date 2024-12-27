@@ -1,8 +1,3 @@
-use std::{cell::Cell, fmt::Display};
-
-use arrayvec::ArrayVec;
-use itertools::Itertools;
-
 use crate::logic::depth_first::{
     game::{
         d_direction::{DDirection, D_DIRECTION_LIST},
@@ -11,6 +6,7 @@ use crate::logic::depth_first::{
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
+use std::{cell::Cell, cmp::Ordering, fmt::Display};
 
 use super::{DNode, DNodeStatistics, DNodeStatus};
 
@@ -118,6 +114,26 @@ impl DNode for DFullSimulationNode {
         statistics
     }
 }
+
+impl Ord for DFullSimulationNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for DFullSimulationNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for DFullSimulationNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for DFullSimulationNode {}
 
 impl Display for DFullSimulationNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

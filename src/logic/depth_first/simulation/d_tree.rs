@@ -2,7 +2,7 @@ use arrayvec::ArrayVec;
 
 use super::{
     d_node_id::DNodeId,
-    node::{DNode, DNodeStatus},
+    node::{self, DNode, DNodeStatus},
 };
 use std::{
     collections::BTreeMap,
@@ -80,6 +80,11 @@ where
                                 match status {
                                     DNodeStatus::Alive => {
                                         self.queue.push(id);
+                                        self.queue.sort_unstable_by(|id1, id2| {
+                                            let node1 = self.nodes.get(id1).unwrap();
+                                            let node2 = self.nodes.get(id2).unwrap();
+                                            node1.cmp(node2)
+                                        });
                                     }
                                     DNodeStatus::TimedOut => {
                                         simulation_status = DSimulationStatus::TimedOut;

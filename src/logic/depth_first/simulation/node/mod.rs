@@ -8,7 +8,7 @@ pub mod d_full_simulation_node;
 pub mod d_optimistic_capture_node;
 pub mod d_pessimistic_capture_node;
 
-pub trait DNode {
+pub trait DNode: Ord {
     fn id(&self) -> &DNodeId;
     fn calc_children(&self) -> Vec<Box<Self>>;
     fn status(&self) -> DNodeStatus;

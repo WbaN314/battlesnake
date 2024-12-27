@@ -4,7 +4,7 @@ use crate::logic::depth_first::{
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 use arrayvec::ArrayVec;
-use std::{cell::Cell, fmt::Display};
+use std::{cell::Cell, cmp::Ordering, fmt::Display};
 
 pub struct DOptimisticCaptureNode {
     id: DNodeId,
@@ -75,6 +75,26 @@ impl DNode for DOptimisticCaptureNode {
             .collect()
     }
 }
+
+impl Ord for DOptimisticCaptureNode {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for DOptimisticCaptureNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for DOptimisticCaptureNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for DOptimisticCaptureNode {}
 
 impl Display for DOptimisticCaptureNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
