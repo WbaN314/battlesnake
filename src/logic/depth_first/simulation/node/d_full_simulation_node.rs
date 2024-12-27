@@ -3,19 +3,16 @@ use std::{cell::Cell, fmt::Display};
 use arrayvec::ArrayVec;
 use itertools::Itertools;
 
-use crate::logic::{
-    depth_first::{
-        game::{
-            d_direction::{DDirection, D_DIRECTION_LIST},
-            d_field::DFastField,
-            d_game_state::DGameState,
-        },
-        simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
+use crate::logic::depth_first::{
+    game::{
+        d_direction::{DDirection, D_DIRECTION_LIST},
+        d_field::DFastField,
+        d_game_state::DGameState,
     },
-    legacy::shared::e_snakes::SNAKES,
+    simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 
-use super::{DNode, DNodeStatus};
+use super::{DNode, DNodeStatistics, DNodeStatus};
 
 #[derive(Default)]
 pub struct DFullSimulationNode {
@@ -66,6 +63,14 @@ impl DNode for DFullSimulationNode {
         let mut states = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
         let mut statuses = [DNodeStatus::Alive; 4];
         for state in self.states.iter() {
+            if self.time.is_timed_out() {
+                for i in 0..4 {
+                    if statuses[i] == DNodeStatus::Alive {
+                        statuses[i] = DNodeStatus::TimedOut;
+                    }
+                }
+                break;
+            }
             let possible_moves = state.possible_moves().generate();
             if possible_moves.is_empty() {
                 self.status.set(DNodeStatus::DeadEnd);
@@ -85,7 +90,7 @@ impl DNode for DFullSimulationNode {
             }
         }
         for i in 0..4 {
-            if states[i].is_empty() {
+            if states[i].is_empty() && statuses[i] != DNodeStatus::TimedOut {
                 statuses[i] = DNodeStatus::Dead;
             }
         }
@@ -101,6 +106,16 @@ impl DNode for DFullSimulationNode {
             )));
         }
         result
+    }
+
+    fn info(&self) -> String {
+        format!("{} {:?} {}", self.id, self.status(), self.states.len())
+    }
+
+    fn statistics(&self) -> DNodeStatistics {
+        let mut statistics = DNodeStatistics::default();
+        statistics.states = Some(self.states.len());
+        statistics
     }
 }
 

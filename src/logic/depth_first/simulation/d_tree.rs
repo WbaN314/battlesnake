@@ -4,11 +4,9 @@ use super::{
     d_node_id::DNodeId,
     node::{DNode, DNodeStatus},
 };
-use crate::logic::depth_first::game::d_direction::DDirection;
 use std::{
     collections::BTreeMap,
     fmt::Display,
-    os::macos::raw::stat,
     time::{Duration, Instant},
 };
 
@@ -66,9 +64,11 @@ where
     }
 
     fn simulate(&mut self) -> DSimulationStatus {
-        loop {
+        let mut simulation_status = DSimulationStatus::default();
+        'simulation: loop {
             if self.time.is_timed_out() {
-                return DSimulationStatus::TimedOut;
+                simulation_status = DSimulationStatus::TimedOut;
+                break 'simulation;
             }
             match self.queue.pop() {
                 Some(parent_id) => {
@@ -81,6 +81,10 @@ where
                                     DNodeStatus::Alive => {
                                         self.queue.push(id);
                                     }
+                                    DNodeStatus::TimedOut => {
+                                        simulation_status = DSimulationStatus::TimedOut;
+                                        break 'simulation;
+                                    }
                                     _ => (),
                                 }
                             }
@@ -88,9 +92,13 @@ where
                         _ => (),
                     }
                 }
-                None => return DSimulationStatus::Finished,
+                None => {
+                    simulation_status = DSimulationStatus::Finished;
+                    break 'simulation;
+                }
             }
         }
+        simulation_status
     }
 
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
@@ -107,10 +115,38 @@ where
         }
         result
     }
+
+    fn statistic_states(&self) -> usize {
+        let mut states = 0;
+        for (_, node) in self.nodes.iter() {
+            states += node.statistics().states.unwrap_or(1);
+        }
+        states
+    }
+
+    fn statistic_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
+    fn statistics_time(&self) -> Duration {
+        self.time.start.elapsed()
+    }
+
+    fn statistics_depth(&self) -> usize {
+        let mut depth = 0;
+        for (_, node) in self.nodes.iter() {
+            if node.status() != DNodeStatus::TimedOut {
+                depth = depth.max(node.id().len());
+            }
+        }
+        depth
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum DSimulationStatus {
+    #[default]
+    Unknown,
     TimedOut,
     Finished,
 }
@@ -128,8 +164,13 @@ impl<Node: DNode> Default for DTree<Node> {
 impl<Node: DNode> Display for DTree<Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (id, node) in &self.nodes {
-            writeln!(f, "{} {:?}", id, node.status())?;
+            writeln!(f, "{}", node.info())?;
         }
+        writeln!(f, "")?;
+        writeln!(f, "Nodes: {}", self.statistic_nodes())?;
+        writeln!(f, "States: {}", self.statistic_states())?;
+        writeln!(f, "Depth: {}", self.statistics_depth())?;
+        writeln!(f, "Time: {:?}", self.statistics_time())?;
         Ok(())
     }
 }
@@ -209,12 +250,10 @@ mod tests {
         let root = DFullSimulationNode::new(
             DNodeId::default(),
             vec![state],
-            DTreeTime::default(),
+            DTreeTime::new(Duration::from_millis(200)),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default()
-            .root(root)
-            .time(Duration::from_millis(100000));
+        let mut tree = DTree::default().root(root);
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}", status);
