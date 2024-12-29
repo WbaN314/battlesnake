@@ -19,6 +19,10 @@ impl DNodeId {
         }
         Self(id)
     }
+
+    pub fn direction(&self) -> Option<DDirection> {
+        self.0.first().copied()
+    }
 }
 
 impl Display for DNodeId {

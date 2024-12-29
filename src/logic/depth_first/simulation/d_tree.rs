@@ -1,4 +1,7 @@
 use arrayvec::ArrayVec;
+use serde::de;
+
+use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
@@ -43,7 +46,7 @@ impl Default for DTreeTime {
 
 pub struct DTree<Node: DNode> {
     nodes: BTreeMap<DNodeId, Box<Node>>,
-    queue: Vec<DNodeId>,
+    queue: [Vec<DNodeId>; 4],
     time: DTreeTime,
 }
 
@@ -54,7 +57,7 @@ where
     pub fn root(mut self, root: Node) -> Self {
         let id = root.id().clone();
         self.nodes.insert(id.clone(), Box::new(root));
-        self.queue.push(id);
+        self.queue[0].push(id);
         self
     }
 
@@ -65,12 +68,13 @@ where
 
     fn simulate(&mut self) -> DSimulationStatus {
         let mut simulation_status = DSimulationStatus::default();
+        let mut count = 0;
         'simulation: loop {
             if self.time.is_timed_out() {
                 simulation_status = DSimulationStatus::TimedOut;
                 break 'simulation;
             }
-            match self.queue.pop() {
+            match self.queue[count % 4].pop() {
                 Some(parent_id) => {
                     let parent = self.nodes.get(&parent_id).unwrap();
                     match parent.status() {
@@ -79,8 +83,9 @@ where
                             for (id, status) in children_status {
                                 match status {
                                     DNodeStatus::Alive => {
-                                        self.queue.push(id);
-                                        self.queue.sort_unstable_by(|id1, id2| {
+                                        let index = id.direction().unwrap() as usize;
+                                        self.queue[index].push(id);
+                                        self.queue[index].sort_unstable_by(|id1, id2| {
                                             let node1 = self.nodes.get(id1).unwrap();
                                             let node2 = self.nodes.get(id2).unwrap();
                                             node1.cmp(node2)
@@ -98,12 +103,38 @@ where
                     }
                 }
                 None => {
-                    simulation_status = DSimulationStatus::Finished;
-                    break 'simulation;
+                    if self.queue.iter().all(|q| q.is_empty()) {
+                        simulation_status = DSimulationStatus::Finished;
+                        break 'simulation;
+                    }
+                }
+            }
+            count += 1;
+        }
+        simulation_status
+    }
+
+    fn result(&self) -> DSimulationResult {
+        let mut results = Vec::new();
+        for d in D_DIRECTION_LIST {
+            results.push(DSimulationDirectionResult::new(d));
+        }
+        for (_, node) in self.nodes.iter() {
+            if node.status() == DNodeStatus::Alive && node.id().len() > 0 {
+                let direction = node.id().first().unwrap();
+                let index: usize = *direction as usize;
+                results[index].states += node.statistics().states.unwrap_or(1);
+                let depth = node.id().len();
+                if depth > results[index].depth {
+                    results[index].depth = depth;
+                    results[index].best.clear();
+                    results[index].best.push(node.id().clone());
+                } else if depth == results[index].depth {
+                    results[index].best.push(node.id().clone());
                 }
             }
         }
-        simulation_status
+        DSimulationResult::new(results)
     }
 
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
@@ -148,6 +179,58 @@ where
     }
 }
 
+#[derive(Debug)]
+struct DSimulationResult {
+    pub direction_results: Vec<DSimulationDirectionResult>,
+}
+
+impl DSimulationResult {
+    pub fn new(direction_results: Vec<DSimulationDirectionResult>) -> Self {
+        Self { direction_results }
+    }
+}
+
+impl Display for DSimulationResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for result in &self.direction_results {
+            writeln!(f, "")?;
+            writeln!(f, "{}", result)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct DSimulationDirectionResult {
+    pub direction: DDirection,
+    pub depth: usize,
+    pub best: Vec<DNodeId>,
+    pub states: usize,
+}
+
+impl DSimulationDirectionResult {
+    fn new(direction: DDirection) -> Self {
+        Self {
+            direction,
+            depth: 0,
+            best: Vec::new(),
+            states: 0,
+        }
+    }
+}
+
+impl Display for DSimulationDirectionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.direction)?;
+        writeln!(f, "Depth: {}", self.depth)?;
+        writeln!(f, "States: {}", self.states)?;
+        for id in &self.best {
+            writeln!(f, "{}", id)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Default)]
 enum DSimulationStatus {
     #[default]
@@ -160,7 +243,7 @@ impl<Node: DNode> Default for DTree<Node> {
     fn default() -> Self {
         Self {
             nodes: BTreeMap::new(),
-            queue: Vec::new(),
+            queue: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             time: DTreeTime::default(),
         }
     }
@@ -168,7 +251,7 @@ impl<Node: DNode> Default for DTree<Node> {
 
 impl<Node: DNode> Display for DTree<Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (id, node) in &self.nodes {
+        for (_, node) in &self.nodes {
             writeln!(f, "{}", node.info())?;
         }
         writeln!(f, "")?;
@@ -219,8 +302,10 @@ mod tests {
             DNodeStatus::default(),
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
-        tree.simulate();
+        let status = tree.simulate();
         println!("{}", tree);
+        println!("{:?}", status);
+        println!("{}", tree.result());
     }
 
     #[test]
@@ -239,8 +324,10 @@ mod tests {
             DNodeStatus::default(),
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
-        tree.simulate();
+        let status = tree.simulate();
         println!("{}", tree);
+        println!("{:?}", status);
+        println!("{}", tree.result());
     }
 
     #[test]
@@ -262,5 +349,6 @@ mod tests {
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}", status);
+        println!("{}", tree.result());
     }
 }
