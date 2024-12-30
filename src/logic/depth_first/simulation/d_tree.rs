@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_simulate_full() {
-        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let gamestate = read_game_state("requests/test_move_request_2b.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
