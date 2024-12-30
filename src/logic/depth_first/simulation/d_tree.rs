@@ -193,7 +193,6 @@ impl DSimulationResult {
 impl Display for DSimulationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for result in &self.direction_results {
-            writeln!(f, "")?;
             writeln!(f, "{}", result)?;
         }
         Ok(())
@@ -304,7 +303,7 @@ mod tests {
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         let status = tree.simulate();
         println!("{}", tree);
-        println!("{:?}", status);
+        println!("{:?}\n", status);
         println!("{}", tree.result());
     }
 
@@ -326,7 +325,7 @@ mod tests {
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         let status = tree.simulate();
         println!("{}", tree);
-        println!("{:?}", status);
+        println!("{:?}\n", status);
         println!("{}", tree.result());
     }
 
@@ -348,7 +347,7 @@ mod tests {
         let mut tree = DTree::default().root(root);
         let status = tree.simulate();
         println!("{}", tree);
-        println!("{:?}", status);
+        println!("{:?}\n", status);
         println!("{}", tree.result());
     }
 }
