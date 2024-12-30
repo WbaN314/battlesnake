@@ -206,4 +206,24 @@ mod tests {
         assert_eq!(children_right[3].status(), DNodeStatus::Alive);
         assert_eq!(children_right[3].id, DNodeId::from("RR"));
     }
+
+    #[test]
+    fn test_calc_children_2() {
+        let request = read_game_state("requests/test_move_request_2.json");
+        let gamestate =
+            DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
+        println!("{:?}", gamestate.possible_moves().generate());
+        let node = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![gamestate],
+            DTreeTime::default(),
+            DNodeStatus::default(),
+        );
+        println!("{}", node);
+        let children = node.calc_children();
+        println!("{}", children[0]);
+        println!("{}", children[1]);
+        println!("{}", children[2]);
+        println!("{}", children[3]);
+    }
 }

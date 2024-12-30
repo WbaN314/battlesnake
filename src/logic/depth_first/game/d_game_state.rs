@@ -1014,6 +1014,30 @@ mod tests {
         let moves = state.possible_moves();
         println!("{:#?}", moves);
         assert_eq!(moves.generate().len(), 36);
+
+        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let moves = state.possible_moves();
+        assert_eq!(moves.get(0), [true, false, true, true]);
+        assert_eq!(moves.get(1), [true, false, false, false]);
+        assert_eq!(moves.get(2), [false, false, false, false]);
+        assert_eq!(moves.get(3), [false, false, false, false]);
+        let generated = moves.generate();
+        assert_eq!(generated.len(), 3);
+        for m in generated {
+            assert_eq!(m[1], Some(DDirection::Up));
+        }
+
+        let state = state.play(["RR", "UU", "", ""]);
+        println!("{}", state);
+        let moves = state.possible_moves().generate();
+        assert_eq!(moves.len(), 6);
+        println!("{:#?}", moves);
     }
 
     #[test]

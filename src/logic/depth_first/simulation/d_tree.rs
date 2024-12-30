@@ -300,7 +300,7 @@ mod tests {
             DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(50));
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}\n", status);
@@ -322,7 +322,7 @@ mod tests {
             DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(50));
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}\n", status);
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_simulate_full() {
-        let gamestate = read_game_state("requests/test_move_request.json");
+        let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,

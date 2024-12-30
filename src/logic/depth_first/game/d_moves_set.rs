@@ -15,6 +15,10 @@ impl DMovesSet {
         Self { moves }
     }
 
+    pub fn get(&self, index: usize) -> [bool; 4] {
+        self.moves[index]
+    }
+
     pub fn generate(&self) -> Vec<DMoves> {
         let prod = self
             .moves
@@ -27,7 +31,7 @@ impl DMovesSet {
         let mut b_end = 1;
         let mut c_end = 1;
         let mut d_end = 1;
-        for i in 1..4 {
+        for i in 0..4 {
             if self.moves[1][i] {
                 b_end = 4;
             }
