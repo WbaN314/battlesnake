@@ -36,7 +36,7 @@ impl DOptimisticCaptureNode {
         new_state
             .next_state(moves)
             .move_reachable(moves, new_id.len() as u8);
-        let status = match new_state.is_alive() {
+        let status = match new_state.get_alive()[0] {
             true => DNodeStatus::Alive,
             false => DNodeStatus::Dead,
         };
@@ -57,7 +57,7 @@ impl DNode for DOptimisticCaptureNode {
     fn status(&self) -> DNodeStatus {
         match self.status.get() {
             DNodeStatus::Unknown => {
-                if self.state.is_alive() {
+                if self.state.get_alive()[0] {
                     self.status.set(DNodeStatus::Alive);
                 } else {
                     self.status.set(DNodeStatus::Dead);

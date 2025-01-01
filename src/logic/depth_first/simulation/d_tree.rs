@@ -1,7 +1,10 @@
 use arrayvec::ArrayVec;
 use serde::de;
 
-use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
+use crate::logic::{
+    depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST},
+    legacy::shared::e_snakes::SNAKES,
+};
 
 use super::{
     d_node_id::DNodeId,
@@ -66,7 +69,7 @@ where
         self
     }
 
-    fn simulate(&mut self) -> DSimulationStatus {
+    pub fn simulate(&mut self) -> DSimulationStatus {
         let mut simulation_status = DSimulationStatus::default();
         let mut count = 0;
         'simulation: loop {
@@ -88,7 +91,7 @@ where
                                         self.queue[index].sort_unstable_by(|id1, id2| {
                                             let node1 = self.nodes.get(id1).unwrap();
                                             let node2 = self.nodes.get(id2).unwrap();
-                                            node1.cmp(node2)
+                                            node1.simulation_order(node2)
                                         });
                                     }
                                     DNodeStatus::TimedOut => {
@@ -114,7 +117,7 @@ where
         simulation_status
     }
 
-    fn result(&self) -> DSimulationResult {
+    pub fn result(&self) -> DSimulationResult<Node> {
         let mut results = Vec::new();
         for d in D_DIRECTION_LIST {
             results.push(DSimulationDirectionResult::new(d));
@@ -134,7 +137,7 @@ where
                 }
             }
         }
-        DSimulationResult::new(results)
+        DSimulationResult::new(results, self)
     }
 
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
@@ -179,18 +182,50 @@ where
     }
 }
 
-#[derive(Debug)]
-struct DSimulationResult {
+pub struct DSimulationResult<'a, Node: DNode> {
     pub direction_results: Vec<DSimulationDirectionResult>,
+    tree: &'a DTree<Node>,
 }
 
-impl DSimulationResult {
-    pub fn new(direction_results: Vec<DSimulationDirectionResult>) -> Self {
-        Self { direction_results }
+impl<'a, Node: DNode> DSimulationResult<'a, Node> {
+    pub fn new(direction_results: Vec<DSimulationDirectionResult>, tree: &'a DTree<Node>) -> Self {
+        Self {
+            direction_results,
+            tree,
+        }
+    }
+
+    pub fn direction(&mut self) -> DDirection {
+        let mut best_nodes: [Option<&Node>; 4] = [None; 4];
+        for i in 0..4 {
+            for direction_result in self.direction_results.iter_mut() {
+                direction_result.best.sort_unstable_by(|id1, id2| {
+                    let node1 = self.tree.nodes.get(id1).unwrap();
+                    let node2 = self.tree.nodes.get(id2).unwrap();
+                    node1.result_order(node2)
+                });
+                best_nodes[i] = if let Some(id) = direction_result.best.last() {
+                    Some(self.tree.nodes.get(id).unwrap())
+                } else {
+                    None
+                }
+            }
+        }
+        best_nodes.sort_unstable_by(|opt1, opt2| match (opt1, opt2) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (Some(node1), Some(node2)) => node1.result_order(node2),
+        });
+
+        match best_nodes.last() {
+            Some(Some(node)) => node.id().first().unwrap().clone(),
+            _ => DDirection::Up,
+        }
     }
 }
 
-impl Display for DSimulationResult {
+impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for result in &self.direction_results {
             writeln!(f, "{}", result)?;
@@ -231,7 +266,7 @@ impl Display for DSimulationDirectionResult {
 }
 
 #[derive(Debug, Default)]
-enum DSimulationStatus {
+pub enum DSimulationStatus {
     #[default]
     Unknown,
     TimedOut,
@@ -305,6 +340,7 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
+        println!("{}", tree.result().direction());
     }
 
     #[test]
@@ -327,6 +363,7 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
+        println!("{}", tree.result().direction());
     }
 
     #[test]
@@ -349,5 +386,6 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
+        println!("{}", tree.result().direction());
     }
 }

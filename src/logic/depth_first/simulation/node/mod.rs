@@ -1,6 +1,4 @@
-use crate::logic::depth_first::game::d_direction::DDirection;
-use arrayvec::ArrayVec;
-use std::{default, fmt::Display};
+use std::cmp::Ordering;
 
 use super::d_node_id::DNodeId;
 
@@ -8,7 +6,7 @@ pub mod d_full_simulation_node;
 pub mod d_optimistic_capture_node;
 pub mod d_pessimistic_capture_node;
 
-pub trait DNode: Ord {
+pub trait DNode {
     fn id(&self) -> &DNodeId;
     fn calc_children(&self) -> Vec<Box<Self>>;
     fn status(&self) -> DNodeStatus;
@@ -17,6 +15,12 @@ pub trait DNode: Ord {
     }
     fn statistics(&self) -> DNodeStatistics {
         DNodeStatistics::default()
+    }
+    fn simulation_order(&self, other: &Self) -> Ordering {
+        self.id().cmp(other.id())
+    }
+    fn result_order(&self, other: &Self) -> Ordering {
+        self.id().cmp(other.id())
     }
 }
 
@@ -30,7 +34,11 @@ pub enum DNodeStatus {
     DeadEnd,
 }
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
+/// Statistics of a node.
+/// If statistics refer to individual gamestates, they represent the worst case scenario
 pub struct DNodeStatistics {
     pub states: Option<usize>,
+    pub highest_alive_snakes: Option<usize>,
+    pub lowest_self_length: Option<usize>,
 }

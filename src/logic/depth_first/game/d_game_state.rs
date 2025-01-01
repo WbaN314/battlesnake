@@ -265,10 +265,22 @@ impl<T: DField> DGameState<T> {
         possible_moves
     }
 
-    pub fn is_alive(&self) -> bool {
-        match self.snakes.cell(0).get() {
-            DSnake::Alive { .. } => true,
-            _ => false,
+    pub fn get_alive(&self) -> [bool; SNAKES as usize] {
+        let mut alive = [false; SNAKES as usize];
+        for i in 0..SNAKES as usize {
+            alive[i] = match self.snakes.cell(0).get() {
+                DSnake::Alive { .. } => true,
+                _ => false,
+            }
+        }
+        alive
+    }
+
+    pub fn get_length(&self) -> Option<usize> {
+        let snake = self.snakes.cell(0).get();
+        match snake {
+            DSnake::Alive { length, .. } => Some(length as usize),
+            _ => None,
         }
     }
 }
@@ -1124,7 +1136,7 @@ mod tests {
         ];
         state.next_state(moves);
         println!("{}", state);
-        assert!(!state.is_alive());
+        assert!(!state.get_alive()[0]);
     }
 
     #[test]
@@ -1399,7 +1411,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", d_gamestate);
-        assert_eq!(d_gamestate.is_alive(), true);
+        assert_eq!(d_gamestate.get_alive()[0], true);
         d_gamestate.next_state([
             Some(DDirection::Left),
             Some(DDirection::Left),
@@ -1407,7 +1419,7 @@ mod tests {
             Some(DDirection::Down),
         ]);
         println!("{}", d_gamestate);
-        assert_eq!(d_gamestate.is_alive(), false);
+        assert_eq!(d_gamestate.get_alive()[0], false);
     }
 
     #[test]

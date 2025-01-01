@@ -19,13 +19,18 @@ impl DepthFirstSnake {
 
 impl Brain for DepthFirstSnake {
     fn logic(&self, gamestate: &GameState) -> Direction {
-        let mut state = DGameState::<DSlowField>::from_request(
+        let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
             &gamestate.turn,
         );
         let mut simulation = DSimulation::new(state);
         let simulation_result = simulation.run();
-        todo!()
+        match simulation_result {
+            DDirection::Up => Direction::Up,
+            DDirection::Down => Direction::Down,
+            DDirection::Left => Direction::Left,
+            DDirection::Right => Direction::Right,
+        }
     }
 }

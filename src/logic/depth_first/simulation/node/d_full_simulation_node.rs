@@ -1,12 +1,15 @@
-use crate::logic::depth_first::{
-    game::{
-        d_direction::{DDirection, D_DIRECTION_LIST},
-        d_field::DFastField,
-        d_game_state::DGameState,
+use crate::logic::{
+    depth_first::{
+        game::{
+            d_direction::{DDirection, D_DIRECTION_LIST},
+            d_field::DFastField,
+            d_game_state::DGameState,
+        },
+        simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
     },
-    simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
+    legacy::shared::e_snakes::SNAKES,
 };
-use std::{cell::Cell, cmp::Ordering, fmt::Display};
+use std::{cell::Cell, cmp::Ordering, fmt::Display, ops::Deref};
 
 use super::{DNode, DNodeStatistics, DNodeStatus};
 
@@ -16,6 +19,8 @@ pub struct DFullSimulationNode {
     states: Vec<DGameState<DFastField>>,
     time: DTreeTime,
     status: Cell<DNodeStatus>,
+    statistics: Cell<Option<DNodeStatistics>>,
+    leaf: bool,
 }
 
 impl DFullSimulationNode {
@@ -30,6 +35,8 @@ impl DFullSimulationNode {
             states: states,
             time,
             status: Cell::new(status),
+            statistics: Cell::new(None),
+            leaf: true,
         }
     }
 }
@@ -43,7 +50,7 @@ impl DNode for DFullSimulationNode {
         match self.status.get() {
             DNodeStatus::Unknown => {
                 for state in self.states.iter() {
-                    if !state.is_alive() {
+                    if !state.get_alive()[0] {
                         self.status.set(DNodeStatus::Dead);
                         return self.status.get();
                     }
@@ -79,7 +86,7 @@ impl DNode for DFullSimulationNode {
                 }
                 let mut new_state = state.clone();
                 new_state.next_state(moveset);
-                if !new_state.is_alive() {
+                if !new_state.get_alive()[0] {
                     statuses[index] = DNodeStatus::Dead;
                 }
                 states[index].push(new_state);
@@ -109,9 +116,26 @@ impl DNode for DFullSimulationNode {
     }
 
     fn statistics(&self) -> DNodeStatistics {
-        let mut statistics = DNodeStatistics::default();
-        statistics.states = Some(self.states.len());
-        statistics
+        if self.statistics.get().is_none() {
+            let mut statistics = DNodeStatistics::default();
+            statistics.states = Some(self.states.len());
+            for state in self.states.iter() {
+                let alive_snakes = state.get_alive().iter().filter(|&&x| x).count();
+                statistics.highest_alive_snakes = Some(
+                    statistics
+                        .highest_alive_snakes
+                        .unwrap_or(alive_snakes)
+                        .max(alive_snakes),
+                );
+                let length = state.get_length();
+                if let Some(length) = length {
+                    statistics.lowest_self_length =
+                        Some(statistics.lowest_self_length.unwrap_or(length).min(length));
+                }
+            }
+            self.statistics.set(Some(statistics));
+        }
+        self.statistics.get().unwrap()
     }
 }
 
