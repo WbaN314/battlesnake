@@ -17,7 +17,7 @@ use std::env;
 
 use crate::{Battlesnake, Board, Direction, Game, GameState};
 
-mod depth_first;
+pub mod depth_first;
 pub mod legacy;
 
 // info is called when you create your Battlesnake on play.battlesnake.com
