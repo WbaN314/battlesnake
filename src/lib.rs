@@ -6,7 +6,6 @@ use core::fmt;
 use logic::{
     depth_first::game::{d_field::DSlowField, d_game_state::DGameState},
     get_move,
-    legacy::shared::e_game_state::EGameState,
 };
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;

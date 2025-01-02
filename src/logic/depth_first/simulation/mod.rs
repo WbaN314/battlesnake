@@ -2,7 +2,7 @@ mod d_node_id;
 mod d_tree;
 mod node;
 
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use d_tree::DTree;
 use node::{
@@ -47,6 +47,14 @@ impl DSimulation {
         let simulation_status = simulation_tree.simulate();
         let mut simulation_result = simulation_tree.result();
         let direction = simulation_result.direction();
+
+        if env::var("MODE").is_ok_and(|value| value == "test") {
+            println!("{}", simulation_tree);
+            println!("{:?}\n", simulation_status);
+            println!("{}", simulation_result);
+            println!("{}", direction);
+        }
+
         direction
     }
 }
