@@ -81,11 +81,11 @@ where
                 Some(parent_id) => {
                     let parent = self.nodes.get(&parent_id).unwrap();
                     match parent.status() {
-                        DNodeStatus::Alive => {
+                        DNodeStatus::Alive(_) => {
                             let children_status = self.calc_children(&parent_id);
                             for (id, status) in children_status {
                                 match status {
-                                    DNodeStatus::Alive => {
+                                    DNodeStatus::Alive(_) => {
                                         let index = id.direction().unwrap() as usize;
                                         self.queue[index].push(id);
                                         self.queue[index].sort_unstable_by(|id1, id2| {
@@ -123,18 +123,21 @@ where
             results.push(DSimulationDirectionResult::new(d));
         }
         for (_, node) in self.nodes.iter() {
-            if node.status() == DNodeStatus::Alive && node.id().len() > 0 {
-                let direction = node.id().first().unwrap();
-                let index: usize = *direction as usize;
-                results[index].states += node.statistics().states.unwrap_or(1);
-                let depth = node.id().len();
-                if depth > results[index].depth {
-                    results[index].depth = depth;
-                    results[index].best.clear();
-                    results[index].best.push(node.id().clone());
-                } else if depth == results[index].depth {
-                    results[index].best.push(node.id().clone());
+            match node.status() {
+                DNodeStatus::Alive(_) if node.id().len() > 0 => {
+                    let direction = node.id().first().unwrap();
+                    let index: usize = *direction as usize;
+                    results[index].states += node.statistics().states.unwrap_or(1);
+                    let depth = node.id().len();
+                    if depth > results[index].depth {
+                        results[index].depth = depth;
+                        results[index].best.clear();
+                        results[index].best.push(node.id().clone());
+                    } else if depth == results[index].depth {
+                        results[index].best.push(node.id().clone());
+                    }
                 }
+                _ => (),
             }
         }
         DSimulationResult::new(results, self)
@@ -143,13 +146,16 @@ where
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
         let mut result = Vec::new();
         match self.nodes.get(id) {
-            Some(node) if node.status() == DNodeStatus::Alive => {
-                let children = node.calc_children();
-                for child in children.into_iter() {
-                    result.push((child.id().clone(), child.status()));
-                    self.nodes.insert(child.id().clone(), child);
+            Some(node) => match node.status() {
+                DNodeStatus::Alive(_) => {
+                    let children = node.calc_children();
+                    for child in children.into_iter() {
+                        result.push((child.id().clone(), child.status()));
+                        self.nodes.insert(child.id().clone(), child);
+                    }
                 }
-            }
+                _ => (),
+            },
             _ => panic!("Node not found"),
         }
         result

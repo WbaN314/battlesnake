@@ -1,4 +1,4 @@
-use super::{DNode, DNodeStatus};
+use super::{DNode, DNodeAliveStatus, DNodeStatus};
 use crate::logic::depth_first::{
     game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
@@ -11,6 +11,7 @@ pub struct DOptimisticCaptureNode {
     state: DGameState<DSlowField>,
     time: DTreeTime,
     status: Cell<DNodeStatus>,
+    child_alive_helper: Cell<[DNodeAliveStatus; 4]>,
 }
 
 impl DOptimisticCaptureNode {
@@ -25,6 +26,7 @@ impl DOptimisticCaptureNode {
             state,
             time,
             status: Cell::new(status),
+            child_alive_helper: Cell::new([DNodeAliveStatus::default(); 4]),
         }
     }
 
@@ -37,7 +39,7 @@ impl DOptimisticCaptureNode {
             .next_state(moves)
             .move_reachable(moves, new_id.len() as u8);
         let status = match new_state.get_alive()[0] {
-            true => DNodeStatus::Alive,
+            true => DNodeStatus::Alive(self.child_alive_helper.get()[direction as usize]),
             false => DNodeStatus::Dead,
         };
         Self::new(new_id, new_state, self.time.clone(), status)
@@ -45,7 +47,23 @@ impl DOptimisticCaptureNode {
 
     fn calc_moves(&self) -> ArrayVec<DDirection, 4> {
         let turn = self.id.len() as u8 + 1;
-        self.state.scope_moves_optimistic(turn)
+        let mut child_direction_states = [DNodeAliveStatus::default(); 4];
+        let optimistic = self.state.scope_moves_optimistic(turn);
+        let pessimistic = self.state.scope_moves_pessimistic();
+        for m in pessimistic.iter() {
+            let direction = m;
+            let index = *direction as usize;
+            child_direction_states[index] = DNodeAliveStatus::Always;
+        }
+        for m in optimistic.iter() {
+            let direction = m;
+            let index = *direction as usize;
+            if child_direction_states[index] == DNodeAliveStatus::default() {
+                child_direction_states[index] = DNodeAliveStatus::Sometimes;
+            }
+        }
+        self.child_alive_helper.set(child_direction_states);
+        optimistic
     }
 }
 
@@ -58,7 +76,8 @@ impl DNode for DOptimisticCaptureNode {
         match self.status.get() {
             DNodeStatus::Unknown => {
                 if self.state.get_alive()[0] {
-                    self.status.set(DNodeStatus::Alive);
+                    self.status
+                        .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
                 } else {
                     self.status.set(DNodeStatus::Dead);
                 }
@@ -113,7 +132,7 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeStatus},
+                node::{DNode, DNodeAliveStatus, DNodeStatus},
             },
         },
         read_game_state,
@@ -133,7 +152,10 @@ mod tests {
         println!("{}", node);
         let child_up = node.calc_child(DDirection::Up);
         println!("{}", child_up);
-        assert_eq!(child_up.status(), DNodeStatus::Alive);
+        assert_eq!(
+            child_up.status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         let child_left = node.calc_child(DDirection::Left);
         assert_eq!(child_left.status(), DNodeStatus::Dead);
     }

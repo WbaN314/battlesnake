@@ -28,10 +28,18 @@ pub trait DNode {
 pub enum DNodeStatus {
     #[default]
     Unknown,
-    Alive,
+    Alive(DNodeAliveStatus),
     Dead,
     TimedOut,
     DeadEnd,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum DNodeAliveStatus {
+    #[default]
+    Unknown,
+    Always,
+    Sometimes,
 }
 
 #[derive(Default, Copy, Clone)]
