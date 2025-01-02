@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735578287225,
+  "lastUpdate": 1735857109193,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -491,6 +491,78 @@ window.BENCHMARK_DATA = {
             "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
             "value": 207.96,
             "range": "± 5.54",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "sascha",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "sascha",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "bc4bf5fbe2e349c0d38b879aa54bd677f9a7f54e",
+          "message": "Added alive status handling to all node types",
+          "timestamp": "2025-01-02T23:29:58+01:00",
+          "tree_id": "df20a40e85337936c52312a96e9ca4a59396f48f",
+          "url": "https://github.com/WbaN314/battlesnake/commit/bc4bf5fbe2e349c0d38b879aa54bd677f9a7f54e"
+        },
+        "date": 1735857108915,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_move_reachable",
+            "value": 854.63,
+            "range": "± 19.08",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_fast",
+            "value": 145.32,
+            "range": "± 9.49",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_slow",
+            "value": 126.87,
+            "range": "± 0.87",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_possible_moves",
+            "value": 19.6,
+            "range": "± 0.36",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_scope_moves",
+            "value": 77.1,
+            "range": "± 1.16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_moves_set::tests::bench_generate",
+            "value": 82.52,
+            "range": "± 0.46",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_next_state",
+            "value": 220.13,
+            "range": "± 48.05",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
+            "value": 232.94,
+            "range": "± 4.68",
             "unit": "ns/iter"
           }
         ]
