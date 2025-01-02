@@ -150,6 +150,7 @@ mod tests {
             DNodeStatus::default(),
         );
         println!("{}", node);
+        node.calc_moves();
         let child_up = node.calc_child(DDirection::Up);
         println!("{}", child_up);
         assert_eq!(

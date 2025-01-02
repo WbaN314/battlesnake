@@ -11,7 +11,7 @@ use crate::logic::{
 };
 use std::{cell::Cell, cmp::Ordering, fmt::Display, ops::Deref};
 
-use super::{DNode, DNodeStatistics, DNodeStatus};
+use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
 #[derive(Default)]
 pub struct DFullSimulationNode {
@@ -55,7 +55,8 @@ impl DNode for DFullSimulationNode {
                         return self.status.get();
                     }
                 }
-                self.status.set(DNodeStatus::Alive);
+                self.status
+                    .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
                 return self.status.get();
             }
             status => status,
@@ -64,20 +65,32 @@ impl DNode for DFullSimulationNode {
 
     fn calc_children(&self) -> Vec<Box<Self>> {
         let mut states = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-        let mut statuses = [DNodeStatus::Alive; 4];
+        let mut statuses = [DNodeStatus::Alive(DNodeAliveStatus::Always); 4];
         for state in self.states.iter() {
             if self.time.is_timed_out() {
                 for i in 0..4 {
-                    if statuses[i] == DNodeStatus::Alive {
-                        statuses[i] = DNodeStatus::TimedOut;
+                    match statuses[i] {
+                        DNodeStatus::Alive(_) => {
+                            statuses[i] = DNodeStatus::TimedOut;
+                        }
+                        _ => (),
                     }
                 }
                 break;
             }
-            let possible_moves = state.possible_moves().generate();
+            let possible_moves_matrix = state.possible_moves();
+            let possible_moves = possible_moves_matrix.generate();
             if possible_moves.is_empty() {
                 self.status.set(DNodeStatus::DeadEnd);
                 return Vec::new();
+            }
+            for (i, d) in possible_moves_matrix.get(0).iter().enumerate() {
+                match statuses[i] {
+                    DNodeStatus::Alive(DNodeAliveStatus::Always) if !d => {
+                        statuses[i] = DNodeStatus::Alive(DNodeAliveStatus::Sometimes)
+                    }
+                    _ => (),
+                }
             }
             for moveset in possible_moves.into_iter() {
                 let index = moveset[0].unwrap() as usize;
@@ -190,7 +203,7 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeStatus},
+                node::{DNode, DNodeAliveStatus, DNodeStatus},
             },
         },
         read_game_state,
@@ -210,24 +223,39 @@ mod tests {
         println!("{}", node);
         let children = node.calc_children();
         assert_eq!(children.len(), 4);
-        assert_eq!(children[0].status(), DNodeStatus::Alive);
+        assert_eq!(
+            children[0].status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         assert_eq!(children[0].id, DNodeId::from("U"));
         assert_eq!(children[1].status(), DNodeStatus::Dead);
         assert_eq!(children[1].id, DNodeId::from("D"));
         assert_eq!(children[2].status(), DNodeStatus::Dead);
         assert_eq!(children[2].id, DNodeId::from("L"));
-        assert_eq!(children[3].status(), DNodeStatus::Alive);
+        assert_eq!(
+            children[3].status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         assert_eq!(children[3].id, DNodeId::from("R"));
         println!("{}", children[3]);
         let children_right = children[3].calc_children();
         assert_eq!(children_right.len(), 4);
-        assert_eq!(children_right[0].status(), DNodeStatus::Alive);
+        assert_eq!(
+            children_right[0].status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         assert_eq!(children_right[0].id, DNodeId::from("RU"));
-        assert_eq!(children_right[1].status(), DNodeStatus::Alive);
+        assert_eq!(
+            children_right[1].status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         assert_eq!(children_right[1].id, DNodeId::from("RD"));
         assert_eq!(children_right[2].status(), DNodeStatus::Dead);
         assert_eq!(children_right[2].id, DNodeId::from("RL"));
-        assert_eq!(children_right[3].status(), DNodeStatus::Alive);
+        assert_eq!(
+            children_right[3].status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
         assert_eq!(children_right[3].id, DNodeId::from("RR"));
     }
 
