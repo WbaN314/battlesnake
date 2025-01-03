@@ -201,7 +201,7 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         }
     }
 
-    pub fn direction(&mut self) -> DDirection {
+    pub fn approved_directions(&mut self) -> [bool; 4] {
         let mut best_nodes: [Option<&Node>; 4] = [None; 4];
         for i in 0..4 {
             for direction_result in self.direction_results.iter_mut() {
@@ -223,11 +223,6 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             (Some(_), None) => std::cmp::Ordering::Greater,
             (Some(node1), Some(node2)) => node1.result_order(node2),
         });
-
-        match best_nodes.last() {
-            Some(Some(node)) => node.id().first().unwrap().clone(),
-            _ => DDirection::Up,
-        }
     }
 }
 
@@ -375,6 +370,29 @@ mod tests {
     #[test]
     fn test_simulate_full() {
         let gamestate = read_game_state("requests/test_move_request_2b.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            DTreeTime::new(Duration::from_millis(200)),
+            DNodeStatus::default(),
+        );
+        let mut tree = DTree::default().root(root);
+        let status = tree.simulate();
+        println!("{}", tree);
+        println!("{:?}\n", status);
+        println!("{}", tree.result());
+        println!("{}", tree.result().direction());
+    }
+
+    #[test]
+    fn test_simulate_full_2() {
+        let gamestate = read_game_state("requests/failure_8.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
