@@ -152,26 +152,6 @@ impl DNode for DFullSimulationNode {
     }
 }
 
-impl Ord for DFullSimulationNode {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.states.len().cmp(&other.states.len()).reverse()
-    }
-}
-
-impl PartialOrd for DFullSimulationNode {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for DFullSimulationNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for DFullSimulationNode {}
-
 impl Display for DFullSimulationNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.id)?;

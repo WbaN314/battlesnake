@@ -80,26 +80,6 @@ impl DNode for DPessimisticCaptureNode {
     }
 }
 
-impl Ord for DPessimisticCaptureNode {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
-impl PartialOrd for DPessimisticCaptureNode {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for DPessimisticCaptureNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for DPessimisticCaptureNode {}
-
 impl Display for DPessimisticCaptureNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.id)?;

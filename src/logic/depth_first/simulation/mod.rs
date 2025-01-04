@@ -33,8 +33,14 @@ impl DSimulation {
             .root(optimistic_capture)
             .time(Duration::from_millis(50));
         let capture_status = capture_tree.simulate();
-        let mut capture_result = capture_tree.result();
+        let capture_result = capture_tree.result();
         let capture_directions = capture_result.approved_directions();
+
+        if env::var("MODE").is_ok_and(|value| value == "test") {
+            println!("{:?}\n", capture_status);
+            println!("{}", capture_result);
+            println!("{:?}", capture_directions);
+        }
 
         let full_simulation = DFullSimulationNode::new(
             Default::default(),
@@ -46,7 +52,7 @@ impl DSimulation {
             .root(full_simulation)
             .time(Duration::from_millis(200));
         let simulation_status = simulation_tree.simulate();
-        let mut simulation_result = simulation_tree.result();
+        let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
 
         let mut final_directions = [true; 4];
@@ -55,7 +61,6 @@ impl DSimulation {
         }
 
         if env::var("MODE").is_ok_and(|value| value == "test") {
-            println!("{}", simulation_tree);
             println!("{:?}\n", simulation_status);
             println!("{}", simulation_result);
             println!("{:?}", simulation_directions);
