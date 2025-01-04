@@ -11,6 +11,7 @@ use super::{
     node::{self, DNode, DNodeStatus},
 };
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fmt::Display,
     time::{Duration, Instant},
@@ -128,17 +129,17 @@ where
                     let direction = node.id().first().unwrap();
                     let index: usize = *direction as usize;
                     results[index].states += node.statistics().states.unwrap_or(1);
-                    let depth = node.id().len();
-                    if depth > results[index].depth {
-                        results[index].depth = depth;
-                        results[index].best.clear();
-                        results[index].best.push(node.id().clone());
-                    } else if depth == results[index].depth {
-                        results[index].best.push(node.id().clone());
-                    }
+                    results[index].node_ids.push(node.id().clone());
                 }
                 _ => (),
             }
+        }
+        for result in results.iter_mut() {
+            result.node_ids.sort_unstable_by(|id1, id2| {
+                let node1 = self.nodes.get(id1).unwrap();
+                let node2 = self.nodes.get(id2).unwrap();
+                node1.result_order(node2)
+            });
         }
         DSimulationResult::new(results, self)
     }
@@ -201,28 +202,28 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         }
     }
 
-    pub fn approved_directions(&mut self) -> [bool; 4] {
-        let mut best_nodes: [Option<&Node>; 4] = [None; 4];
-        for i in 0..4 {
-            for direction_result in self.direction_results.iter_mut() {
-                direction_result.best.sort_unstable_by(|id1, id2| {
-                    let node1 = self.tree.nodes.get(id1).unwrap();
-                    let node2 = self.tree.nodes.get(id2).unwrap();
-                    node1.result_order(node2)
-                });
-                best_nodes[i] = if let Some(id) = direction_result.best.last() {
-                    Some(self.tree.nodes.get(id).unwrap())
-                } else {
-                    None
-                }
+    pub fn approved_directions(&self) -> [bool; 4] {
+        let mut best_nodes: Vec<&Node> = Vec::new();
+        for direction_result in self.direction_results.iter() {
+            if let Some(id) = direction_result.node_ids.last() {
+                let node = self.tree.nodes.get(id).unwrap();
+                best_nodes.push(node);
             }
         }
-        best_nodes.sort_unstable_by(|opt1, opt2| match (opt1, opt2) {
-            (None, None) => std::cmp::Ordering::Equal,
-            (None, Some(_)) => std::cmp::Ordering::Less,
-            (Some(_), None) => std::cmp::Ordering::Greater,
-            (Some(node1), Some(node2)) => node1.result_order(node2),
-        });
+
+        let mut approved_directions = [false; 4];
+        if best_nodes.len() == 0 {
+            return approved_directions;
+        } else {
+            best_nodes.sort_unstable_by(|node1, node2| node1.result_order(node2));
+            let last_node = best_nodes.last().unwrap();
+            for node in best_nodes.iter() {
+                if node.result_order(last_node) == Ordering::Equal {
+                    approved_directions[*node.id().first().unwrap() as usize] = true;
+                }
+            }
+            return approved_directions;
+        }
     }
 }
 
@@ -239,7 +240,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
 struct DSimulationDirectionResult {
     pub direction: DDirection,
     pub depth: usize,
-    pub best: Vec<DNodeId>,
+    pub node_ids: Vec<DNodeId>,
     pub states: usize,
 }
 
@@ -248,7 +249,7 @@ impl DSimulationDirectionResult {
         Self {
             direction,
             depth: 0,
-            best: Vec::new(),
+            node_ids: Vec::new(),
             states: 0,
         }
     }
@@ -259,7 +260,7 @@ impl Display for DSimulationDirectionResult {
         writeln!(f, "{}", self.direction)?;
         writeln!(f, "Depth: {}", self.depth)?;
         writeln!(f, "States: {}", self.states)?;
-        for id in &self.best {
+        for id in &self.node_ids {
             writeln!(f, "{}", id)?;
         }
         Ok(())
@@ -341,7 +342,7 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
-        println!("{}", tree.result().direction());
+        println!("{:?}", tree.result().approved_directions());
     }
 
     #[test]
@@ -364,7 +365,7 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
-        println!("{}", tree.result().direction());
+        println!("{:?}", tree.result().approved_directions());
     }
 
     #[test]
@@ -387,7 +388,7 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
-        println!("{}", tree.result().direction());
+        println!("{:?}", tree.result().approved_directions());
     }
 
     #[test]
@@ -410,6 +411,6 @@ mod tests {
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
-        println!("{}", tree.result().direction());
+        println!("{:?}", tree.result().approved_directions());
     }
 }

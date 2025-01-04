@@ -80,3 +80,31 @@ impl TryFrom<char> for DDirection {
         }
     }
 }
+
+impl TryFrom<usize> for DDirection {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(DDirection::Up),
+            1 => Ok(DDirection::Down),
+            2 => Ok(DDirection::Left),
+            3 => Ok(DDirection::Right),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<i32> for DDirection {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(DDirection::Up),
+            1 => Ok(DDirection::Down),
+            2 => Ok(DDirection::Left),
+            3 => Ok(DDirection::Right),
+            _ => Err(()),
+        }
+    }
+}
