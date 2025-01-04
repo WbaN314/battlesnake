@@ -77,10 +77,6 @@
                 "body": [
                     {
                         "x": 5,
-                        "y": 4
-                    },
-                    {
-                        "x": 5,
                         "y": 3
                     },
                     {
@@ -95,9 +91,9 @@
                 "latency": "222",
                 "head": {
                     "x": 5,
-                    "y": 4
+                    "y": 3
                 },
-                "length": 4,
+                "length": 3,
                 "shout": "I'm not really sure...",
                 "customizations": {
                     "color": "#26CF04",

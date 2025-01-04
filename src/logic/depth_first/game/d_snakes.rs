@@ -60,8 +60,8 @@ mod tests {
             DSnake::Alive {
                 id: 1,
                 health: 16,
-                length: 4,
-                head: DCoord { x: 5, y: 4 },
+                length: 3,
+                head: DCoord { x: 5, y: 3 },
                 tail: DCoord { x: 6, y: 2 },
                 stack: 0
             }

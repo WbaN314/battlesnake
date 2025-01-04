@@ -143,7 +143,7 @@ mod tests {
         let mut state = EGameState::from(&game_state.board, &game_state.you);
         assert!(state.board.clone().fill(&ECoord::from(0, 0)).is_none());
         assert!(state.board.clone().fill(&ECoord::from(-1, 0)).is_none());
-        assert_eq!(state.board.fill(&ECoord::from(0, 1)).unwrap().area, 114);
+        assert_eq!(state.board.fill(&ECoord::from(0, 1)).unwrap().area, 115);
         println!("{state}");
     }
 

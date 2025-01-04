@@ -14,7 +14,7 @@
         "source": "league",
         "timeout": 500
     },
-    "turn": 14,
+    "turn": 13,
     "board": {
         "height": 11,
         "width": 11,

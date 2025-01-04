@@ -94,7 +94,15 @@ pub fn read_game_state(path: &str) -> GameState {
     let file = std::fs::File::open(path).unwrap();
     let reader = std::io::BufReader::new(file);
     let game_state: GameState = serde_json::from_reader(reader).unwrap();
+    check_game_state(&game_state);
     game_state
+}
+
+fn check_game_state(state: &GameState) {
+    for snake in state.board.snakes.iter() {
+        let snake_sum = snake.head.x + snake.head.y;
+        assert!(snake_sum % 2 == state.turn % 2);
+    }
 }
 
 pub fn get_move_from_json_file(path: &str) -> Direction {
