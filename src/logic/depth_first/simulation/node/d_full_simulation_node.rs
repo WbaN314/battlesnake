@@ -20,7 +20,6 @@ pub struct DFullSimulationNode {
     time: DTreeTime,
     status: Cell<DNodeStatus>,
     statistics: Cell<Option<DNodeStatistics>>,
-    leaf: bool,
 }
 
 impl DFullSimulationNode {
@@ -36,7 +35,6 @@ impl DFullSimulationNode {
             time,
             status: Cell::new(status),
             statistics: Cell::new(None),
-            leaf: true,
         }
     }
 }
@@ -149,6 +147,26 @@ impl DNode for DFullSimulationNode {
             self.statistics.set(Some(statistics));
         }
         self.statistics.get().unwrap()
+    }
+
+    fn result_order(&self, other: &Self) -> Ordering {
+        // Best element should be last
+        let self_stats = self.statistics();
+        let other_stats = other.statistics();
+
+        self.status.cmp(&other.status).then(
+            self.id.len().cmp(&other.id.len()).then(
+                self_stats
+                    .highest_alive_snakes
+                    .cmp(&other_stats.highest_alive_snakes)
+                    .reverse()
+                    .then(
+                        self_stats
+                            .lowest_self_length
+                            .cmp(&other_stats.lowest_self_length),
+                    ),
+            ),
+        )
     }
 }
 

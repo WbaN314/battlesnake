@@ -20,26 +20,26 @@ pub trait DNode {
         self.id().cmp(other.id())
     }
     fn result_order(&self, other: &Self) -> Ordering {
-        self.id().cmp(other.id())
+        self.id().len().cmp(&other.id().len())
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DNodeStatus {
     #[default]
     Unknown,
-    Alive(DNodeAliveStatus),
     Dead,
-    TimedOut,
     DeadEnd,
+    TimedOut,
+    Alive(DNodeAliveStatus),
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DNodeAliveStatus {
     #[default]
     Unknown,
-    Always,
     Sometimes,
+    Always,
 }
 
 #[derive(Default, Copy, Clone)]

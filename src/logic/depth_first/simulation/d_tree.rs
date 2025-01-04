@@ -1,14 +1,8 @@
-use arrayvec::ArrayVec;
-use serde::de;
-
-use crate::logic::{
-    depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST},
-    legacy::shared::e_snakes::SNAKES,
-};
+use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
-    node::{self, DNode, DNodeStatus},
+    node::{DNode, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
@@ -71,7 +65,7 @@ where
     }
 
     pub fn simulate(&mut self) -> DSimulationStatus {
-        let mut simulation_status = DSimulationStatus::default();
+        let simulation_status;
         let mut count = 0;
         'simulation: loop {
             if self.time.is_timed_out() {
@@ -123,6 +117,8 @@ where
         for d in D_DIRECTION_LIST {
             results.push(DSimulationDirectionResult::new(d));
         }
+
+        // Add alive nodes to results and count the states
         for (_, node) in self.nodes.iter() {
             match node.status() {
                 DNodeStatus::Alive(_) if node.id().len() > 0 => {
@@ -134,6 +130,7 @@ where
                 _ => (),
             }
         }
+        // Sort the node ids by the node result order
         for result in results.iter_mut() {
             result.node_ids.sort_unstable_by(|id1, id2| {
                 let node1 = self.nodes.get(id1).unwrap();
@@ -141,6 +138,16 @@ where
                 node1.result_order(node2)
             });
         }
+
+        for i in 0..4 {
+            results[i].depth = if let Some(id) = results[i].node_ids.last() {
+                self.nodes.get(&id).unwrap().id().len()
+            } else {
+                0
+            };
+            results[i].finished = self.queue[i].len() == 0
+        }
+
         DSimulationResult::new(results, self)
     }
 
@@ -242,6 +249,7 @@ struct DSimulationDirectionResult {
     pub depth: usize,
     pub node_ids: Vec<DNodeId>,
     pub states: usize,
+    pub finished: bool,
 }
 
 impl DSimulationDirectionResult {
@@ -251,6 +259,7 @@ impl DSimulationDirectionResult {
             depth: 0,
             node_ids: Vec::new(),
             states: 0,
+            finished: false,
         }
     }
 }
@@ -267,7 +276,7 @@ impl Display for DSimulationDirectionResult {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum DSimulationStatus {
     #[default]
     Unknown,
