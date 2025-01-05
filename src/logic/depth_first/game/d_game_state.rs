@@ -346,7 +346,7 @@ impl DGameState<DSlowField> {
             }
         }
 
-        // Create reachable fields for headless snakes that have no movement
+        // Create reachable fields for snakes that have no movement
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
             let movement = moves[id as usize];
@@ -354,7 +354,8 @@ impl DGameState<DSlowField> {
                 (
                     DSnake::Headless {
                         last_head: head, ..
-                    },
+                    }
+                    | DSnake::Alive { head, .. },
                     None,
                 ) => {
                     for d in D_DIRECTION_LIST {
@@ -1428,5 +1429,52 @@ mod tests {
         );
         println!("{}", state);
         state.play(["RRRRRRULLLLLLUUUUUUU", "DRRRRDRURDDLLDLLLLLL", "", ""]);
+    }
+
+    #[test]
+    fn test_better_capture_propagation_order() {
+        let gamestate = read_game_state("requests/failure_6.json");
+        let mut state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let mut state_2 = state.clone();
+
+        let moves = [Some(DDirection::Right), None, None, None];
+        state.next_state(moves).move_reachable(moves, 1);
+        state_2
+            .move_tails()
+            .move_reachable(moves, 1)
+            .move_heads(moves);
+
+        println!("{}", state);
+        println!("{}", state_2);
+
+        match state.board.cell(4, 9).unwrap().get() {
+            DSlowField::Empty { reachable } => {
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 0]);
+            }
+            _ => panic!("Problem with field (4, 9)"),
+        }
+
+        match state_2.board.cell(4, 9).unwrap().get() {
+            DSlowField::Empty { reachable } => {
+                assert_eq!(reachable.map(|x| x.turn()), [0, 1, 0, 0]);
+            }
+            _ => panic!("Problem with field (4, 9)"),
+        }
+
+        state_2.move_tails().move_reachable(moves, 2);
+
+        println!("{}", state_2);
+
+        let pessimistic_moves = state_2.scope_moves_pessimistic();
+        assert_eq!(pessimistic_moves.len(), 0);
+
+        let optimistic_moves = state_2.scope_moves_optimistic(2);
+        assert_eq!(optimistic_moves.len(), 2);
     }
 }
