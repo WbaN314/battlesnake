@@ -314,7 +314,7 @@ impl DGameState<DSlowField> {
                                         for i in 0..SNAKES {
                                             if !reachable_original[i as usize].is_set()
                                                 && reachable_other[i as usize].is_set()
-                                                && ((neighbor.x + neighbor.y) % 2) as u8
+                                                && ((x + y) % 2) as u8
                                                     == ((turn as i32 + self.turn) % 2) as u8
                                             {
                                                 reachable_board[y as usize][x as usize]
@@ -1375,10 +1375,6 @@ mod tests {
             DSlowField::snake(0, Some(DDirection::Left))
         );
         assert_eq!(
-            d_gamestate.board.cell(5, 4).unwrap().get(),
-            DSlowField::snake(1, None)
-        );
-        assert_eq!(
             d_gamestate.snakes.cell(0).get(),
             DSnake::Alive {
                 id: 0,
@@ -1394,8 +1390,8 @@ mod tests {
             DSnake::Alive {
                 id: 1,
                 health: 16,
-                length: 4,
-                head: DCoord { x: 5, y: 4 },
+                length: 3,
+                head: DCoord { x: 5, y: 3 },
                 tail: DCoord { x: 6, y: 2 },
                 stack: 0
             }

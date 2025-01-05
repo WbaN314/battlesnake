@@ -170,6 +170,6 @@ mod tests {
         let new_node = new_node.calc_child(DDirection::Right);
         println!("{}", new_node);
         let moves = new_node.calc_moves();
-        assert_eq!(moves.len(), 3);
+        assert_eq!(moves.len(), 0);
     }
 }
