@@ -140,7 +140,6 @@ fn failure_20_for_improved_area_evaluation() {
 
 #[test]
 fn failure_21_bait_into_trap_with_top_wall() {
-    // TODO: Space should be able to judge this if improved
     let chosen_move = get_move_from_json_file("failure_21_bait_into_trap_with_top_wall.json");
     assert_eq!(chosen_move, Direction::Right);
 }

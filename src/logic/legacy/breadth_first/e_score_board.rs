@@ -373,7 +373,7 @@ impl EScoreBoard {
                     Some((_, distance)) => {
                         let new_head = my_snake.head + EDIRECTION_VECTORS[d];
                         let mut weight = (100.0 - my_snake.health as f64).max(0.0)
-                            + (25.0 - distance as f64).max(0.0) // TODO: More emphasis on distnace compared to other directions
+                            + (25.0 - distance as f64).max(0.0)
                             + (25.0 - my_snake.length as f64).max(0.0);
                         weight *= relative_distance_weight[d];
                         self.update(new_head.x, new_head.y, weight);

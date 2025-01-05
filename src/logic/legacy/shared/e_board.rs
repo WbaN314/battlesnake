@@ -128,9 +128,6 @@ pub struct EArea {
     pub opening_times_by_snake: [Option<u8>; SNAKES as usize],
 }
 
-// TODO: Try to enclose enemy in areas where opening time > oponent length and size < opponent length
-// Evaluate area for own and enemy snake head
-
 impl EArea {
     pub fn new() -> Self {
         Self {
