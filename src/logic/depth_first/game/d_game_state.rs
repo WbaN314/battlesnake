@@ -60,7 +60,7 @@ impl<T: DField> DGameState<T> {
         self.move_tails().move_heads(moves)
     }
 
-    fn move_heads(&mut self, moves: DMoves) -> &mut Self {
+    pub fn move_heads(&mut self, moves: DMoves) -> &mut Self {
         // Calculate potential new heads and handle headless snakes and non moves and food and health
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
@@ -217,7 +217,7 @@ impl<T: DField> DGameState<T> {
         self
     }
 
-    fn move_tails(&mut self) -> &mut Self {
+    pub fn move_tails(&mut self) -> &mut Self {
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
             match snake {
@@ -532,6 +532,41 @@ impl DGameState<DSlowField> {
         }
         movable_fields
     }
+
+    pub fn relevant_snakes(
+        &self,
+        movement: DDirection,
+        turn: u8,
+    ) -> [DRelevanceState; SNAKES as usize] {
+        let mut relevant_snakes = [DRelevanceState::None; SNAKES as usize];
+        let my_head = match self.snakes.cell(0).get() {
+            DSnake::Alive { head, .. } => head,
+            _ => panic!("Dead snake can't be checked for relevant snakes"),
+        };
+        let new_head = my_head + movement;
+        if let Some(cell) = self.board.cell(new_head.x, new_head.y) {
+            match cell.get() {
+                DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
+                    for id in 1..SNAKES {
+                        if reachable[id as usize].turn() == turn {
+                            relevant_snakes[id as usize] = DRelevanceState::Head;
+                        } else if reachable[id as usize].is_set() {
+                            relevant_snakes[id as usize] = DRelevanceState::Body;
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        relevant_snakes
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DRelevanceState {
+    None,
+    Body,
+    Head,
 }
 
 impl From<DGameState<DSlowField>> for DGameState<DFastField> {

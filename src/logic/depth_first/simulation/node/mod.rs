@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 
+use crate::logic::depth_first::game::d_game_state::DRelevanceState;
+
 use super::d_node_id::DNodeId;
 
 pub mod d_full_simulation_node;
@@ -49,4 +51,5 @@ pub struct DNodeStatistics {
     pub states: Option<usize>,
     pub highest_alive_snakes: Option<usize>,
     pub lowest_self_length: Option<usize>,
+    pub relevant_snakes: [Option<(DRelevanceState, u8)>; 4],
 }

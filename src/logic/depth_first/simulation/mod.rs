@@ -48,6 +48,7 @@ impl DSimulation {
                 self.initial_state.clone(),
                 Default::default(),
                 Default::default(),
+                Default::default(),
             );
             let mut capture_tree = DTree::default()
                 .root(optimistic_capture)

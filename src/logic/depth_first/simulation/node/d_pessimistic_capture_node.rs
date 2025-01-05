@@ -1,7 +1,6 @@
 use std::{cell::Cell, cmp::Ordering, fmt::Display};
 
 use arrayvec::ArrayVec;
-use rocket::response::status;
 
 use crate::logic::depth_first::{
     game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},

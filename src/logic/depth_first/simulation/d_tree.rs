@@ -324,7 +324,8 @@ mod tests {
                 node::{
                     d_full_simulation_node::DFullSimulationNode,
                     d_optimistic_capture_node::DOptimisticCaptureNode,
-                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNodeStatus,
+                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNodeStatistics,
+                    DNodeStatus,
                 },
             },
         },
@@ -368,6 +369,7 @@ mod tests {
             state,
             DTreeTime::default(),
             DNodeStatus::default(),
+            DNodeStatistics::default(),
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(50));
         let status = tree.simulate();
@@ -402,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_simulate_full_2() {
-        let gamestate = read_game_state("requests/failure_8.json");
+        let gamestate = read_game_state("requests/failure_6.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -421,5 +423,7 @@ mod tests {
         println!("{:?}\n", status);
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
+
+        // sTODO: Think about adding Dead substates to differentiate betwen certain deaths and deaths depending on enemy moves
     }
 }

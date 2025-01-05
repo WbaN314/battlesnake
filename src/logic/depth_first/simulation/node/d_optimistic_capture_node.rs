@@ -1,10 +1,17 @@
-use super::{DNode, DNodeAliveStatus, DNodeStatus};
-use crate::logic::depth_first::{
-    game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
-    simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
+use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
+use crate::logic::{
+    depth_first::{
+        game::{
+            d_direction::DDirection,
+            d_field::DSlowField,
+            d_game_state::{DGameState, DRelevanceState},
+        },
+        simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
+    },
+    legacy::shared::e_snakes::SNAKES,
 };
 use arrayvec::ArrayVec;
-use std::{cell::Cell, cmp::Ordering, fmt::Display};
+use std::{cell::Cell, fmt::Display};
 
 pub struct DOptimisticCaptureNode {
     id: DNodeId,
@@ -12,6 +19,7 @@ pub struct DOptimisticCaptureNode {
     time: DTreeTime,
     status: Cell<DNodeStatus>,
     child_alive_helper: Cell<[DNodeAliveStatus; 4]>,
+    statistics: Cell<DNodeStatistics>,
 }
 
 impl DOptimisticCaptureNode {
@@ -20,6 +28,7 @@ impl DOptimisticCaptureNode {
         state: DGameState<DSlowField>,
         time: DTreeTime,
         status: DNodeStatus,
+        statistics: DNodeStatistics,
     ) -> Self {
         Self {
             id,
@@ -27,7 +36,12 @@ impl DOptimisticCaptureNode {
             time,
             status: Cell::new(status),
             child_alive_helper: Cell::new([DNodeAliveStatus::default(); 4]),
+            statistics: Cell::new(statistics),
         }
+    }
+
+    fn statistics(&self) -> DNodeStatistics {
+        self.statistics.get()
     }
 
     fn calc_child(&self, direction: DDirection) -> Self {
@@ -36,13 +50,30 @@ impl DOptimisticCaptureNode {
         new_id.push(direction);
         let mut new_state = self.state.clone();
         new_state
-            .next_state(moves)
+            .move_tails()
             .move_reachable(moves, new_id.len() as u8);
+
+        // Get relevant snakes, i.e. snakes that have reachable set for next move
+        let relevant_snakes = new_state.relevant_snakes(direction, new_id.len() as u8);
+        let mut statistics = self.statistics.get();
+        for i in 0..SNAKES as usize {
+            match statistics.relevant_snakes[i] {
+                None => match relevant_snakes[i] {
+                    status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
+                        statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
+                    }
+                    _ => (),
+                },
+                _ => (),
+            }
+        }
+
+        new_state.move_heads(moves);
         let status = match new_state.get_alive()[0] {
             true => DNodeStatus::Alive(self.child_alive_helper.get()[direction as usize]),
             false => DNodeStatus::Dead,
         };
-        Self::new(new_id, new_state, self.time.clone(), status)
+        Self::new(new_id, new_state, self.time.clone(), status, statistics)
     }
 
     fn calc_moves(&self) -> ArrayVec<DDirection, 4> {
@@ -108,11 +139,15 @@ mod tests {
     use super::DOptimisticCaptureNode;
     use crate::{
         logic::depth_first::{
-            game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
+            game::{
+                d_direction::DDirection,
+                d_field::DSlowField,
+                d_game_state::{DGameState, DRelevanceState},
+            },
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeAliveStatus, DNodeStatus},
+                node::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus},
             },
         },
         read_game_state,
@@ -128,6 +163,7 @@ mod tests {
             gamestate,
             DTreeTime::default(),
             DNodeStatus::default(),
+            DNodeStatistics::default(),
         );
         println!("{}", node);
         node.calc_moves();
@@ -151,6 +187,7 @@ mod tests {
             gamestate,
             DTreeTime::default(),
             DNodeStatus::default(),
+            DNodeStatistics::default(),
         );
         let moves = node.calc_moves();
         assert_eq!(moves.len(), 2);
@@ -171,5 +208,39 @@ mod tests {
         println!("{}", new_node);
         let moves = new_node.calc_moves();
         assert_eq!(moves.len(), 0);
+    }
+
+    #[test]
+    fn test_relevant_snakes() {
+        let request = read_game_state("requests/failure_2.json");
+        let gamestate =
+            DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
+        let node = DOptimisticCaptureNode::new(
+            DNodeId::default(),
+            gamestate,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+            DNodeStatistics::default(),
+        );
+        println!("{}", node);
+
+        let r = node.calc_child(DDirection::Right);
+
+        println!("{}", r);
+
+        let relevant_snakes = r.statistics().relevant_snakes;
+
+        assert_eq!(relevant_snakes[0], None);
+        assert_eq!(relevant_snakes[1], None);
+        assert_eq!(relevant_snakes[2], Some((DRelevanceState::Head, 1)));
+
+        let rd = r.calc_child(DDirection::Down);
+        let relevant_snakes = rd.statistics().relevant_snakes;
+
+        println!("{}", rd);
+
+        assert_eq!(relevant_snakes[0], None);
+        assert_eq!(relevant_snakes[1], None);
+        assert_eq!(relevant_snakes[2], Some((DRelevanceState::Head, 1)));
     }
 }
