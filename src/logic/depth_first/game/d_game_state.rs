@@ -1485,18 +1485,6 @@ mod tests {
     }
 
     #[test]
-    fn play_state() {
-        let gamestate = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
-        let state = DGameState::<DSlowField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
-        println!("{}", state);
-        state.play(["RRRRRRULLLLLLUUUUUUU", "DRRRRDRURDDLLDLLLLLL", "", ""]);
-    }
-
-    #[test]
     fn test_better_capture_propagation_order() {
         let gamestate = read_game_state("requests/failure_6.json");
         let mut state = DGameState::<DSlowField>::from_request(
@@ -1541,5 +1529,18 @@ mod tests {
 
         let optimistic_moves = state_2.scope_moves_optimistic(2);
         assert_eq!(optimistic_moves.len(), 2);
+    }
+
+    #[test]
+    fn play_state() {
+        let gamestate = read_game_state("requests/failure_9.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let new_state = state.play(["DRURDRUUUUU", "R", "", ""]);
+        println!("{}", new_state);
     }
 }
