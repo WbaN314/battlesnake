@@ -241,8 +241,10 @@ impl<T: DField> DGameState<T> {
 
     pub fn possible_moves(&self) -> DMovesSet {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
+        let mut moved_tails = self.clone();
+        moved_tails.move_tails();
         for id in 0..SNAKES {
-            possible_moves[id as usize] = self.possible_moves_for(id)
+            possible_moves[id as usize] = moved_tails.possible_moves_for(id)
         }
         DMovesSet::new(possible_moves)
     }
@@ -386,17 +388,20 @@ impl DGameState<DSlowField> {
     pub fn scope_moves_optimistic(&self, turn: u8) -> ArrayVec<DDirection, 4> {
         // Observation: Snakes can reach a fixed point with the head only every second move
 
+        let mut gamestate = self.clone();
+        gamestate.move_tails();
+
         // Check if there are any problematic snakes
         let mut problematic_snakes = [false; SNAKES as usize];
         let mut movable_fields = ArrayVec::<_, 4>::new();
         let mut movable_fields_list = [false; 4];
-        let my_head = match self.snakes.cell(0).get() {
+        let my_head = match gamestate.snakes.cell(0).get() {
             DSnake::Alive { head, .. } => head,
             _ => panic!("Dead snake can't be checked for dead end"),
         };
         for i in 0..4 {
             let neighbor_coord = my_head + D_DIRECTION_LIST[i];
-            let neighbor_field = self.board.cell(neighbor_coord.x, neighbor_coord.y);
+            let neighbor_field = gamestate.board.cell(neighbor_coord.x, neighbor_coord.y);
             if let Some(field) = neighbor_field {
                 match field.get() {
                     DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
@@ -470,7 +475,7 @@ impl DGameState<DSlowField> {
                             .zip(coords.iter().skip(1))
                             .fold(0, |acc, (a, &&b)| acc + a.distance_to(b));
 
-                        match self.snakes.cell(id).get() {
+                        match gamestate.snakes.cell(id).get() {
                             DSnake::Headless { last_head, .. } => {
                                 if total_distance + coords.last().unwrap().distance_to(last_head)
                                     <= turn
@@ -510,13 +515,16 @@ impl DGameState<DSlowField> {
     pub fn scope_moves_pessimistic(&self) -> ArrayVec<DDirection, 4> {
         let mut movable_fields = ArrayVec::<DDirection, 4>::new();
 
-        let head = match self.snakes.cell(0).get() {
+        let mut gamestate = self.clone();
+        gamestate.move_tails();
+
+        let head = match gamestate.snakes.cell(0).get() {
             DSnake::Alive { head, .. } => head,
             _ => panic!("Dead snake can't be checked for dead end"),
         };
         'direction: for d in D_DIRECTION_LIST {
             let neighbor = head + d;
-            if let Some(cell) = self.board.cell(neighbor.x, neighbor.y) {
+            if let Some(cell) = gamestate.board.cell(neighbor.x, neighbor.y) {
                 match cell.get() {
                     DSlowField::Empty { reachable, .. } | DSlowField::Food { reachable, .. } => {
                         for id in 1..SNAKES {
@@ -906,6 +914,12 @@ mod tests {
         assert!(!result.contains(&DDirection::Down));
         assert!(!result.contains(&DDirection::Left));
         assert!(!result.contains(&DDirection::Right));
+
+        let gamestate = read_game_state("requests/failure_9.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
+        println!("{}", state);
+        let result = state.scope_moves_optimistic(1);
+        assert!(result.contains(&DDirection::Up));
     }
 
     #[test]
@@ -938,6 +952,12 @@ mod tests {
         println!("{}", state);
         let result = state.scope_moves_pessimistic();
         assert!(result.len() == 0);
+
+        let gamestate = read_game_state("requests/failure_9.json");
+        let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
+        println!("{}", state);
+        let result = state.scope_moves_pessimistic();
+        assert!(result.contains(&DDirection::Up));
     }
 
     #[test]
@@ -1086,6 +1106,16 @@ mod tests {
         let moves = state.possible_moves().generate();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
+
+        let gamestate = read_game_state("requests/failure_9.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let moves = state.possible_moves();
+        assert_eq!(moves.get(0), [true, true, false, true]);
     }
 
     #[test]
