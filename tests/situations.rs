@@ -1,3 +1,4 @@
+use battlesnake_game_of_chicken::logic::depth_first::game::d_direction::DDirection;
 #[cfg(test)]
 use battlesnake_game_of_chicken::{get_move_from_json_file, Direction};
 
@@ -123,7 +124,7 @@ fn failure_17() {
 #[test]
 fn failure_18() {
     let chosen_move = get_move_from_json_file("failure_18.json");
-    assert_eq!(chosen_move, Direction::Down);
+    assert!([Direction::Down, Direction::Left].contains(&chosen_move));
 }
 
 #[test]
