@@ -141,6 +141,14 @@
                     {
                         "x": 8,
                         "y": 8
+                    },
+                    {
+                        "x": 8,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 6
                     }
                 ],
                 "latency": "222",
@@ -148,7 +156,7 @@
                     "x": 8,
                     "y": 8
                 },
-                "length": 1,
+                "length": 3,
                 "shout": "I'm not really sure...",
                 "customizations": {
                     "color": "#26CF04",
