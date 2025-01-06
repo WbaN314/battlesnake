@@ -52,7 +52,8 @@ impl DSimulation {
             );
             let mut capture_tree = DTree::default()
                 .root(optimistic_capture)
-                .time(Duration::from_millis(50));
+                .time(Duration::from_millis(50))
+                .max_depth(20);
             let capture_status = capture_tree.simulate();
             let capture_result = capture_tree.result();
             let capture_directions = capture_result.approved_directions();

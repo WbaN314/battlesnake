@@ -46,6 +46,7 @@ pub struct DTree<Node: DNode> {
     nodes: BTreeMap<DNodeId, Box<Node>>,
     queue: [Vec<DNodeId>; 4],
     time: DTreeTime,
+    max_depth: Option<usize>,
 }
 
 impl<Node> DTree<Node>
@@ -64,6 +65,11 @@ where
         self
     }
 
+    pub fn max_depth(mut self, depth: usize) -> Self {
+        self.max_depth = Some(depth);
+        self
+    }
+
     pub fn simulate(&mut self) -> DSimulationStatus {
         let simulation_status;
         let mut count = 0;
@@ -74,6 +80,9 @@ where
             }
             match self.queue[count % 4].pop() {
                 Some(parent_id) => {
+                    if parent_id.len() >= self.max_depth.unwrap_or(usize::MAX) {
+                        continue;
+                    }
                     let parent = self.nodes.get(&parent_id).unwrap();
                     match parent.status() {
                         DNodeStatus::Alive(_) => {
@@ -82,12 +91,14 @@ where
                                 match status {
                                     DNodeStatus::Alive(_) => {
                                         let index = id.direction().unwrap() as usize;
-                                        self.queue[index].push(id);
-                                        self.queue[index].sort_unstable_by(|id1, id2| {
-                                            let node1 = self.nodes.get(id1).unwrap();
-                                            let node2 = self.nodes.get(id2).unwrap();
-                                            node1.simulation_order(node2)
-                                        });
+                                        if id.len() < self.max_depth.unwrap_or(usize::MAX) {
+                                            self.queue[index].push(id);
+                                            self.queue[index].sort_unstable_by(|id1, id2| {
+                                                let node1 = self.nodes.get(id1).unwrap();
+                                                let node2 = self.nodes.get(id2).unwrap();
+                                                node1.simulation_order(node2)
+                                            });
+                                        }
                                     }
                                     DNodeStatus::TimedOut => {
                                         simulation_status = DSimulationStatus::TimedOut;
@@ -290,6 +301,7 @@ impl<Node: DNode> Default for DTree<Node> {
             nodes: BTreeMap::new(),
             queue: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             time: DTreeTime::default(),
+            max_depth: None,
         }
     }
 }
@@ -424,6 +436,28 @@ mod tests {
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
 
-        // sTODO: Think about adding Dead substates to differentiate betwen certain deaths and deaths depending on enemy moves
+        // TODO: Think about adding Dead substates to differentiate betwen certain deaths and deaths depending on enemy moves
+    }
+
+    #[test]
+    fn test_tree_max_depth() {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let root = DOptimisticCaptureNode::new(
+            DNodeId::default(),
+            state,
+            DTreeTime::new(Duration::from_millis(200)),
+            DNodeStatus::default(),
+            DNodeStatistics::default(),
+        );
+        let mut tree = DTree::default().root(root).max_depth(10);
+        tree.simulate();
+        println!("{}", tree);
+        assert_eq!(tree.statistics_depth(), 10);
     }
 }
