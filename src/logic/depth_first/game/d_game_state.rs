@@ -129,7 +129,12 @@ impl<T: DField> DGameState<T> {
         }
 
         // Find head conflicts
-        let mut head_conflicts = [None; SNAKES as usize];
+        let mut head_conflicts: [ArrayVec<u8, 3>; SNAKES as usize] = [
+            ArrayVec::new(),
+            ArrayVec::new(),
+            ArrayVec::new(),
+            ArrayVec::new(),
+        ];
         for id_1 in 0..SNAKES - 1 {
             if let DSnake::Alive { head, .. } = self.snakes.cell(id_1).get() {
                 for id_2 in id_1 + 1..SNAKES {
@@ -138,7 +143,7 @@ impl<T: DField> DGameState<T> {
                     } = self.snakes.cell(id_2).get()
                     {
                         if head == other_head {
-                            head_conflicts[id_1 as usize] = Some(id_2);
+                            head_conflicts[id_1 as usize].push(id_2);
                         }
                     }
                 }
@@ -146,12 +151,11 @@ impl<T: DField> DGameState<T> {
         }
 
         let mut snakes_to_remove: [Option<DSnake>; SNAKES as usize] = [None; SNAKES as usize];
-
         // Handle head conflicts
         for id_1 in 0..SNAKES {
-            if let Some(id_2) = head_conflicts[id_1 as usize] {
+            for id_2 in head_conflicts[id_1 as usize].iter() {
                 let snake_1 = self.snakes.cell(id_1).get();
-                let snake_2 = self.snakes.cell(id_2).get();
+                let snake_2 = self.snakes.cell(*id_2).get();
                 match (snake_1, snake_2) {
                     (
                         DSnake::Alive {
@@ -162,19 +166,17 @@ impl<T: DField> DGameState<T> {
                         },
                     ) => {
                         if length_1 > length_2 {
-                            snakes_to_remove[id_2 as usize] = Some(snake_2);
-                            self.snakes.cell(id_2).set(snake_2.to_dead());
+                            snakes_to_remove[*id_2 as usize] = Some(snake_2);
                         } else if length_1 < length_2 {
                             snakes_to_remove[id_1 as usize] = Some(snake_1);
-                            self.snakes.cell(id_1).set(snake_1.to_dead());
                         } else {
                             snakes_to_remove[id_1 as usize] = Some(snake_1);
-                            snakes_to_remove[id_2 as usize] = Some(snake_2);
-                            self.snakes.cell(id_1).set(snake_1.to_dead());
-                            self.snakes.cell(id_2).set(snake_2.to_dead());
+                            snakes_to_remove[*id_2 as usize] = Some(snake_2);
                         }
                     }
-                    _ => panic!("Head conflicts can only happen between alive snakes"),
+                    _ => {
+                        panic!("Head conflicts can only happen between alive snakes")
+                    }
                 }
             }
         }
@@ -186,7 +188,6 @@ impl<T: DField> DGameState<T> {
                 DSnake::Alive { head, .. } => {
                     if self.board.cell(head.x, head.y).unwrap().get().get_type() == T::SNAKE {
                         snakes_to_remove[id as usize] = Some(snake);
-                        self.snakes.cell(id).set(snake.to_dead());
                     }
                 }
                 _ => (),
@@ -196,6 +197,7 @@ impl<T: DField> DGameState<T> {
         // Remove all snakes that need to be removed
         for id in 0..SNAKES {
             if let Some(snake) = snakes_to_remove[id as usize] {
+                self.snakes.cell(id).set(snake.to_dead());
                 self.board.remove_snake(snake);
             }
         }
@@ -269,8 +271,8 @@ impl<T: DField> DGameState<T> {
 
     pub fn get_alive(&self) -> [bool; SNAKES as usize] {
         let mut alive = [false; SNAKES as usize];
-        for i in 0..SNAKES as usize {
-            alive[i] = match self.snakes.cell(0).get() {
+        for i in 0..SNAKES {
+            alive[i as usize] = match self.snakes.cell(i).get() {
                 DSnake::Alive { .. } => true,
                 _ => false,
             }
@@ -1529,6 +1531,32 @@ mod tests {
 
         let optimistic_moves = state_2.scope_moves_optimistic(2);
         assert_eq!(optimistic_moves.len(), 2);
+    }
+
+    #[test]
+    fn test_3_head_collision() {
+        let gamestate = read_game_state("requests/test_3_head_collision.json");
+        let mut state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let moves = [
+            Some(DDirection::Left),
+            Some(DDirection::Up),
+            None,
+            Some(DDirection::Right),
+        ];
+
+        assert_eq!(state.get_alive(), [true, true, true, true]);
+
+        state.next_state(moves);
+
+        println!("{}", state);
+
+        assert_eq!(state.get_alive(), [true, false, false, false]);
     }
 
     #[test]
