@@ -44,7 +44,7 @@ pub enum DNodeAliveStatus {
     Always,
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 /// Statistics of a node.
 /// If statistics refer to individual gamestates, they represent the worst case scenario
 pub struct DNodeStatistics {

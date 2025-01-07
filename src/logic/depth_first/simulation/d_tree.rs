@@ -248,7 +248,21 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
 impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for result in &self.direction_results {
-            writeln!(f, "{}", result)?;
+            writeln!(f, "{}", result.direction)?;
+            writeln!(f, "Depth: {}", result.depth)?;
+            writeln!(f, "States: {}", result.states)?;
+            writeln!(f, "Finished: {}", result.finished)?;
+
+            if result.node_ids.len() > 0 {
+                let best_node = self
+                    .tree
+                    .nodes
+                    .get(&result.node_ids.last().unwrap())
+                    .unwrap();
+                writeln!(f, "{} {:?}", best_node.info(), best_node.statistics())?;
+            }
+
+            writeln!(f, "")?;
         }
         Ok(())
     }
@@ -272,18 +286,6 @@ impl DSimulationDirectionResult {
             states: 0,
             finished: false,
         }
-    }
-}
-
-impl Display for DSimulationDirectionResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.direction)?;
-        writeln!(f, "Depth: {}", self.depth)?;
-        writeln!(f, "States: {}", self.states)?;
-        for id in self.node_ids.iter().rev().take(1) {
-            writeln!(f, "{}", id)?;
-        }
-        Ok(())
     }
 }
 
