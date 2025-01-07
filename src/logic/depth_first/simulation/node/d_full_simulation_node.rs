@@ -54,7 +54,7 @@ impl DNode for DFullSimulationNode {
                     }
                 }
                 self.status
-                    .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
+                    .set(DNodeStatus::Alive(DNodeAliveStatus::Always));
                 return self.status.get();
             }
             status => status,
@@ -63,7 +63,7 @@ impl DNode for DFullSimulationNode {
 
     fn calc_children(&self) -> Vec<Box<Self>> {
         let mut states = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-        let mut statuses = [DNodeStatus::Alive(DNodeAliveStatus::Always); 4];
+        let mut statuses = [self.status(); 4];
         for state in self.states.iter() {
             if self.time.is_timed_out() {
                 for i in 0..4 {

@@ -136,6 +136,7 @@ fn failure_19() {
 
 #[test]
 fn failure_20_for_improved_area_evaluation() {
+    // Going left leads to death when B goes up and then right, as there is not enough space
     let chosen_move = get_move_from_json_file("failure_20_for_improved_area_evaluation.json");
     assert_eq!(chosen_move, Direction::Down);
 }

@@ -53,3 +53,26 @@ pub struct DNodeStatistics {
     pub lowest_self_length: Option<usize>,
     pub relevant_snakes: [Option<(DRelevanceState, u8)>; 4],
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DNodeAliveStatus, DNodeStatus};
+
+    #[test]
+    fn test_order() {
+        let should_be_ordered = [
+            DNodeStatus::Unknown,
+            DNodeStatus::Dead,
+            DNodeStatus::DeadEnd,
+            DNodeStatus::TimedOut,
+            DNodeStatus::Alive(DNodeAliveStatus::Unknown),
+            DNodeStatus::Alive(DNodeAliveStatus::Sometimes),
+            DNodeStatus::Alive(DNodeAliveStatus::Always),
+        ];
+
+        let mut clone = should_be_ordered.clone();
+        clone.sort();
+
+        assert_eq!(should_be_ordered, clone);
+    }
+}

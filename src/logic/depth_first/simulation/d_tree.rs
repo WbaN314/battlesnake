@@ -280,7 +280,7 @@ impl Display for DSimulationDirectionResult {
         writeln!(f, "{}", self.direction)?;
         writeln!(f, "Depth: {}", self.depth)?;
         writeln!(f, "States: {}", self.states)?;
-        for id in &self.node_ids {
+        for id in self.node_ids.iter().rev().take(1) {
             writeln!(f, "{}", id)?;
         }
         Ok(())
@@ -336,8 +336,8 @@ mod tests {
                 node::{
                     d_full_simulation_node::DFullSimulationNode,
                     d_optimistic_capture_node::DOptimisticCaptureNode,
-                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNodeStatistics,
-                    DNodeStatus,
+                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNode, DNodeAliveStatus,
+                    DNodeStatistics, DNodeStatus,
                 },
             },
         },
@@ -415,8 +415,8 @@ mod tests {
     }
 
     #[test]
-    fn test_simulate_full_2() {
-        let gamestate = read_game_state("requests/failure_6.json");
+    fn test_simulate_correct_alive_substate_propagation() {
+        let gamestate = read_game_state("requests/failure_20_for_improved_area_evaluation.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -426,17 +426,32 @@ mod tests {
         let root = DFullSimulationNode::new(
             DNodeId::default(),
             vec![state],
-            DTreeTime::new(Duration::from_millis(200)),
+            DTreeTime::default(),
             DNodeStatus::default(),
         );
-        let mut tree = DTree::default().root(root);
+        let mut tree = DTree::default().root(root).max_depth(8);
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}\n", status);
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
 
-        // TODO: Think about adding Dead substates to differentiate betwen certain deaths and deaths depending on enemy moves
+        let always_alive = tree.nodes.get(&DNodeId::from("DRRRRR")).unwrap();
+        let sometimes_alive = tree.nodes.get(&DNodeId::from("DRRRRRR")).unwrap();
+        let sometimes_alive_2 = tree.nodes.get(&DNodeId::from("DRRRRRRU")).unwrap();
+
+        assert_eq!(
+            always_alive.status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
+        assert_eq!(
+            sometimes_alive.status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Sometimes)
+        );
+        assert_eq!(
+            sometimes_alive_2.status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Sometimes)
+        );
     }
 
     #[test]
