@@ -47,7 +47,7 @@ impl DPessimisticCaptureNode {
     }
 
     fn calc_moves(&self) -> ArrayVec<DDirection, 4> {
-        self.state.scope_moves_pessimistic()
+        self.state.scope_moves_pessimistic(self.id().len() as u8)
     }
 }
 

@@ -49,7 +49,7 @@ pub struct DNodeStatistics {
     pub states: Option<usize>,
     pub highest_alive_snakes: Option<usize>,
     pub lowest_self_length: Option<usize>,
-    pub relevant_snakes: [Option<(DRelevanceState, u8)>; 4],
+    pub relevant_snakes: [Option<u8>; 4],
 }
 
 #[cfg(test)]

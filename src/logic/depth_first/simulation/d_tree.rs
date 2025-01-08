@@ -162,13 +162,15 @@ where
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
         let mut result = Vec::new();
         match self.nodes.get(id) {
-            Some(node) => if let DNodeStatus::Alive(_) = node.status() {
-                let children = node.calc_children();
-                for child in children.into_iter() {
-                    result.push((child.id().clone(), child.status()));
-                    self.nodes.insert(child.id().clone(), child);
+            Some(node) => {
+                if let DNodeStatus::Alive(_) = node.status() {
+                    let children = node.calc_children();
+                    for child in children.into_iter() {
+                        result.push((child.id().clone(), child.status()));
+                        self.nodes.insert(child.id().clone(), child);
+                    }
                 }
-            },
+            }
             _ => panic!("Node not found"),
         }
         result
@@ -365,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_simulate_with_optimistic_capture_node() {
-        let gamestate = read_game_state("requests/test_move_request.json");
+        let gamestate = read_game_state("requests/failure_7.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -379,7 +381,7 @@ mod tests {
             DNodeStatus::default(),
             DNodeStatistics::default(),
         );
-        let mut tree = DTree::default().root(root).time(Duration::from_millis(50));
+        let mut tree = DTree::default().root(root).max_depth(20);
         let status = tree.simulate();
         println!("{}", tree);
         println!("{:?}\n", status);

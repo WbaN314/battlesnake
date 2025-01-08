@@ -55,8 +55,8 @@ impl DOptimisticCaptureNode {
         for i in 0..SNAKES as usize {
             if statistics.relevant_snakes[i].is_none() {
                 match relevant_snakes[i] {
-                    status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
-                        statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
+                    DRelevanceState::Head | DRelevanceState::Body => {
+                        statistics.relevant_snakes[i] = Some(new_id.len() as u8)
                     }
                     _ => (),
                 }
@@ -75,11 +75,20 @@ impl DOptimisticCaptureNode {
         let turn = self.id.len() as u8 + 1;
         let mut child_direction_states = [DNodeAliveStatus::default(); 4];
         let optimistic = self.state.scope_moves_optimistic(turn);
-        let pessimistic = self.state.scope_moves_pessimistic();
+        let pessimistic = self.state.scope_moves_pessimistic(turn);
         for m in pessimistic.iter() {
             let direction = m;
             let index = *direction as usize;
-            child_direction_states[index] = DNodeAliveStatus::Always;
+            match self.status() {
+                DNodeStatus::Alive(
+                    param @ (DNodeAliveStatus::Always | DNodeAliveStatus::Sometimes),
+                ) => {
+                    child_direction_states[index] = param;
+                }
+                _ => {
+                    panic!("Calc moves node with status {:?}", self.status());
+                }
+            }
         }
         for m in optimistic.iter() {
             let direction = m;
@@ -106,7 +115,7 @@ impl DNode for DOptimisticCaptureNode {
         if self.status.get() == DNodeStatus::Unknown {
             if self.state.get_alive()[0] {
                 self.status
-                    .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
+                    .set(DNodeStatus::Alive(DNodeAliveStatus::Always));
             } else {
                 self.status.set(DNodeStatus::Dead);
             }
@@ -144,11 +153,7 @@ mod tests {
     use super::DOptimisticCaptureNode;
     use crate::{
         logic::depth_first::{
-            game::{
-                d_direction::DDirection,
-                d_field::DSlowField,
-                d_game_state::{DGameState, DRelevanceState},
-            },
+            game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState},
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
@@ -213,6 +218,53 @@ mod tests {
         println!("{}", new_node);
         let moves = new_node.calc_moves();
         assert_eq!(moves.len(), 0);
+
+        let request = read_game_state("requests/failure_7.json");
+        let gamestate =
+            DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
+        let node = DOptimisticCaptureNode::new(
+            DNodeId::default(),
+            gamestate,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+            DNodeStatistics::default(),
+        );
+        println!("{}", node);
+        assert_eq!(
+            node.child_alive_helper.get(),
+            [
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Unknown
+            ]
+        );
+        let mut children = node.calc_children();
+        assert_eq!(
+            node.child_alive_helper.get(),
+            [
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Always,
+                DNodeAliveStatus::Always
+            ]
+        );
+        assert_eq!(children.len(), 2);
+        let r = children.pop().unwrap();
+        assert_eq!(r.id(), &DNodeId::from("R"));
+        let l = children.pop().unwrap();
+        assert_eq!(l.id(), &DNodeId::from("L"));
+
+        l.calc_children();
+        assert_eq!(
+            l.child_alive_helper.get(),
+            [
+                DNodeAliveStatus::Unknown,
+                DNodeAliveStatus::Sometimes,
+                DNodeAliveStatus::Sometimes,
+                DNodeAliveStatus::Unknown
+            ]
+        );
     }
 
     #[test]
@@ -237,7 +289,7 @@ mod tests {
 
         assert_eq!(relevant_snakes[0], None);
         assert_eq!(relevant_snakes[1], None);
-        assert_eq!(relevant_snakes[2], Some((DRelevanceState::Head, 1)));
+        assert_eq!(relevant_snakes[2], Some(1));
 
         let rd = r.calc_child(DDirection::Down);
         let relevant_snakes = rd.statistics().relevant_snakes;
@@ -246,6 +298,6 @@ mod tests {
 
         assert_eq!(relevant_snakes[0], None);
         assert_eq!(relevant_snakes[1], None);
-        assert_eq!(relevant_snakes[2], Some((DRelevanceState::Head, 1)));
+        assert_eq!(relevant_snakes[2], Some(1));
     }
 }

@@ -506,11 +506,13 @@ impl DGameState<DSlowField> {
 
     /// Checks if the current reachable configuration gives a valid board where no next move is possible
     /// Is pessimistic such that any move that can be blocked will be blocked
-    pub fn scope_moves_pessimistic(&self) -> ArrayVec<DDirection, 4> {
+    pub fn scope_moves_pessimistic(&self, turn: u8) -> ArrayVec<DDirection, 4> {
         let mut movable_fields = ArrayVec::<DDirection, 4>::new();
 
         let mut gamestate = self.clone();
-        gamestate.move_tails();
+        gamestate
+            .move_tails()
+            .move_reachable([Some(DDirection::Up), None, None, None], turn);
 
         let head = match gamestate.snakes.cell(0).get() {
             DSnake::Alive { head, .. } => head,
@@ -924,14 +926,14 @@ mod tests {
         println!("{}", state);
         state.next_state(moves).move_reachable(moves, 3);
         println!("{}", state);
-        let result = state.scope_moves_pessimistic();
+        let result = state.scope_moves_pessimistic(3);
         assert!(result.contains(&DDirection::Up));
         assert!(!result.contains(&DDirection::Down));
         assert!(!result.contains(&DDirection::Left));
         assert!(result.contains(&DDirection::Right));
         state.next_state(moves).move_reachable(moves, 4);
         println!("{}", state);
-        let result = state.scope_moves_pessimistic();
+        let result = state.scope_moves_pessimistic(4);
         assert!(result.contains(&DDirection::Up));
         assert!(!result.contains(&DDirection::Down));
         assert!(!result.contains(&DDirection::Left));
@@ -940,13 +942,13 @@ mod tests {
             .next_state([Some(DDirection::Right), None, None, None])
             .move_reachable(moves, 5);
         println!("{}", state);
-        let result = state.scope_moves_pessimistic();
+        let result = state.scope_moves_pessimistic(5);
         assert!(result.is_empty());
 
         let gamestate = read_game_state("requests/failure_9.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
-        let result = state.scope_moves_pessimistic();
+        let result = state.scope_moves_pessimistic(6);
         assert!(result.contains(&DDirection::Up));
     }
 
@@ -1514,7 +1516,7 @@ mod tests {
 
         println!("{}", state_2);
 
-        let pessimistic_moves = state_2.scope_moves_pessimistic();
+        let pessimistic_moves = state_2.scope_moves_pessimistic(2);
         assert_eq!(pessimistic_moves.len(), 0);
 
         let optimistic_moves = state_2.scope_moves_optimistic(2);
