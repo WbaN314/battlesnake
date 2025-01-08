@@ -16,7 +16,7 @@ impl DCoord {
     }
 
     pub fn distance_to(&self, other: DCoord) -> u8 {
-        (self.x - other.x).abs() as u8 + (self.y - other.y).abs() as u8
+        (self.x - other.x).unsigned_abs() + (self.y - other.y).unsigned_abs()
     }
 }
 

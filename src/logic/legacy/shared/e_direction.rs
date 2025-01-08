@@ -58,12 +58,10 @@ impl EDirection {
             } else {
                 Some(EDirection::Up)
             }
+        } else if from.x < to.x {
+            Some(EDirection::Right)
         } else {
-            if from.x < to.x {
-                Some(EDirection::Right)
-            } else {
-                Some(EDirection::Left)
-            }
+            Some(EDirection::Left)
         }
     }
 }

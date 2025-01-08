@@ -86,18 +86,16 @@ impl Brain for SimpleHungrySnake {
                 Direction::Up
             } else if closest_food.y < my_head.y && *is_move_safe.get(&Direction::Down).unwrap() {
                 Direction::Down
+            } else if *is_move_safe.get(&Direction::Right).unwrap() {
+                Direction::Right
+            } else if *is_move_safe.get(&Direction::Left).unwrap() {
+                Direction::Left
+            } else if *is_move_safe.get(&Direction::Up).unwrap() {
+                Direction::Up
+            } else if *is_move_safe.get(&Direction::Down).unwrap() {
+                Direction::Down
             } else {
-                if *is_move_safe.get(&Direction::Right).unwrap() {
-                    Direction::Right
-                } else if *is_move_safe.get(&Direction::Left).unwrap() {
-                    Direction::Left
-                } else if *is_move_safe.get(&Direction::Up).unwrap() {
-                    Direction::Up
-                } else if *is_move_safe.get(&Direction::Down).unwrap() {
-                    Direction::Down
-                } else {
-                    Direction::Down
-                }
+                Direction::Down
             };
         return chosen_move;
     }

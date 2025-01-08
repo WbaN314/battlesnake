@@ -24,7 +24,7 @@ impl DFullSimulationNode {
     ) -> Self {
         Self {
             id,
-            states: states,
+            states,
             time,
             status: Cell::new(status),
             statistics: Cell::new(None),
