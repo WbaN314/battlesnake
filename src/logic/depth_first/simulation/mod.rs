@@ -4,10 +4,8 @@ mod node;
 
 use std::{env, time::Duration};
 
-use d_tree::{DSimulationStatus, DTree};
-use node::{
-    d_full_simulation_node::DFullSimulationNode, d_optimistic_capture_node::DOptimisticCaptureNode,
-};
+use d_tree::DTree;
+use node::d_full_simulation_node::DFullSimulationNode;
 
 use super::game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState};
 

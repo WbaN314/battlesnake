@@ -14,11 +14,13 @@ pub trait DNode {
         format!("{} {:?}", self.id(), self.status())
     }
     fn statistics(&self) -> DNodeStatistics;
+    /// Width first per default
     fn simulation_order(&self, other: &Self) -> Ordering {
         self.status()
             .cmp(&other.status())
             .then(self.id().len().cmp(&other.id().len()))
     }
+    /// Width first per default
     fn result_order(&self, other: &Self) -> Ordering {
         self.status()
             .cmp(&other.status())
