@@ -1,4 +1,4 @@
-use std::{cell::Cell, cmp::Ordering, fmt::Display};
+use std::{cell::Cell, fmt::Display};
 
 use arrayvec::ArrayVec;
 

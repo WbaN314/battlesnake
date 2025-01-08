@@ -1,4 +1,4 @@
-use super::{d_coord::DCoord, d_direction::DDirection, d_field::DField, d_snake::DSnake};
+use super::{d_coord::DCoord, d_field::DField, d_snake::DSnake};
 use crate::{Battlesnake, Board};
 use std::cell::Cell;
 

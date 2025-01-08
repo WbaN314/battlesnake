@@ -208,7 +208,7 @@ where
 }
 
 pub struct DSimulationResult<'a, Node: DNode> {
-    pub direction_results: Vec<DSimulationDirectionResult>,
+    direction_results: Vec<DSimulationDirectionResult>,
     tree: &'a DTree<Node>,
 }
 
@@ -269,7 +269,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
 }
 
 #[derive(Debug)]
-struct DSimulationDirectionResult {
+pub struct DSimulationDirectionResult {
     pub direction: DDirection,
     pub depth: usize,
     pub node_ids: Vec<DNodeId>,

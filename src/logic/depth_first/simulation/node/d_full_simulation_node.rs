@@ -1,15 +1,8 @@
-use crate::logic::{
-    depth_first::{
-        game::{
-            d_direction::{DDirection, D_DIRECTION_LIST},
-            d_field::DFastField,
-            d_game_state::DGameState,
-        },
-        simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
-    },
-    legacy::shared::e_snakes::SNAKES,
+use crate::logic::depth_first::{
+    game::{d_direction::D_DIRECTION_LIST, d_field::DFastField, d_game_state::DGameState},
+    simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
-use std::{cell::Cell, cmp::Ordering, fmt::Display, ops::Deref};
+use std::{cell::Cell, cmp::Ordering, fmt::Display};
 
 use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 

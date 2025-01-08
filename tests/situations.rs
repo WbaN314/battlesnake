@@ -1,4 +1,3 @@
-use battlesnake_game_of_chicken::logic::depth_first::game::d_direction::DDirection;
 #[cfg(test)]
 use battlesnake_game_of_chicken::{get_move_from_json_file, Direction};
 

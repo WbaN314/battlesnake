@@ -55,7 +55,7 @@ impl DOptimisticCaptureNode {
 
         // Get relevant snakes, i.e. snakes that have reachable set for next move
         let relevant_snakes = new_state.relevant_snakes(direction, new_id.len() as u8);
-        let mut statistics = self.statistics.get();
+        let mut statistics = self.statistics();
         for i in 0..SNAKES as usize {
             match statistics.relevant_snakes[i] {
                 None => match relevant_snakes[i] {
