@@ -1,7 +1,5 @@
 use std::cmp::Ordering;
 
-use crate::logic::depth_first::game::d_game_state::DRelevanceState;
-
 use super::d_node_id::DNodeId;
 
 pub mod d_full_simulation_node;
@@ -17,10 +15,14 @@ pub trait DNode {
     }
     fn statistics(&self) -> DNodeStatistics;
     fn simulation_order(&self, other: &Self) -> Ordering {
-        self.id().cmp(other.id())
+        self.status()
+            .cmp(&other.status())
+            .then(self.id().len().cmp(&other.id().len()))
     }
     fn result_order(&self, other: &Self) -> Ordering {
-        self.id().len().cmp(&other.id().len())
+        self.status()
+            .cmp(&other.status())
+            .then(self.id().len().cmp(&other.id().len()))
     }
 }
 

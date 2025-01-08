@@ -154,7 +154,7 @@ impl DNode for DFullSimulationNode {
                         .lowest_self_length
                         .cmp(&other_stats.lowest_self_length),
                 )
-                .then(other.id.len().cmp(&self.id.len())),
+                .then(self.id.len().cmp(&other.id.len())),
         )
     }
 
