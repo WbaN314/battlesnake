@@ -145,7 +145,9 @@ impl EGameState {
                     for d_vec in EDIRECTION_VECTORS {
                         let test_x = x + d_vec.x;
                         let test_y = y + d_vec.y;
-                        if let Some(EField::SnakePart { snake_number, .. }) = self.board.get(test_x, test_y) {
+                        if let Some(EField::SnakePart { snake_number, .. }) =
+                            self.board.get(test_x, test_y)
+                        {
                             relevant_snakes[snake_number as usize] = true;
                             border_coordinates.insert(ECoord::from(test_x, test_y));
                         }
@@ -160,7 +162,9 @@ impl EGameState {
                     let mut current = snake.tail;
                     let mut time_to_open = 0;
                     loop {
-                        if let Some(EField::SnakePart { stacked, next, .. }) = self.board.get(current.x, current.y) {
+                        if let Some(EField::SnakePart { stacked, next, .. }) =
+                            self.board.get(current.x, current.y)
+                        {
                             if border_coordinates.contains(&current) {
                                 opening_times[s_index] = Some(time_to_open);
                                 break;
@@ -313,7 +317,6 @@ impl EGameState {
                         Some(EField::SnakePart {
                             next, snake_number, ..
                         }) if snake_number == snake_index => {
-                            let next = next;
                             self.board.set(x, y, EField::Empty);
                             match next {
                                 Some(next) => {
@@ -397,7 +400,7 @@ impl EGameState {
                         snake.health = 100;
                     }
                 }
-                if snake.health <= 0 {
+                if snake.health == 0 {
                     snake._die = true;
                 }
             }
@@ -414,10 +417,11 @@ impl EGameState {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 let tail_field = self.board.get(snake.tail.x, snake.tail.y);
                 if let Some(EField::SnakePart {
-                        stacked,
-                        next,
-                        snake_number,
-                    }) = tail_field {
+                    stacked,
+                    next,
+                    snake_number,
+                }) = tail_field
+                {
                     if stacked > 1 {
                         self.board.set(
                             snake.tail.x,
@@ -529,7 +533,9 @@ impl EGameState {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 if !snake._far_away {
-                    if let Some(EField::Contested { snake_number, food }) = self.board.get(snake.head.x, snake.head.y) {
+                    if let Some(EField::Contested { snake_number, food }) =
+                        self.board.get(snake.head.x, snake.head.y)
+                    {
                         if snake_number == i {
                             if food {
                                 self.grow_snake(snake);
@@ -700,10 +706,11 @@ impl EGameState {
                         for d in 0..4 {
                             let neighbor = ECoord::from(x, y) + EDIRECTION_VECTORS[d];
                             if let Some(EField::Capture {
-                                    snake_number,
-                                    length,
-                                    ..
-                                }) = self.board.get(neighbor.x, neighbor.y) {
+                                snake_number,
+                                length,
+                                ..
+                            }) = self.board.get(neighbor.x, neighbor.y)
+                            {
                                 match new_board.get(x, y) {
                                     Some(EField::Capture {
                                         length: already_captured_length,
@@ -886,10 +893,11 @@ impl EGameState {
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
                 if let Some(EField::Capture {
-                        snake_number,
-                        length,
-                        ..
-                    }) = self.board.get(x, y) {
+                    snake_number,
+                    length,
+                    ..
+                }) = self.board.get(x, y)
+                {
                     self.board.set(
                         x,
                         y,

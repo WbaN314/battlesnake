@@ -349,12 +349,13 @@ impl DGameState<DSlowField> {
             let snake = self.snakes.cell(id).get();
             let movement = moves[id as usize];
             if let (
-                    DSnake::Headless {
-                        last_head: head, ..
-                    }
-                    | DSnake::Alive { head, .. },
-                    None,
-                ) = (snake, movement) {
+                DSnake::Headless {
+                    last_head: head, ..
+                }
+                | DSnake::Alive { head, .. },
+                None,
+            ) = (snake, movement)
+            {
                 for d in D_DIRECTION_LIST {
                     let to_reach = head + d;
                     if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
@@ -640,7 +641,8 @@ where
                             if reachable.iter().filter(|x| x.is_set()).count() == 1 {
                                 let snake = reachable
                                     .iter()
-                                    .enumerate().find(|(_, x)| x.is_set())
+                                    .enumerate()
+                                    .find(|(_, x)| x.is_set())
                                     .unwrap()
                                     .0;
                                 let c = (snake as u8 + b'A') as char;
@@ -649,8 +651,8 @@ where
                                     (best.turn() + b'0') as char;
                             } else {
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] =
-                                    (reachable.iter().filter(|x| x.is_set()).count() as u8
-                                        + b'0') as char;
+                                    (reachable.iter().filter(|x| x.is_set()).count() as u8 + b'0')
+                                        as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
                                     (best.turn() + b'0') as char;
                             }
