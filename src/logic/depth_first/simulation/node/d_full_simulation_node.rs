@@ -155,18 +155,42 @@ impl DNode for DFullSimulationNode {
         let other_stats = other.statistics();
 
         self.status.cmp(&other.status).then(
-            self.id.len().cmp(&other.id.len()).then(
+            self_stats
+                .highest_alive_snakes
+                .cmp(&other_stats.highest_alive_snakes)
+                .reverse()
+                .then(
+                    self_stats
+                        .lowest_self_length
+                        .cmp(&other_stats.lowest_self_length),
+                )
+                .then(other.id.len().cmp(&self.id.len())),
+        )
+    }
+
+    fn simulation_order(&self, other: &Self) -> Ordering {
+        // Best element should be last
+        let self_stats = self.statistics();
+        let other_stats = other.statistics();
+
+        self.status
+            .cmp(&other.status)
+            .then(match (self.states.len(), other.states.len()) {
+                (a, b) if a > 32 && b > 32 => Ordering::Equal,
+                _ => self.states.len().cmp(&other.states.len()).reverse(),
+            })
+            .then(
                 self_stats
                     .highest_alive_snakes
                     .cmp(&other_stats.highest_alive_snakes)
-                    .reverse()
-                    .then(
-                        self_stats
-                            .lowest_self_length
-                            .cmp(&other_stats.lowest_self_length),
-                    ),
-            ),
-        )
+                    .reverse(),
+            )
+            .then(
+                self_stats
+                    .lowest_self_length
+                    .cmp(&other_stats.lowest_self_length),
+            )
+            .then(self.id.len().cmp(&other.id.len()))
     }
 }
 

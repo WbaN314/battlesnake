@@ -37,6 +37,7 @@ impl DSimulation {
         let mut simulation_directions = simulation_result.approved_directions();
 
         if env::var("MODE").is_ok_and(|value| value == "test") {
+            println!("{}\n", simulation_tree);
             println!("{:?}\n", simulation_status);
             println!("{}", simulation_result);
             println!("{:?}", simulation_directions);
