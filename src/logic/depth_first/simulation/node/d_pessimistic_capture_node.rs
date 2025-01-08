@@ -7,7 +7,7 @@ use crate::logic::depth_first::{
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 
-use super::{DNode, DNodeAliveStatus, DNodeStatus};
+use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
 pub struct DPessimisticCaptureNode {
     id: DNodeId,
@@ -54,6 +54,10 @@ impl DPessimisticCaptureNode {
 impl DNode for DPessimisticCaptureNode {
     fn id(&self) -> &DNodeId {
         &self.id
+    }
+
+    fn statistics(&self) -> DNodeStatistics {
+        DNodeStatistics::default()
     }
 
     fn status(&self) -> DNodeStatus {

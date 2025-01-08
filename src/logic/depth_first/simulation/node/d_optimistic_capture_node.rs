@@ -40,10 +40,6 @@ impl DOptimisticCaptureNode {
         }
     }
 
-    fn statistics(&self) -> DNodeStatistics {
-        self.statistics.get()
-    }
-
     fn calc_child(&self, direction: DDirection) -> Self {
         let moves = [Some(direction), None, None, None];
         let mut new_id = self.id.clone();
@@ -57,12 +53,14 @@ impl DOptimisticCaptureNode {
         let relevant_snakes = new_state.relevant_snakes(direction, new_id.len() as u8);
         let mut statistics = self.statistics();
         for i in 0..SNAKES as usize {
-            if statistics.relevant_snakes[i].is_none() { match relevant_snakes[i] {
-                status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
-                    statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
+            if statistics.relevant_snakes[i].is_none() {
+                match relevant_snakes[i] {
+                    status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
+                        statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
+                    }
+                    _ => (),
                 }
-                _ => (),
-            } }
+            }
         }
 
         new_state.move_heads(moves);
@@ -100,6 +98,10 @@ impl DNode for DOptimisticCaptureNode {
         &self.id
     }
 
+    fn statistics(&self) -> DNodeStatistics {
+        self.statistics.get()
+    }
+
     fn status(&self) -> DNodeStatus {
         if self.status.get() == DNodeStatus::Unknown {
             if self.state.get_alive()[0] {
@@ -110,6 +112,15 @@ impl DNode for DOptimisticCaptureNode {
             }
         }
         self.status.get()
+    }
+
+    fn info(&self) -> String {
+        format!(
+            "{} {:?} {:?}",
+            self.id,
+            self.status(),
+            self.statistics().relevant_snakes
+        )
     }
 
     fn calc_children(&self) -> Vec<Box<Self>> {

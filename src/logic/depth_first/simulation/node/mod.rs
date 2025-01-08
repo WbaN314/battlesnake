@@ -15,9 +15,7 @@ pub trait DNode {
     fn info(&self) -> String {
         format!("{} {:?}", self.id(), self.status())
     }
-    fn statistics(&self) -> DNodeStatistics {
-        DNodeStatistics::default()
-    }
+    fn statistics(&self) -> DNodeStatistics;
     fn simulation_order(&self, other: &Self) -> Ordering {
         self.id().cmp(other.id())
     }
