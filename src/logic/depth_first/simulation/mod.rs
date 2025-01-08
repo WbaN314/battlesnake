@@ -34,7 +34,7 @@ impl DSimulation {
             .time(Duration::from_millis(200));
         let simulation_status = simulation_tree.simulate();
         let simulation_result = simulation_tree.result();
-        let mut simulation_directions = simulation_result.approved_directions();
+        let simulation_directions = simulation_result.approved_directions();
 
         if env::var("MODE").is_ok_and(|value| value == "test") {
             println!("{}\n", simulation_tree);
@@ -43,36 +43,10 @@ impl DSimulation {
             println!("{:?}", simulation_directions);
         }
 
-        if simulation_status != DSimulationStatus::Finished {
-            let optimistic_capture = DOptimisticCaptureNode::new(
-                Default::default(),
-                self.initial_state.clone(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-            );
-            let mut capture_tree = DTree::default()
-                .root(optimistic_capture)
-                .time(Duration::from_millis(50))
-                .max_depth(20);
-            let capture_status = capture_tree.simulate();
-            let capture_result = capture_tree.result();
-            let capture_directions = capture_result.approved_directions();
-
-            for i in 0..4 {
-                simulation_directions[i] = simulation_directions[i] && capture_directions[i];
-            }
-
-            if env::var("MODE").is_ok_and(|value| value == "test") {
-                println!("{:?}\n", capture_status);
-                println!("{}", capture_result);
-                println!("{:?}", capture_directions);
-            }
-        }
-
         simulation_directions
             .iter()
-            .enumerate().find(|(_, b)| **b)
+            .enumerate()
+            .find(|(_, b)| **b)
             .unwrap_or((0, &true))
             .0
             .try_into()
