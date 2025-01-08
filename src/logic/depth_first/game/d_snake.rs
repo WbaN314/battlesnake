@@ -3,7 +3,7 @@ use core::panic;
 use super::d_coord::DCoord;
 use crate::Battlesnake;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum DSnake {
     Alive {
         id: u8,
@@ -29,12 +29,13 @@ pub enum DSnake {
         length: u8,
         last_head: DCoord,
     },
+    #[default]
     NonExistent,
 }
 
 impl DSnake {
     pub fn head(&self, value: DCoord) -> Self {
-        let mut snake = self.clone();
+        let mut snake = *self;
         match snake {
             DSnake::Alive { ref mut head, .. } => {
                 *head = value;
@@ -45,7 +46,7 @@ impl DSnake {
     }
 
     pub fn tail(&self, value: DCoord) -> Self {
-        let mut snake = self.clone();
+        let mut snake = *self;
         match snake {
             DSnake::Alive { ref mut tail, .. } | DSnake::Headless { ref mut tail, .. } => {
                 *tail = value;
@@ -56,7 +57,7 @@ impl DSnake {
     }
 
     pub fn health(&self, value: u8) -> Self {
-        let mut snake = self.clone();
+        let mut snake = *self;
         match snake {
             DSnake::Alive { ref mut health, .. } | DSnake::Headless { ref mut health, .. } => {
                 *health = value;
@@ -67,7 +68,7 @@ impl DSnake {
     }
 
     pub fn stack(&self, value: u8) -> Self {
-        let mut snake = self.clone();
+        let mut snake = *self;
         match snake {
             DSnake::Alive { ref mut stack, .. } | DSnake::Headless { ref mut stack, .. } => {
                 *stack = value;
@@ -78,7 +79,7 @@ impl DSnake {
     }
 
     pub fn length(&self, value: u8) -> Self {
-        let mut snake = self.clone();
+        let mut snake = *self;
         match snake {
             DSnake::Alive { ref mut length, .. } | DSnake::Headless { ref mut length, .. } => {
                 *length = value;
@@ -139,12 +140,6 @@ impl DSnake {
             DSnake::Headless { id, .. } => DSnake::Dead { id: *id },
             _ => panic!("Cannot kill snake {:?}", self),
         }
-    }
-}
-
-impl Default for DSnake {
-    fn default() -> Self {
-        DSnake::NonExistent
     }
 }
 

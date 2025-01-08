@@ -41,6 +41,12 @@ pub struct EGameState {
     pub snakes: ESnakes,
 }
 
+impl Default for EGameState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EGameState {
     pub fn new() -> Self {
         EGameState {
@@ -71,7 +77,7 @@ impl EGameState {
                 let next = if j == 0 {
                     None
                 } else {
-                    Some(old.snakes[order[i]].body[j - 1].clone())
+                    Some(old.snakes[order[i]].body[j - 1])
                 };
                 match gamestate.board.get(snake_part.x as i8, snake_part.y as i8) {
                     Some(EField::SnakePart {
@@ -92,11 +98,7 @@ impl EGameState {
                         snake_part.y as i8,
                         EField::SnakePart {
                             snake_number: i as u8,
-                            next: if let Some(coord) = next {
-                                Some(ECoord::from(coord.x as i8, coord.y as i8))
-                            } else {
-                                None
-                            },
+                            next: next.map(|coord| ECoord::from(coord.x as i8, coord.y as i8)),
                             stacked: 1,
                         },
                     ),
@@ -123,11 +125,11 @@ impl EGameState {
         let area = self.board.fill(start);
         match area {
             Some(area) => {
-                let mut new_area = area.clone();
+                let mut new_area = area;
                 self.add_opening_times(&mut new_area);
-                return Some(new_area);
+                Some(new_area)
             }
-            None => return None,
+            None => None,
         }
     }
 
@@ -139,47 +141,35 @@ impl EGameState {
         let mut relevant_snakes = [false; SNAKES as usize];
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
-                match self.board.get(x, y) {
-                    Some(EField::Filled) => {
-                        for d_vec in EDIRECTION_VECTORS {
-                            let test_x = x + d_vec.x;
-                            let test_y = y + d_vec.y;
-                            match self.board.get(test_x, test_y) {
-                                Some(EField::SnakePart { snake_number, .. }) => {
-                                    relevant_snakes[snake_number as usize] = true;
-                                    border_coordinates.insert(ECoord::from(test_x, test_y));
-                                }
-                                _ => (),
-                            }
+                if let Some(EField::Filled) = self.board.get(x, y) {
+                    for d_vec in EDIRECTION_VECTORS {
+                        let test_x = x + d_vec.x;
+                        let test_y = y + d_vec.y;
+                        if let Some(EField::SnakePart { snake_number, .. }) = self.board.get(test_x, test_y) {
+                            relevant_snakes[snake_number as usize] = true;
+                            border_coordinates.insert(ECoord::from(test_x, test_y));
                         }
                     }
-                    _ => (),
                 }
             }
         }
         let mut opening_times: [Option<u8>; SNAKES as usize] = [None; SNAKES as usize];
         for s_index in 0..relevant_snakes.len() {
             if relevant_snakes[s_index] {
-                match self.snakes.get(s_index as u8).as_ref() {
-                    Some(snake) => {
-                        let mut current = snake.tail;
-                        let mut time_to_open = 0;
-                        loop {
-                            match self.board.get(current.x, current.y) {
-                                Some(EField::SnakePart { stacked, next, .. }) => {
-                                    if border_coordinates.contains(&current) {
-                                        opening_times[s_index] = Some(time_to_open);
-                                        break;
-                                    } else {
-                                        time_to_open += stacked as u8;
-                                        current = next.unwrap(); // must hit before None as only neighboring snakes are selected
-                                    }
-                                }
-                                _ => (),
+                if let Some(snake) = self.snakes.get(s_index as u8).as_ref() {
+                    let mut current = snake.tail;
+                    let mut time_to_open = 0;
+                    loop {
+                        if let Some(EField::SnakePart { stacked, next, .. }) = self.board.get(current.x, current.y) {
+                            if border_coordinates.contains(&current) {
+                                opening_times[s_index] = Some(time_to_open);
+                                break;
+                            } else {
+                                time_to_open += stacked;
+                                current = next.unwrap(); // must hit before None as only neighboring snakes are selected
                             }
                         }
                     }
-                    None => (),
                 }
             }
         }
@@ -323,7 +313,7 @@ impl EGameState {
                         Some(EField::SnakePart {
                             next, snake_number, ..
                         }) if snake_number == snake_index => {
-                            let next = next.clone();
+                            let next = next;
                             self.board.set(x, y, EField::Empty);
                             match next {
                                 Some(next) => {
@@ -387,11 +377,7 @@ impl EGameState {
 
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
-                if far_away && my_head.distance(&snake.head) > distance {
-                    snake._far_away = true;
-                } else {
-                    snake._far_away = false;
-                }
+                snake._far_away = far_away && my_head.distance(&snake.head) > distance;
             }
         }
     }
@@ -407,11 +393,8 @@ impl EGameState {
                 }
                 if let Some(movement) = moveset[i as usize] {
                     let new_head = snake.head.move_in_direction(movement);
-                    match self.board.get(new_head.x, new_head.y) {
-                        Some(EField::Food) => {
-                            snake.health = 100;
-                        }
-                        _ => (),
+                    if let Some(EField::Food) = self.board.get(new_head.x, new_head.y) {
+                        snake.health = 100;
                     }
                 }
                 if snake.health <= 0 {
@@ -430,30 +413,27 @@ impl EGameState {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 let tail_field = self.board.get(snake.tail.x, snake.tail.y);
-                match tail_field {
-                    Some(EField::SnakePart {
+                if let Some(EField::SnakePart {
                         stacked,
                         next,
                         snake_number,
-                    }) => {
-                        if stacked > 1 {
-                            self.board.set(
-                                snake.tail.x,
-                                snake.tail.y,
-                                EField::SnakePart {
-                                    snake_number,
-                                    stacked: stacked - 1,
-                                    next,
-                                },
-                            );
-                        } else {
-                            self.board.set(snake.tail.x, snake.tail.y, EField::Empty);
-                            if let Some(next) = next {
-                                snake.tail = next;
-                            }
+                    }) = tail_field {
+                    if stacked > 1 {
+                        self.board.set(
+                            snake.tail.x,
+                            snake.tail.y,
+                            EField::SnakePart {
+                                snake_number,
+                                stacked: stacked - 1,
+                                next,
+                            },
+                        );
+                    } else {
+                        self.board.set(snake.tail.x, snake.tail.y, EField::Empty);
+                        if let Some(next) = next {
+                            snake.tail = next;
                         }
                     }
-                    _ => (),
                 }
             }
         }
@@ -549,26 +529,23 @@ impl EGameState {
         for i in 0..SNAKES {
             if let Some(snake) = self.snakes.get_mut(i).as_mut() {
                 if !snake._far_away {
-                    match self.board.get(snake.head.x, snake.head.y) {
-                        Some(EField::Contested { snake_number, food }) => {
-                            if snake_number == i {
-                                if food {
-                                    self.grow_snake(snake);
-                                }
-                                self.board.set(
-                                    snake.head.x,
-                                    snake.head.y,
-                                    EField::SnakePart {
-                                        snake_number: i,
-                                        stacked: 1,
-                                        next: None,
-                                    },
-                                );
-                            } else {
-                                panic!("Contested field does not match the snake")
+                    if let Some(EField::Contested { snake_number, food }) = self.board.get(snake.head.x, snake.head.y) {
+                        if snake_number == i {
+                            if food {
+                                self.grow_snake(snake);
                             }
+                            self.board.set(
+                                snake.head.x,
+                                snake.head.y,
+                                EField::SnakePart {
+                                    snake_number: i,
+                                    stacked: 1,
+                                    next: None,
+                                },
+                            );
+                        } else {
+                            panic!("Contested field does not match the snake")
                         }
-                        _ => (),
                     }
                 }
             }
@@ -583,7 +560,7 @@ impl EGameState {
                     Some(EField::SnakePart {
                         snake_number, next, ..
                     }) => {
-                        if !next.is_none() || snake_number != i {
+                        if next.is_some() || snake_number != i {
                             panic!(
                                 "Head is pointing to wrong SnakePart for snake {} \n {}",
                                 i, self
@@ -669,7 +646,7 @@ impl EGameState {
                 }
             }
             if l >= 2 {
-                return EDirection::from_coords(snake_part_coords[l - 2], snake_part_coords[l - 1]);
+                EDirection::from_coords(snake_part_coords[l - 2], snake_part_coords[l - 1])
             } else {
                 None
             }
@@ -722,57 +699,54 @@ impl EGameState {
                     Some(EField::Empty) | Some(EField::Food) => {
                         for d in 0..4 {
                             let neighbor = ECoord::from(x, y) + EDIRECTION_VECTORS[d];
-                            match self.board.get(neighbor.x, neighbor.y) {
-                                Some(EField::Capture {
+                            if let Some(EField::Capture {
                                     snake_number,
                                     length,
                                     ..
-                                }) => {
-                                    match new_board.get(x, y) {
-                                        Some(EField::Capture {
-                                            length: already_captured_length,
-                                            snake_number: already_captured_snake_number,
-                                            changeable: true,
-                                        }) => {
-                                            if already_captured_snake_number != snake_number {
-                                                if already_captured_length < length {
-                                                    new_board.set(
-                                                        x,
-                                                        y,
-                                                        EField::Capture {
-                                                            snake_number,
-                                                            length,
-                                                            changeable: true,
-                                                        },
-                                                    );
-                                                } else if already_captured_length == length {
-                                                    new_board.set(
-                                                        x,
-                                                        y,
-                                                        EField::Capture {
-                                                            snake_number: None,
-                                                            length,
-                                                            changeable: true,
-                                                        },
-                                                    );
-                                                } // else: no change
-                                            }
+                                }) = self.board.get(neighbor.x, neighbor.y) {
+                                match new_board.get(x, y) {
+                                    Some(EField::Capture {
+                                        length: already_captured_length,
+                                        snake_number: already_captured_snake_number,
+                                        changeable: true,
+                                    }) => {
+                                        if already_captured_snake_number != snake_number {
+                                            if already_captured_length < length {
+                                                new_board.set(
+                                                    x,
+                                                    y,
+                                                    EField::Capture {
+                                                        snake_number,
+                                                        length,
+                                                        changeable: true,
+                                                    },
+                                                );
+                                            } else if already_captured_length == length {
+                                                new_board.set(
+                                                    x,
+                                                    y,
+                                                    EField::Capture {
+                                                        snake_number: None,
+                                                        length,
+                                                        changeable: true,
+                                                    },
+                                                );
+                                            } // else: no change
                                         }
-                                        Some(EField::Empty) | Some(EField::Food) => {
-                                            new_board.set(
-                                                x,
-                                                y,
-                                                EField::Capture {
-                                                    snake_number,
-                                                    length,
-                                                    changeable: true,
-                                                },
-                                            );
-                                        }
-                                        _ => (),
                                     }
+                                    Some(EField::Empty) | Some(EField::Food) => {
+                                        new_board.set(
+                                            x,
+                                            y,
+                                            EField::Capture {
+                                                snake_number,
+                                                length,
+                                                changeable: true,
+                                            },
+                                        );
+                                    }
+                                    _ => (),
                                 }
-                                _ => (),
                             }
                         }
                     }
@@ -911,23 +885,20 @@ impl EGameState {
     fn set_changeable_for_captures(&mut self, changeable: bool) {
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
-                match self.board.get(x, y) {
-                    Some(EField::Capture {
+                if let Some(EField::Capture {
                         snake_number,
                         length,
                         ..
-                    }) => {
-                        self.board.set(
-                            x,
-                            y,
-                            EField::Capture {
-                                snake_number,
-                                length,
-                                changeable,
-                            },
-                        );
-                    }
-                    _ => (),
+                    }) = self.board.get(x, y) {
+                    self.board.set(
+                        x,
+                        y,
+                        EField::Capture {
+                            snake_number,
+                            length,
+                            changeable,
+                        },
+                    );
                 }
             }
         }
@@ -941,7 +912,7 @@ impl EGameState {
     ) -> Result<Vec<Self>> {
         let mut new_relevant_states = Vec::new();
         let relevant_move_sets = possible_move_sets
-            .into_iter()
+            .iter()
             .filter(|x| x[0].unwrap() == direction);
         let mut relevant_move_set_exists = false;
         for current_move_set in relevant_move_sets {
@@ -951,7 +922,7 @@ impl EGameState {
             new_relevant_states.push(new_state);
         }
         if !relevant_move_set_exists {
-            return Err(ESimulationError::Death);
+            Err(ESimulationError::Death)
         } else {
             Ok(new_relevant_states)
         }
@@ -1000,14 +971,11 @@ impl EGameState {
         let mut min_distance = None;
         for y in 0..Y_SIZE {
             for x in 0..X_SIZE {
-                match self.board.get(x, y) {
-                    Some(EField::Food) => {
-                        let distance = my_head.distance(&ECoord::from(x, y));
-                        if distance < min_distance.unwrap_or(u8::MAX) {
-                            min_distance = Some(distance);
-                        }
+                if let Some(EField::Food) = self.board.get(x, y) {
+                    let distance = my_head.distance(&ECoord::from(x, y));
+                    if distance < min_distance.unwrap_or(u8::MAX) {
+                        min_distance = Some(distance);
                     }
-                    _ => (),
                 }
             }
         }
@@ -1026,7 +994,7 @@ impl fmt::Display for EGameState {
         let mut output: String = String::with_capacity((X_SIZE + 1) as usize * Y_SIZE as usize);
         for y in (0..Y_SIZE).rev() {
             for x in 0..X_SIZE {
-                if let Some(state) = self.board.get(x as i8, y as i8) {
+                if let Some(state) = self.board.get(x, y) {
                     output.push(match state {
                         EField::Empty => '.',
                         EField::Food => '+',

@@ -68,11 +68,11 @@ impl EDirection {
 
 impl Display for EDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            &EDirection::Up => write!(f, "U"),
-            &EDirection::Down => write!(f, "D"),
-            &EDirection::Left => write!(f, "L"),
-            &EDirection::Right => write!(f, "R"),
+        match *self {
+            EDirection::Up => write!(f, "U"),
+            EDirection::Down => write!(f, "D"),
+            EDirection::Left => write!(f, "L"),
+            EDirection::Right => write!(f, "R"),
         }
     }
 }
@@ -86,6 +86,12 @@ pub const EDIRECTION_VECTORS: [ECoord; 4] = [
 
 #[derive(Clone, Debug)]
 pub struct EDirectionVec(Vec<EDirection>);
+
+impl Default for EDirectionVec {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl EDirectionVec {
     pub fn new() -> Self {

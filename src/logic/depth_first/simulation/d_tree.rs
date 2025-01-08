@@ -84,31 +84,28 @@ where
                         continue;
                     }
                     let parent = self.nodes.get(&parent_id).unwrap();
-                    match parent.status() {
-                        DNodeStatus::Alive(_) => {
-                            let children_status = self.calc_children(&parent_id);
-                            for (id, status) in children_status {
-                                match status {
-                                    DNodeStatus::Alive(_) => {
-                                        let index = id.direction().unwrap() as usize;
-                                        if id.len() < self.max_depth.unwrap_or(usize::MAX) {
-                                            self.queue[index].push(id);
-                                            self.queue[index].sort_unstable_by(|id1, id2| {
-                                                let node1 = self.nodes.get(id1).unwrap();
-                                                let node2 = self.nodes.get(id2).unwrap();
-                                                node1.simulation_order(node2)
-                                            });
-                                        }
+                    if let DNodeStatus::Alive(_) = parent.status() {
+                        let children_status = self.calc_children(&parent_id);
+                        for (id, status) in children_status {
+                            match status {
+                                DNodeStatus::Alive(_) => {
+                                    let index = id.direction().unwrap() as usize;
+                                    if id.len() < self.max_depth.unwrap_or(usize::MAX) {
+                                        self.queue[index].push(id);
+                                        self.queue[index].sort_unstable_by(|id1, id2| {
+                                            let node1 = self.nodes.get(id1).unwrap();
+                                            let node2 = self.nodes.get(id2).unwrap();
+                                            node1.simulation_order(node2)
+                                        });
                                     }
-                                    DNodeStatus::TimedOut => {
-                                        simulation_status = DSimulationStatus::TimedOut;
-                                        break 'simulation;
-                                    }
-                                    _ => (),
                                 }
+                                DNodeStatus::TimedOut => {
+                                    simulation_status = DSimulationStatus::TimedOut;
+                                    break 'simulation;
+                                }
+                                _ => (),
                             }
                         }
-                        _ => (),
                     }
                 }
                 None => {
@@ -152,11 +149,11 @@ where
 
         for i in 0..4 {
             results[i].depth = if let Some(id) = results[i].node_ids.last() {
-                self.nodes.get(&id).unwrap().id().len()
+                self.nodes.get(id).unwrap().id().len()
             } else {
                 0
             };
-            results[i].finished = self.queue[i].len() == 0
+            results[i].finished = self.queue[i].is_empty()
         }
 
         DSimulationResult::new(results, self)
@@ -165,15 +162,12 @@ where
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
         let mut result = Vec::new();
         match self.nodes.get(id) {
-            Some(node) => match node.status() {
-                DNodeStatus::Alive(_) => {
-                    let children = node.calc_children();
-                    for child in children.into_iter() {
-                        result.push((child.id().clone(), child.status()));
-                        self.nodes.insert(child.id().clone(), child);
-                    }
+            Some(node) => if let DNodeStatus::Alive(_) = node.status() {
+                let children = node.calc_children();
+                for child in children.into_iter() {
+                    result.push((child.id().clone(), child.status()));
+                    self.nodes.insert(child.id().clone(), child);
                 }
-                _ => (),
             },
             _ => panic!("Node not found"),
         }
@@ -230,8 +224,8 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         }
 
         let mut approved_directions = [false; 4];
-        if best_nodes.len() == 0 {
-            return approved_directions;
+        if best_nodes.is_empty() {
+            approved_directions
         } else {
             best_nodes.sort_unstable_by(|node1, node2| node1.result_order(node2));
             let last_node = best_nodes.last().unwrap();
@@ -240,7 +234,7 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
                     approved_directions[*node.id().first().unwrap() as usize] = true;
                 }
             }
-            return approved_directions;
+            approved_directions
         }
     }
 }
@@ -253,16 +247,16 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
             writeln!(f, "States: {}", result.states)?;
             writeln!(f, "Finished: {}", result.finished)?;
 
-            if result.node_ids.len() > 0 {
+            if !result.node_ids.is_empty() {
                 let best_node = self
                     .tree
                     .nodes
-                    .get(&result.node_ids.last().unwrap())
+                    .get(result.node_ids.last().unwrap())
                     .unwrap();
                 writeln!(f, "{} {:?}", best_node.info(), best_node.statistics())?;
             }
 
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -310,10 +304,10 @@ impl<Node: DNode> Default for DTree<Node> {
 
 impl<Node: DNode> Display for DTree<Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (_, node) in &self.nodes {
+        for node in self.nodes.values() {
             writeln!(f, "{}", node.info())?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
         writeln!(f, "Nodes: {}", self.statistic_nodes())?;
         writeln!(f, "States: {}", self.statistic_states())?;
         writeln!(f, "Depth: {}", self.statistics_depth())?;

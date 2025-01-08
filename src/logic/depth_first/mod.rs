@@ -11,6 +11,12 @@ mod simulation;
 
 pub struct DepthFirstSnake {}
 
+impl Default for DepthFirstSnake {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DepthFirstSnake {
     pub fn new() -> Self {
         Self {}

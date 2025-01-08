@@ -111,9 +111,9 @@ pub fn get_move_from_json_file(path: &str) -> Direction {
         DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
     println!("{}", print);
     env::set_var("MODE", "test");
-    let m = get_move(
+    
+    get_move(
         &gamestate,
         env::var("VARIANT").unwrap_or("depth_first".to_string()),
-    );
-    m
+    )
 }

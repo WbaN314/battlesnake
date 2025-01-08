@@ -184,13 +184,10 @@ impl<T: DField> DGameState<T> {
         // Head body collisions
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
-            match snake {
-                DSnake::Alive { head, .. } => {
-                    if self.board.cell(head.x, head.y).unwrap().get().get_type() == T::SNAKE {
-                        snakes_to_remove[id as usize] = Some(snake);
-                    }
+            if let DSnake::Alive { head, .. } = snake {
+                if self.board.cell(head.x, head.y).unwrap().get().get_type() == T::SNAKE {
+                    snakes_to_remove[id as usize] = Some(snake);
                 }
-                _ => (),
             }
         }
 
@@ -205,14 +202,11 @@ impl<T: DField> DGameState<T> {
         // Set the head board fields for all alive snakes
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
-            match snake {
-                DSnake::Alive { head, .. } => {
-                    self.board
-                        .cell(head.x, head.y)
-                        .unwrap()
-                        .set(T::snake(id, None));
-                }
-                _ => (),
+            if let DSnake::Alive { head, .. } = snake {
+                self.board
+                    .cell(head.x, head.y)
+                    .unwrap()
+                    .set(T::snake(id, None));
             }
         }
 
@@ -354,31 +348,28 @@ impl DGameState<DSlowField> {
         for id in 0..SNAKES {
             let snake = self.snakes.cell(id).get();
             let movement = moves[id as usize];
-            match (snake, movement) {
-                (
+            if let (
                     DSnake::Headless {
                         last_head: head, ..
                     }
                     | DSnake::Alive { head, .. },
                     None,
-                ) => {
-                    for d in D_DIRECTION_LIST {
-                        let to_reach = head + d;
-                        if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
-                            match cell.get() {
-                                DSlowField::Empty { mut reachable }
-                                | DSlowField::Food { mut reachable } => {
-                                    if !reachable[id as usize].is_set() {
-                                        reachable[id as usize] = DReached::new(1);
-                                        cell.set(DSlowField::empty().reachable(reachable));
-                                    }
+                ) = (snake, movement) {
+                for d in D_DIRECTION_LIST {
+                    let to_reach = head + d;
+                    if let Some(cell) = self.board.cell(to_reach.x, to_reach.y) {
+                        match cell.get() {
+                            DSlowField::Empty { mut reachable }
+                            | DSlowField::Food { mut reachable } => {
+                                if !reachable[id as usize].is_set() {
+                                    reachable[id as usize] = DReached::new(1);
+                                    cell.set(DSlowField::empty().reachable(reachable));
                                 }
-                                _ => (),
                             }
+                            _ => (),
                         }
                     }
                 }
-                _ => (),
             }
         }
 
@@ -421,12 +412,12 @@ impl DGameState<DSlowField> {
         }
 
         // No movable fields available
-        if movable_fields.len() == 0 {
+        if movable_fields.is_empty() {
             return ArrayVec::new();
         }
 
         // No problematic snakes
-        if problematic_snakes.iter().all(|&e| e == false) {
+        if problematic_snakes.iter().all(|&e| !e) {
             let mut movable_directions = ArrayVec::new();
             for d in D_DIRECTION_LIST {
                 if movable_fields_list[d as usize] {
@@ -467,7 +458,7 @@ impl DGameState<DSlowField> {
 
         'snake_coords: for snake_coords in snake_coord_distributions {
             'snakes: for id in 1..SNAKES {
-                if snake_coords[id as usize].len() > 0 {
+                if !snake_coords[id as usize].is_empty() {
                     for coords in snake_coords[id as usize]
                         .iter()
                         .permutations(snake_coords[id as usize].len())
@@ -627,18 +618,15 @@ where
         // Write head markers before board
         for i in 0..SNAKES {
             let snake = self.snakes.cell(i).get();
-            match snake {
-                DSnake::Alive { head, id, .. } => {
-                    let id = (id + 'A' as u8) as char;
-                    let x = head.x;
-                    let y = head.y;
-                    board[y as usize * 3 + 1][x as usize * 3 * 2] = id;
-                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = id;
-                    board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = id;
-                    board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = id;
-                    board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = id;
-                }
-                _ => (),
+            if let DSnake::Alive { head, id, .. } = snake {
+                let id = (id + b'A') as char;
+                let x = head.x;
+                let y = head.y;
+                board[y as usize * 3 + 1][x as usize * 3 * 2] = id;
+                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = id;
+                board[y as usize * 3][x as usize * 3 * 2 + 2] = id;
+                board[y as usize * 3 + 2][x as usize * 3 * 2 + 2] = id;
+                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = id;
             }
         }
 
@@ -652,21 +640,19 @@ where
                             if reachable.iter().filter(|x| x.is_set()).count() == 1 {
                                 let snake = reachable
                                     .iter()
-                                    .enumerate()
-                                    .filter(|(_, x)| x.is_set())
-                                    .next()
+                                    .enumerate().find(|(_, x)| x.is_set())
                                     .unwrap()
                                     .0;
                                 let c = (snake as u8 + b'A') as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] = c;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best.turn() + '0' as u8) as char;
+                                    (best.turn() + b'0') as char;
                             } else {
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 1] =
                                     (reachable.iter().filter(|x| x.is_set()).count() as u8
-                                        + '0' as u8) as char;
+                                        + b'0') as char;
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 3] =
-                                    (best.turn() + '0' as u8) as char;
+                                    (best.turn() + b'0') as char;
                             }
                         }
                     }
@@ -680,26 +666,26 @@ where
             for x in 0..WIDTH {
                 match this.board.cell(x, y).unwrap().get() {
                     DSlowField::Empty { .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '.';
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = '.';
                     }
                     DSlowField::Food { .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = 'X';
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = 'X';
                     }
                     DSlowField::Snake { id, next } => {
-                        let c = (id + 'a' as u8) as char;
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 1 * 2] = '*';
+                        let c = (id + b'a') as char;
+                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = '*';
                         match next {
                             Some(DDirection::Up) => {
-                                board[y as usize * 3 + 2][x as usize * 3 * 2 + 1 * 2] = c;
-                                board[y as usize * 3 + 3][x as usize * 3 * 2 + 1 * 2] = c;
+                                board[y as usize * 3 + 2][x as usize * 3 * 2 + 2] = c;
+                                board[y as usize * 3 + 3][x as usize * 3 * 2 + 2] = c;
                             }
                             Some(DDirection::Down) => {
-                                board[y as usize * 3][x as usize * 3 * 2 + 1 * 2] = c;
-                                board[y as usize * 3 - 1][x as usize * 3 * 2 + 1 * 2] = c;
+                                board[y as usize * 3][x as usize * 3 * 2 + 2] = c;
+                                board[y as usize * 3 - 1][x as usize * 3 * 2 + 2] = c;
                             }
                             Some(DDirection::Left) => {
                                 board[y as usize * 3 + 1][x as usize * 3 * 2] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 - 1 * 2] = c;
+                                board[y as usize * 3 + 1][x as usize * 3 * 2 - 2] = c;
                             }
                             Some(DDirection::Right) => {
                                 board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = c;
@@ -717,8 +703,8 @@ where
             let snake = self.snakes.cell(i).get();
             match snake {
                 DSnake::Alive { tail, stack, .. } | DSnake::Headless { tail, stack, .. } => {
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 * 2 + 1 * 2] =
-                        (stack + '0' as u8) as char;
+                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 * 2 + 2] =
+                        (stack + b'0') as char;
                 }
                 _ => (),
             }
@@ -747,7 +733,7 @@ where
                     id, health, length, ..
                 } => other_info.push_str(&format!(
                     "Snake {} (Alive) - Health: {}, Length: {}\n",
-                    (id + 'A' as u8) as char,
+                    (id + b'A') as char,
                     health,
                     length
                 )),
@@ -755,16 +741,16 @@ where
                     id, health, length, ..
                 } => other_info.push_str(&format!(
                     "Snake {} (Headless) - Health: {}, Length: {}\n",
-                    (id + 'A' as u8) as char,
+                    (id + b'A') as char,
                     health,
                     length
                 )),
                 DSnake::Dead { id, .. } => {
-                    other_info.push_str(&format!("Snake {} (Dead)\n", (id + 'A' as u8) as char))
+                    other_info.push_str(&format!("Snake {} (Dead)\n", (id + b'A') as char))
                 }
                 DSnake::Vanished { id, length, .. } => other_info.push_str(&format!(
                     "Snake {} (Vanished) - Length: {}\n",
-                    (id + 'A' as u8) as char,
+                    (id + b'A') as char,
                     length
                 )),
                 DSnake::NonExistent => (),
@@ -953,7 +939,7 @@ mod tests {
             .move_reachable(moves, 5);
         println!("{}", state);
         let result = state.scope_moves_pessimistic();
-        assert!(result.len() == 0);
+        assert!(result.is_empty());
 
         let gamestate = read_game_state("requests/failure_9.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
@@ -1475,7 +1461,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", d_gamestate);
-        assert_eq!(d_gamestate.get_alive()[0], true);
+        assert!(d_gamestate.get_alive()[0]);
         d_gamestate.next_state([
             Some(DDirection::Left),
             Some(DDirection::Left),
@@ -1483,7 +1469,7 @@ mod tests {
             Some(DDirection::Down),
         ]);
         println!("{}", d_gamestate);
-        assert_eq!(d_gamestate.get_alive()[0], false);
+        assert!(!d_gamestate.get_alive()[0]);
     }
 
     #[test]

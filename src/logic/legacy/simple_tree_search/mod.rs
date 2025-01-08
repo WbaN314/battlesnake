@@ -94,18 +94,15 @@ fn evaluate_snakes_step(board: &mut Board, you: &String) -> (Direction, i32) {
         // Resolve battles
         let mut battle_results = snake_changes.clone();
         for i in 0..snake_changes.len() {
-            match snake_changes[i] {
-                SnakeChange::Battle(j) => {
-                    if board.snakes[i].length < board.snakes[j].length {
-                        battle_results[i] = SnakeChange::Die;
-                    } else if board.snakes[i].length == board.snakes[j].length {
-                        battle_results[i] = SnakeChange::Die;
-                        battle_results[j] = SnakeChange::Die;
-                    } else {
-                        battle_results[j] = SnakeChange::Die;
-                    }
+            if let SnakeChange::Battle(j) = snake_changes[i] {
+                if board.snakes[i].length < board.snakes[j].length {
+                    battle_results[i] = SnakeChange::Die;
+                } else if board.snakes[i].length == board.snakes[j].length {
+                    battle_results[i] = SnakeChange::Die;
+                    battle_results[j] = SnakeChange::Die;
+                } else {
+                    battle_results[j] = SnakeChange::Die;
                 }
-                _ => (),
             }
         }
         snake_changes = battle_results;
@@ -230,6 +227,12 @@ impl Directions {
 }
 
 pub struct SimpleTreeSearchSnake {}
+
+impl Default for SimpleTreeSearchSnake {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SimpleTreeSearchSnake {
     pub fn new() -> Self {

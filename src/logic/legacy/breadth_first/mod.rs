@@ -20,6 +20,12 @@ mod e_state_tree;
 
 pub struct BreadthFirstSnake {}
 
+impl Default for BreadthFirstSnake {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BreadthFirstSnake {
     pub fn new() -> Self {
         Self {}
@@ -43,7 +49,7 @@ impl BreadthFirstSnake {
         for d in 0..4 {
             results[0].0[d] = simulation_states[d].depth as i64;
             results[1].0[d] = simulation_states[d].alive as i64;
-            results[2].0[d] = -1 * *(simulation_states[d].snake_count.last().unwrap_or(&10)) as i64;
+            results[2].0[d] = -(*(simulation_states[d].snake_count.last().unwrap_or(&10)) as i64);
             results[3].0[d] = *(simulation_states[d].my_length.last().unwrap_or(&0)) as i64;
         }
         results
@@ -101,7 +107,7 @@ impl BreadthFirstSnake {
         let mut result = [0; 4];
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         // Closest food distance that can be reached first
-        if board.food.len() > 0 {
+        if !board.food.is_empty() {
             for d in 0..4 {
                 let mut closest_uncontested_food_and_distance: Option<(ECoord, u8)> = None;
                 let mut e_food_and_distances = Vec::new();
@@ -130,7 +136,7 @@ impl BreadthFirstSnake {
                     }
                 }
                 result[d] = match closest_uncontested_food_and_distance {
-                    Some((_, distance)) => -1 * distance as i64,
+                    Some((_, distance)) => -(distance as i64),
                     _ => -100,
                 };
             }
@@ -185,7 +191,7 @@ impl BreadthFirstSnake {
         let mut result = [0; 4];
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         let mut board_weights_far = EScoreBoard::new();
-        board_weights_far.board_weights(&game_state, true);
+        board_weights_far.board_weights(game_state, true);
         for _ in 0..3 {
             board_weights_far = board_weights_far.convolution(
                 &vec![

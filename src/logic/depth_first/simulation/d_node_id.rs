@@ -5,6 +5,7 @@ use std::{
 };
 
 #[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Default)]
 pub struct DNodeId(Vec<DDirection>);
 
 impl DNodeId {
@@ -57,11 +58,6 @@ impl DerefMut for DNodeId {
     }
 }
 
-impl Default for DNodeId {
-    fn default() -> Self {
-        Self(vec![])
-    }
-}
 
 #[cfg(test)]
 mod tests {

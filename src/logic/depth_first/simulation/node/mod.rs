@@ -70,7 +70,7 @@ mod tests {
             DNodeStatus::Alive(DNodeAliveStatus::Always),
         ];
 
-        let mut clone = should_be_ordered.clone();
+        let mut clone = should_be_ordered;
         clone.sort();
 
         assert_eq!(should_be_ordered, clone);

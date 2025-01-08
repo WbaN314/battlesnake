@@ -46,6 +46,12 @@ impl Hash for ESnake {
 #[derive(Clone, Debug)]
 pub struct ESnakes([RefCell<Option<ESnake>>; SNAKES as usize]);
 
+impl Default for ESnakes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ESnakes {
     pub fn new() -> Self {
         Self(std::array::from_fn(|_| RefCell::new(None)))

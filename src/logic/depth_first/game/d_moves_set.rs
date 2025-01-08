@@ -131,7 +131,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            all_moves_list[1 * 4 * 4 + 2 * 4 + 4 - 1],
+            all_moves_list[4 * 4 + 2 * 4 + 4 - 1],
             [
                 Some(DDirection::Up),
                 Some(DDirection::Down),

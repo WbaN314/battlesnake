@@ -11,6 +11,12 @@ pub struct Scores {
     scores: Vec<([i64; 4], String)>,
 }
 
+impl Default for Scores {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Scores {
     pub fn new() -> Self {
         Scores { scores: Vec::new() }

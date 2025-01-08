@@ -6,6 +6,12 @@ use super::shared::brain::Brain;
 
 pub struct SimpleHungrySnake {}
 
+impl Default for SimpleHungrySnake {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimpleHungrySnake {
     pub fn new() -> Self {
         Self {}
@@ -63,7 +69,7 @@ impl Brain for SimpleHungrySnake {
             x: board_width / 2,
             y: board_height / 2,
         };
-        let closest_food = if foods.len() == 0 {
+        let closest_food = if foods.is_empty() {
             &middle
         } else {
             let mut closest_distance = u32::MAX;
@@ -77,8 +83,8 @@ impl Brain for SimpleHungrySnake {
             }
             tmp
         };
-        let chosen_move =
-            if closest_food.x > my_head.x && *is_move_safe.get(&Direction::Right).unwrap() {
+        
+        if closest_food.x > my_head.x && *is_move_safe.get(&Direction::Right).unwrap() {
                 Direction::Right
             } else if closest_food.x < my_head.x && *is_move_safe.get(&Direction::Left).unwrap() {
                 Direction::Left
@@ -96,7 +102,6 @@ impl Brain for SimpleHungrySnake {
                 Direction::Down
             } else {
                 Direction::Down
-            };
-        return chosen_move;
+            }
     }
 }

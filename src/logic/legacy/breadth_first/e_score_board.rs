@@ -70,7 +70,7 @@ impl EScoreBoard {
     }
 
     pub fn set(&mut self, x: i8, y: i8, value: f64) -> bool {
-        if x < 0 || x >= X_SIZE || y < 0 || y >= Y_SIZE {
+        if !(0..X_SIZE).contains(&x) || !(0..Y_SIZE).contains(&y) {
             false
         } else {
             let index = X_SIZE as usize * y as usize + x as usize;
@@ -80,7 +80,7 @@ impl EScoreBoard {
     }
 
     pub fn get(&self, x: i8, y: i8) -> Option<f64> {
-        if x < 0 || x >= X_SIZE || y < 0 || y >= Y_SIZE {
+        if !(0..X_SIZE).contains(&x) || !(0..Y_SIZE).contains(&y) {
             None
         } else {
             let index = X_SIZE as usize * y as usize + x as usize;
@@ -89,7 +89,7 @@ impl EScoreBoard {
     }
 
     pub fn update(&mut self, x: i8, y: i8, value: f64) -> bool {
-        if x < 0 || x >= X_SIZE || y < 0 || y >= Y_SIZE {
+        if !(0..X_SIZE).contains(&x) || !(0..Y_SIZE).contains(&y) {
             false
         } else {
             let index = X_SIZE as usize * y as usize + x as usize;
@@ -153,10 +153,10 @@ impl EScoreBoard {
                             y - half_rows as i8 + y_i as i8,
                         ) {
                             if normalize {
-                                new_value += value as f64 * (kernel[kernel.len() - 1 - y_i][x_i]);
+                                new_value += value * (kernel[kernel.len() - 1 - y_i][x_i]);
                                 sum += kernel[kernel.len() - 1 - y_i][x_i];
                             } else {
-                                new_value += value as f64 * kernel[kernel.len() - 1 - y_i][x_i];
+                                new_value += value * kernel[kernel.len() - 1 - y_i][x_i];
                             }
                         }
                     }
@@ -250,38 +250,35 @@ impl EScoreBoard {
             ];
             let top = mirror_v(&bottom);
             for osi in 1..SNAKES {
-                match game_state.snakes.get(osi).as_ref() {
-                    Some(snake) => {
-                        let head = snake.head;
-                        let l = 2;
-                        let h = 8;
-                        if head.x <= l && head.y >= h {
-                            // Top Left
-                            self.update_around(head.x, head.y, &top_left);
-                        } else if head.x >= h && head.y >= h {
-                            // Top Right
-                            self.update_around(head.x, head.y, &top_right);
-                        } else if head.x <= l && head.y <= l {
-                            // Bottom Left
-                            self.update_around(head.x, head.y, &bottom_left);
-                        } else if head.x >= h && head.y <= l {
-                            // Bottom Right
-                            self.update_around(head.x, head.y, &bottom_right);
-                        } else if head.x <= l {
-                            // Left
-                            self.update_around(head.x, head.y, &left);
-                        } else if head.x >= h {
-                            // Right
-                            self.update_around(head.x, head.y, &right);
-                        } else if head.y <= l {
-                            // Bottom
-                            self.update_around(head.x, head.y, &bottom);
-                        } else if head.y >= h {
-                            // Top
-                            self.update_around(head.x, head.y, &top);
-                        }
+                if let Some(snake) = game_state.snakes.get(osi).as_ref() {
+                    let head = snake.head;
+                    let l = 2;
+                    let h = 8;
+                    if head.x <= l && head.y >= h {
+                        // Top Left
+                        self.update_around(head.x, head.y, &top_left);
+                    } else if head.x >= h && head.y >= h {
+                        // Top Right
+                        self.update_around(head.x, head.y, &top_right);
+                    } else if head.x <= l && head.y <= l {
+                        // Bottom Left
+                        self.update_around(head.x, head.y, &bottom_left);
+                    } else if head.x >= h && head.y <= l {
+                        // Bottom Right
+                        self.update_around(head.x, head.y, &bottom_right);
+                    } else if head.x <= l {
+                        // Left
+                        self.update_around(head.x, head.y, &left);
+                    } else if head.x >= h {
+                        // Right
+                        self.update_around(head.x, head.y, &right);
+                    } else if head.y <= l {
+                        // Bottom
+                        self.update_around(head.x, head.y, &bottom);
+                    } else if head.y >= h {
+                        // Top
+                        self.update_around(head.x, head.y, &top);
                     }
-                    _ => (),
                 }
             }
         } else {
@@ -369,16 +366,13 @@ impl EScoreBoard {
 
             // change weights
             for d in 0..4 {
-                match uncontested_food[d] {
-                    Some((_, distance)) => {
-                        let new_head = my_snake.head + EDIRECTION_VECTORS[d];
-                        let mut weight = (100.0 - my_snake.health as f64).max(0.0)
-                            + (25.0 - distance as f64).max(0.0)
-                            + (25.0 - my_snake.length as f64).max(0.0);
-                        weight *= relative_distance_weight[d];
-                        self.update(new_head.x, new_head.y, weight);
-                    }
-                    _ => (),
+                if let Some((_, distance)) = uncontested_food[d] {
+                    let new_head = my_snake.head + EDIRECTION_VECTORS[d];
+                    let mut weight = (100.0 - my_snake.health as f64).max(0.0)
+                        + (25.0 - distance as f64).max(0.0)
+                        + (25.0 - my_snake.length as f64).max(0.0);
+                    weight *= relative_distance_weight[d];
+                    self.update(new_head.x, new_head.y, weight);
                 }
             }
         }

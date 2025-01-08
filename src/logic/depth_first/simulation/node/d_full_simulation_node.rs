@@ -48,7 +48,7 @@ impl DNode for DFullSimulationNode {
                 }
                 self.status
                     .set(DNodeStatus::Alive(DNodeAliveStatus::Always));
-                return self.status.get();
+                self.status.get()
             }
             status => status,
         }
@@ -60,11 +60,8 @@ impl DNode for DFullSimulationNode {
         for state in self.states.iter() {
             if self.time.is_timed_out() {
                 for i in 0..4 {
-                    match statuses[i] {
-                        DNodeStatus::Alive(_) => {
-                            statuses[i] = DNodeStatus::TimedOut;
-                        }
-                        _ => (),
+                    if let DNodeStatus::Alive(_) = statuses[i] {
+                        statuses[i] = DNodeStatus::TimedOut;
                     }
                 }
                 break;

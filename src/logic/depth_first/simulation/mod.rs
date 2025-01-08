@@ -72,9 +72,7 @@ impl DSimulation {
 
         simulation_directions
             .iter()
-            .enumerate()
-            .filter(|(_, b)| **b)
-            .next()
+            .enumerate().find(|(_, b)| **b)
             .unwrap_or((0, &true))
             .0
             .try_into()

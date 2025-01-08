@@ -57,16 +57,13 @@ impl DNode for DPessimisticCaptureNode {
     }
 
     fn status(&self) -> DNodeStatus {
-        match self.status.get() {
-            DNodeStatus::Unknown => {
-                if self.state.get_alive()[0] {
-                    self.status
-                        .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
-                } else {
-                    self.status.set(DNodeStatus::Dead);
-                }
+        if self.status.get() == DNodeStatus::Unknown {
+            if self.state.get_alive()[0] {
+                self.status
+                    .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
+            } else {
+                self.status.set(DNodeStatus::Dead);
             }
-            _ => (),
         }
         self.status.get()
     }

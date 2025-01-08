@@ -103,7 +103,7 @@ impl EStateNode {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 

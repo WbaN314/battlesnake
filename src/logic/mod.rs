@@ -30,13 +30,13 @@ pub fn info() -> Value {
     let head = env::var("SNAKE_HEAD").unwrap_or("chicken".to_string());
     let tail = env::var("SNAKE_TAIL").unwrap_or("duck".to_string());
 
-    return json!({
+    json!({
         "apiversion": "1",
         "author": "WbaN",
         "color": color,
         "head": head,
         "tail": tail,
-    });
+    })
 }
 
 // start is called when your Battlesnake begins a game
@@ -60,7 +60,7 @@ pub fn get_move(gamestate: &GameState, variant: String) -> Direction {
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-    let next_move = brain.logic(gamestate);
+    
     // info!("MOVE {}: {}", turn, next_move);
-    return next_move;
+    brain.logic(gamestate)
 }

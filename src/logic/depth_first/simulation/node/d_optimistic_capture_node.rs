@@ -57,15 +57,12 @@ impl DOptimisticCaptureNode {
         let relevant_snakes = new_state.relevant_snakes(direction, new_id.len() as u8);
         let mut statistics = self.statistics();
         for i in 0..SNAKES as usize {
-            match statistics.relevant_snakes[i] {
-                None => match relevant_snakes[i] {
-                    status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
-                        statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
-                    }
-                    _ => (),
-                },
+            if statistics.relevant_snakes[i].is_none() { match relevant_snakes[i] {
+                status @ DRelevanceState::Head | status @ DRelevanceState::Body => {
+                    statistics.relevant_snakes[i] = Some((status, new_id.len() as u8))
+                }
                 _ => (),
-            }
+            } }
         }
 
         new_state.move_heads(moves);
@@ -104,16 +101,13 @@ impl DNode for DOptimisticCaptureNode {
     }
 
     fn status(&self) -> DNodeStatus {
-        match self.status.get() {
-            DNodeStatus::Unknown => {
-                if self.state.get_alive()[0] {
-                    self.status
-                        .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
-                } else {
-                    self.status.set(DNodeStatus::Dead);
-                }
+        if self.status.get() == DNodeStatus::Unknown {
+            if self.state.get_alive()[0] {
+                self.status
+                    .set(DNodeStatus::Alive(DNodeAliveStatus::default()));
+            } else {
+                self.status.set(DNodeStatus::Dead);
             }
-            _ => (),
         }
         self.status.get()
     }
