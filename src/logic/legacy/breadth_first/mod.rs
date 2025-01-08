@@ -74,16 +74,21 @@ impl BreadthFirstSnake {
                 .clone()
                 .advanced_fill(&(my_snake.head + EDIRECTION_VECTORS[d]))
             {
-                let min_to_open = area
-                    .opening_times_by_snake
-                    .iter()
-                    .filter(|x| x.is_some())
-                    .map(|x| x.unwrap())
-                    .min();
-                if area.area >= my_snake.length {
+                let mut min_to_open: Option<u8> = None;
+
+                for &time in &area.opening_times_by_snake {
+                    if let Some(time) = time {
+                        min_to_open = match min_to_open {
+                            Some(min) => Some(min.min(time)),
+                            None => Some(time),
+                        };
+                    }
+                }
+                let new_area = area.area;
+                if new_area >= my_snake.length {
                     result[d] = 1;
                 } else if let Some(min_to_open) = min_to_open {
-                    if area.area >= min_to_open {
+                    if new_area >= min_to_open {
                         result[d] = 1;
                     }
                 }

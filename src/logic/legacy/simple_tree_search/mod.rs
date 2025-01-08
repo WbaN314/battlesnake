@@ -286,21 +286,13 @@ impl Brain for SimpleTreeSearchSnake {
 fn step(board: &Board, id: &String) -> (Vec<Board>, [i32; 4]) {
     let mut new_boards = simulate_snakes_step(board);
 
-    let mut move_scores = [0; 4];
+    let mut move_scores: [i32; 4] = [0; 4];
     for board in new_boards.iter_mut() {
         match evaluate_snakes_step(board, id) {
-            (Direction::Up, score) => {
-                move_scores[0] = (move_scores[0] as i32).saturating_add(score)
-            }
-            (Direction::Down, score) => {
-                move_scores[1] = (move_scores[1] as i32).saturating_add(score)
-            }
-            (Direction::Left, score) => {
-                move_scores[2] = (move_scores[2] as i32).saturating_add(score)
-            }
-            (Direction::Right, score) => {
-                move_scores[3] = (move_scores[3] as i32).saturating_add(score)
-            }
+            (Direction::Up, score) => move_scores[0] = move_scores[0].saturating_add(score),
+            (Direction::Down, score) => move_scores[1] = move_scores[1].saturating_add(score),
+            (Direction::Left, score) => move_scores[2] = move_scores[2].saturating_add(score),
+            (Direction::Right, score) => move_scores[3] = move_scores[3].saturating_add(score),
         };
     }
     (new_boards, move_scores)
