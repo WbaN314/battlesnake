@@ -124,12 +124,7 @@ impl DNode for DOptimisticCaptureNode {
     }
 
     fn info(&self) -> String {
-        format!(
-            "{} {:?} {:?}",
-            self.id,
-            self.status(),
-            self.statistics().relevant_snakes
-        )
+        format!("{} {:?}", self.id, self.status())
     }
 
     fn calc_children(&self) -> Vec<Box<Self>> {

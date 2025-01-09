@@ -47,6 +47,7 @@ pub struct DTree<Node: DNode> {
     queue: [Vec<DNodeId>; 4],
     time: DTreeTime,
     max_depth: Option<usize>,
+    simulation_status: DSimulationStatus,
 }
 
 impl<Node> DTree<Node>
@@ -117,7 +118,8 @@ where
             }
             count += 1;
         }
-        simulation_status
+        self.simulation_status = simulation_status;
+        self.simulation_status
     }
 
     pub fn result(&self) -> DSimulationResult<Node> {
@@ -260,10 +262,26 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             approved_directions
         }
     }
+
+    pub fn capture_contact_turn(&self) -> [[Option<u8>; 4]; 4] {
+        let mut capture_contact_turn: [[Option<u8>; 4]; 4] = Default::default();
+        for (i, result) in self.direction_results.iter().enumerate() {
+            capture_contact_turn[i] = result.capture_contact_turn;
+        }
+        capture_contact_turn
+    }
 }
 
 impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "--- General Info ---")?;
+        writeln!(f, "Nodes: {}", self.tree.statistic_nodes())?;
+        writeln!(f, "States: {}", self.tree.statistic_states())?;
+        writeln!(f, "Depth: {}", self.tree.statistics_depth())?;
+        writeln!(f, "Time: {:?}", self.tree.statistics_time())?;
+        writeln!(f, "Status: {:?}", self.tree.simulation_status)?;
+
+        writeln!(f, "--- Direction Results ---")?;
         for result in &self.direction_results {
             writeln!(f, "{}", result.direction)?;
             writeln!(f, "Depth: {}", result.depth)?;
@@ -271,7 +289,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
             writeln!(f, "Finished: {}", result.finished)?;
             writeln!(
                 f,
-                "Relevant snakes: {:?}",
+                "Capture Contact: {:?}",
                 result
                     .capture_contact_turn
                     .map(|rel| if let Some(rel) = rel {
@@ -287,10 +305,8 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
                     .nodes
                     .get(result.node_ids.last().unwrap())
                     .unwrap();
-                writeln!(f, "{} {:?}", best_node.info(), best_node.statistics())?;
+                writeln!(f, "{}", best_node.info())?;
             }
-
-            writeln!(f)?;
         }
         Ok(())
     }
@@ -319,7 +335,7 @@ impl DSimulationDirectionResult {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum DSimulationStatus {
     #[default]
     Unknown,
@@ -334,6 +350,7 @@ impl<Node: DNode> Default for DTree<Node> {
             queue: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             time: DTreeTime::default(),
             max_depth: None,
+            simulation_status: DSimulationStatus::default(),
         }
     }
 }
@@ -343,11 +360,6 @@ impl<Node: DNode> Display for DTree<Node> {
         for node in self.nodes.values() {
             writeln!(f, "{}", node.info())?;
         }
-        writeln!(f)?;
-        writeln!(f, "Nodes: {}", self.statistic_nodes())?;
-        writeln!(f, "States: {}", self.statistic_states())?;
-        writeln!(f, "Depth: {}", self.statistics_depth())?;
-        writeln!(f, "Time: {:?}", self.statistics_time())?;
         Ok(())
     }
 }
@@ -392,9 +404,7 @@ mod tests {
             DNodeStatus::default(),
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(50));
-        let status = tree.simulate();
-        println!("{}", tree);
-        println!("{:?}\n", status);
+        tree.simulate();
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
     }
@@ -416,9 +426,7 @@ mod tests {
             DNodeStatistics::default(),
         );
         let mut tree = DTree::default().root(root).max_depth(20);
-        let status = tree.simulate();
-        println!("{}", tree);
-        println!("{:?}\n", status);
+        tree.simulate();
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
     }
@@ -439,9 +447,7 @@ mod tests {
             DNodeStatus::default(),
         );
         let mut tree = DTree::default().root(root);
-        let status = tree.simulate();
-        println!("{}", tree);
-        println!("{:?}\n", status);
+        tree.simulate();
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
     }
@@ -462,9 +468,7 @@ mod tests {
             DNodeStatus::default(),
         );
         let mut tree = DTree::default().root(root).max_depth(8);
-        let status = tree.simulate();
-        println!("{}", tree);
-        println!("{:?}\n", status);
+        tree.simulate();
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
 
@@ -528,21 +532,10 @@ mod tests {
         tree.simulate();
         println!("{}", tree);
         let result = tree.result();
-        assert_eq!(
-            result.direction_results[0].capture_contact_turn,
-            [None, Some(2), None, None]
-        );
-        assert_eq!(
-            result.direction_results[1].capture_contact_turn,
-            [None, Some(5), Some(2), None]
-        );
-        assert_eq!(
-            result.direction_results[2].capture_contact_turn,
-            [None, None, None, None]
-        );
-        assert_eq!(
-            result.direction_results[3].capture_contact_turn,
-            [None, Some(1), None, None]
-        );
+        let capture_contact_turn = result.capture_contact_turn();
+        assert_eq!(capture_contact_turn[0], [None, Some(2), None, None]);
+        assert_eq!(capture_contact_turn[1], [None, Some(5), Some(2), None]);
+        assert_eq!(capture_contact_turn[2], [None, None, None, None]);
+        assert_eq!(capture_contact_turn[3], [None, Some(1), None, None]);
     }
 }

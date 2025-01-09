@@ -4,8 +4,11 @@ mod node;
 
 use std::{env, time::Duration};
 
+use arrayvec::ArrayVec;
 use d_tree::DTree;
-use node::d_full_simulation_node::DFullSimulationNode;
+use node::{
+    d_full_simulation_node::DFullSimulationNode, d_optimistic_capture_node::DOptimisticCaptureNode,
+};
 
 use super::game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState};
 
@@ -21,6 +24,21 @@ impl DSimulation {
     }
 
     pub fn run(&mut self) -> DDirection {
+        let capture_simulation = DOptimisticCaptureNode::new(
+            Default::default(),
+            self.initial_state.clone(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        );
+        let mut capture_tree = DTree::default()
+            .root(capture_simulation)
+            .time(Duration::from_millis(50));
+        capture_tree.simulate();
+        let capture_result = capture_tree.result();
+
+        println!("{}\n", capture_result);
+
         let full_simulation = DFullSimulationNode::new(
             Default::default(),
             vec![self.initial_state.clone().into()],
@@ -30,24 +48,22 @@ impl DSimulation {
         let mut simulation_tree = DTree::default()
             .root(full_simulation)
             .time(Duration::from_millis(200));
-        let simulation_status = simulation_tree.simulate();
+        simulation_tree.simulate();
         let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
 
-        if env::var("MODE").is_ok_and(|value| value == "test") {
-            println!("{}\n", simulation_tree);
-            println!("{:?}\n", simulation_status);
-            println!("{}", simulation_result);
-            println!("{:?}", simulation_directions);
+        println!("{}\n", simulation_result);
+
+        let mut result: ArrayVec<DDirection, 4> = ArrayVec::new();
+        for (i, direction) in simulation_directions.into_iter().enumerate() {
+            if direction {
+                result.push(i.try_into().unwrap());
+            }
         }
 
-        simulation_directions
-            .iter()
-            .enumerate()
-            .find(|(_, b)| **b)
-            .unwrap_or((0, &true))
-            .0
-            .try_into()
-            .unwrap()
+        println!("--- Final Result ---");
+        println!("{:?}\n", result);
+
+        result[0]
     }
 }
