@@ -312,7 +312,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DSimulationDirectionResult {
     pub direction: DDirection,
     pub depth: usize,
@@ -445,6 +445,7 @@ mod tests {
             vec![state],
             DTreeTime::new(Duration::from_millis(200)),
             DNodeStatus::default(),
+            None,
         );
         let mut tree = DTree::default().root(root);
         tree.simulate();
@@ -466,6 +467,7 @@ mod tests {
             vec![state],
             DTreeTime::default(),
             DNodeStatus::default(),
+            None,
         );
         let mut tree = DTree::default().root(root).max_depth(8);
         tree.simulate();
@@ -537,5 +539,105 @@ mod tests {
         assert_eq!(capture_contact_turn[1], [None, Some(5), Some(2), None]);
         assert_eq!(capture_contact_turn[2], [None, None, None, None]);
         assert_eq!(capture_contact_turn[3], [None, Some(1), None, None]);
+    }
+
+    #[test]
+    fn test_capture_contact_depth() {
+        let gamestate = read_game_state("requests/failure_45_panic_again.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state.clone()],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+        );
+
+        let capture_contact_depth = Some([
+            [false, false, false, false],
+            [false, false, false, false],
+            [false, false, false, false],
+            [true, true, true, true],
+        ]);
+
+        let root2 = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            capture_contact_depth,
+        );
+
+        let mut tree_with_ccd = DTree::default().root(root).max_depth(4);
+        tree_with_ccd.simulate();
+        let result_with_ccd = tree_with_ccd.result();
+
+        let mut tree_without_ccd = DTree::default().root(root2).max_depth(4);
+        tree_without_ccd.simulate();
+        let result_without_ccd = tree_without_ccd.result();
+
+        println!("{}", result_with_ccd);
+        println!("{}", result_without_ccd);
+
+        assert_ne!(
+            result_with_ccd.direction_results[2],
+            result_without_ccd.direction_results[2]
+        );
+
+        let gamestate = read_game_state("requests/failure_2.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state.clone()],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+        );
+
+        let capture_contact_depth = Some([
+            [true, true, true, false],
+            [true, false, true, false],
+            [true, false, false, false],
+            [true, false, true, false],
+        ]);
+
+        let root2 = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            capture_contact_depth,
+        );
+
+        let mut tree_with_ccd = DTree::default().root(root).max_depth(4);
+        tree_with_ccd.simulate();
+        let result_with_ccd = tree_with_ccd.result();
+
+        let mut tree_without_ccd = DTree::default().root(root2).max_depth(4);
+        tree_without_ccd.simulate();
+        let result_without_ccd = tree_without_ccd.result();
+
+        println!("{}", result_with_ccd);
+        println!("{}", result_without_ccd);
+
+        assert_eq!(
+            result_with_ccd.direction_results[0],
+            result_without_ccd.direction_results[0]
+        );
+
+        assert_ne!(
+            result_with_ccd.direction_results[1],
+            result_without_ccd.direction_results[1]
+        );
     }
 }

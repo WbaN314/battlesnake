@@ -95,9 +95,9 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        println!("{:#?}", state.possible_moves());
+        println!("{:#?}", state.possible_moves([true, true, true, true]));
         b.iter(|| {
-            state.possible_moves().generate();
+            state.possible_moves([true, true, true, true]).generate();
         });
     }
 
@@ -155,7 +155,7 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        let moves_set = state.possible_moves();
+        let moves_set = state.possible_moves([true, true, true, true]);
         let moves_list = moves_set.generate();
 
         assert_eq!(moves_list.len(), 36);

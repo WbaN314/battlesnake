@@ -235,12 +235,14 @@ impl<T: DField> DGameState<T> {
         self
     }
 
-    pub fn possible_moves(&self) -> DMovesSet {
+    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> DMovesSet {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
         let mut moved_tails = self.clone();
         moved_tails.move_tails();
         for id in 0..SNAKES {
-            possible_moves[id as usize] = moved_tails.possible_moves_for(id)
+            if consider[id as usize] {
+                possible_moves[id as usize] = moved_tails.possible_moves_for(id)
+            }
         }
         DMovesSet::new(possible_moves)
     }
@@ -846,7 +848,7 @@ mod tests {
         );
         println!("{}", state);
         b.iter(|| {
-            let _ = state.possible_moves();
+            let _ = state.possible_moves([true, true, true, true]);
         });
     }
 
@@ -1071,7 +1073,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let moves = state.possible_moves();
+        let moves = state.possible_moves([true, true, true, true]);
         println!("{:#?}", moves);
         assert_eq!(moves.generate().len(), 36);
 
@@ -1082,7 +1084,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let moves = state.possible_moves();
+        let moves = state.possible_moves([true, true, true, true]);
         assert_eq!(moves.get(0), [true, false, true, true]);
         assert_eq!(moves.get(1), [true, false, false, false]);
         assert_eq!(moves.get(2), [false, false, false, false]);
@@ -1095,7 +1097,7 @@ mod tests {
 
         let state = state.play(["RR", "UU", "", ""]);
         println!("{}", state);
-        let moves = state.possible_moves().generate();
+        let moves = state.possible_moves([true, true, true, true]).generate();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
@@ -1106,8 +1108,18 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let moves = state.possible_moves();
+        let moves = state.possible_moves([true, true, true, true]);
         assert_eq!(moves.get(0), [true, true, false, true]);
+
+        let gamestate = read_game_state("requests/failure_2.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let moves = state.possible_moves([true, false, true, false]);
+        assert_eq!(moves.get(1), [false, false, false, false]);
     }
 
     #[test]

@@ -1,5 +1,8 @@
 use crate::logic::depth_first::{
-    game::{d_direction::D_DIRECTION_LIST, d_field::DFastField, d_game_state::DGameState},
+    game::{
+        d_direction::D_DIRECTION_LIST, d_field::DFastField, d_game_state::DGameState,
+        d_moves_set::DMoves,
+    },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 use std::{cell::Cell, cmp::Ordering, fmt::Display};
@@ -13,6 +16,7 @@ pub struct DFullSimulationNode {
     time: DTreeTime,
     status: Cell<DNodeStatus>,
     statistics: Cell<Option<DNodeStatistics>>,
+    direction_relevant_snakes: Option<[[bool; 4]; 4]>,
 }
 
 impl DFullSimulationNode {
@@ -21,11 +25,13 @@ impl DFullSimulationNode {
         states: Vec<DGameState<DFastField>>,
         time: DTreeTime,
         status: DNodeStatus,
+        direction_relevant_snakes: Option<[[bool; 4]; 4]>,
     ) -> Self {
         Self {
             id,
             states,
             time,
+            direction_relevant_snakes,
             status: Cell::new(status),
             statistics: Cell::new(None),
         }
@@ -57,6 +63,7 @@ impl DNode for DFullSimulationNode {
     fn calc_children(&self) -> Vec<Box<Self>> {
         let mut states = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
         let mut statuses = [self.status(); 4];
+
         for state in self.states.iter() {
             if self.time.is_timed_out() {
                 for i in 0..4 {
@@ -66,12 +73,36 @@ impl DNode for DFullSimulationNode {
                 }
                 break;
             }
-            let possible_moves_matrix = state.possible_moves();
-            let possible_moves = possible_moves_matrix.generate();
+
+            let mut possible_moves: Vec<DMoves> = Vec::new();
+            let mut possible_moves_matrix = state.possible_moves([true, true, true, true]);
+            if let Some(direction_relevant_snakes) = self.direction_relevant_snakes {
+                if self.id.len() == 0 {
+                    for d in 0..4 {
+                        let mut poss_moves = state
+                            .possible_moves(direction_relevant_snakes[d])
+                            .generate()
+                            .into_iter()
+                            .filter(|m| m[0] == Some(d.try_into().unwrap()))
+                            .collect::<Vec<DMoves>>();
+                        possible_moves.append(&mut poss_moves);
+                    }
+                } else {
+                    let direction = self.id().first().unwrap();
+                    possible_moves_matrix =
+                        state.possible_moves(direction_relevant_snakes[*direction as usize]);
+                    possible_moves = possible_moves_matrix.generate();
+                }
+            } else {
+                possible_moves = possible_moves_matrix.generate();
+            }
+
             if possible_moves.is_empty() {
                 self.status.set(DNodeStatus::DeadEnd);
                 return Vec::new();
             }
+
+            // If move is not in possible moves matrix make best status only alive sometimes
             for (i, d) in possible_moves_matrix.get(0).iter().enumerate() {
                 match statuses[i] {
                     DNodeStatus::Alive(DNodeAliveStatus::Always) if !d => {
@@ -107,6 +138,7 @@ impl DNode for DFullSimulationNode {
                 states[i].clone(),
                 self.time.clone(),
                 statuses[i],
+                self.direction_relevant_snakes,
             )));
         }
         result
@@ -231,6 +263,7 @@ mod tests {
             vec![gamestate],
             DTreeTime::default(),
             DNodeStatus::default(),
+            None,
         );
         println!("{}", node);
         let children = node.calc_children();
@@ -276,12 +309,18 @@ mod tests {
         let request = read_game_state("requests/test_move_request_2.json");
         let gamestate =
             DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
-        println!("{:?}", gamestate.possible_moves().generate());
+        println!(
+            "{:?}",
+            gamestate
+                .possible_moves([true, true, true, true])
+                .generate()
+        );
         let node = DFullSimulationNode::new(
             DNodeId::default(),
             vec![gamestate],
             DTreeTime::default(),
             DNodeStatus::default(),
+            None,
         );
         println!("{}", node);
         let children = node.calc_children();
@@ -289,5 +328,40 @@ mod tests {
         println!("{}", children[1]);
         println!("{}", children[2]);
         println!("{}", children[3]);
+    }
+
+    #[test]
+    fn test_calc_children_3() {
+        let gamestate = read_game_state("requests/failure_2.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let capture_contact_depth = Some([
+            [true, true, true, false],
+            [true, false, true, false],
+            [true, false, false, false],
+            [true, false, true, false],
+        ]);
+
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            capture_contact_depth,
+        );
+
+        let children = root.calc_children();
+
+        assert_ne!(root.status(), DNodeStatus::DeadEnd);
+        assert_eq!(children.len(), 4);
+
+        for child in children.iter() {
+            println!("{}", child.info());
+        }
     }
 }
