@@ -241,26 +241,41 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
 
     pub fn approved_directions(&self) -> [bool; 4] {
         let mut best_nodes: Vec<&Node> = Vec::new();
+        let mut approved_directions = [true; 4];
+
+        let max_depth = self
+            .direction_results
+            .iter()
+            .map(|r| r.depth)
+            .max()
+            .unwrap();
+        for direction_result in self.direction_results.iter() {
+            if direction_result.depth < max_depth && direction_result.finished {
+                approved_directions[direction_result.direction as usize] = false;
+            }
+        }
+
+        // Check the best nodes for each direction
         for direction_result in self.direction_results.iter() {
             if let Some(id) = direction_result.node_ids.last() {
                 let node = self.tree.nodes.get(id).unwrap();
                 best_nodes.push(node);
             }
         }
-
-        let mut approved_directions = [false; 4];
-        if best_nodes.is_empty() {
+        approved_directions = if best_nodes.is_empty() {
             approved_directions
         } else {
-            best_nodes.sort_unstable_by(|node1, node2| node1.result_order(node2));
+            best_nodes.sort_unstable_by(|node1, node2| node1.direction_order(node2));
             let last_node = best_nodes.last().unwrap();
             for node in best_nodes.iter() {
-                if node.result_order(last_node) == Ordering::Equal {
-                    approved_directions[*node.id().first().unwrap() as usize] = true;
+                if node.direction_order(last_node) == Ordering::Less {
+                    approved_directions[*node.id().first().unwrap() as usize] = false;
                 }
             }
             approved_directions
-        }
+        };
+
+        approved_directions
     }
 
     pub fn capture_contact_turn(&self) -> [[Option<u8>; 4]; 4] {

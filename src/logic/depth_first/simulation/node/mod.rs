@@ -26,6 +26,10 @@ pub trait DNode {
             .cmp(&other.status())
             .then(self.id().len().cmp(&other.id().len()))
     }
+    // Result order per defaut. Used for final single node comparison in tree result.
+    fn direction_order(&self, other: &Self) -> Ordering {
+        self.result_order(other)
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -171,6 +171,24 @@ impl DNode for DFullSimulationNode {
         self.statistics.get().unwrap()
     }
 
+    fn direction_order(&self, other: &Self) -> Ordering {
+        // Best element should be last
+        let self_stats = self.statistics();
+        let other_stats = other.statistics();
+
+        self.status.cmp(&other.status).then(
+            self_stats
+                .highest_alive_snakes
+                .cmp(&other_stats.highest_alive_snakes)
+                .reverse()
+                .then(
+                    self_stats
+                        .lowest_self_length
+                        .cmp(&other_stats.lowest_self_length),
+                ),
+        )
+    }
+
     fn result_order(&self, other: &Self) -> Ordering {
         // Best element should be last
         let self_stats = self.statistics();
