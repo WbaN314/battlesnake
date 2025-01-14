@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use game::d_direction::DDirection;
 use game::d_field::DSlowField;
 use game::d_game_state::DGameState;
@@ -31,7 +33,13 @@ impl Brain for DepthFirstSnake {
             &gamestate.turn,
         );
         let simulation = DSimulation::new(state);
-        let simulation_result = simulation.run();
+        let simulation_result = simulation
+            .capture(true)
+            .capture_duration(Duration::from_millis(50))
+            .capture_max_depth(16)
+            .simulation_duration(Duration::from_millis(200))
+            .simulation_max_depth(8)
+            .run();
         match simulation_result.get(0).unwrap_or(&DDirection::Up) {
             DDirection::Up => Direction::Up,
             DDirection::Down => Direction::Down,
