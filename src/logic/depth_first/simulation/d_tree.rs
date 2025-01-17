@@ -48,6 +48,7 @@ pub struct DTree<Node: DNode> {
     time: DTreeTime,
     max_depth: Option<usize>,
     simulation_status: DSimulationStatus,
+    statistics: Option<DTreeStatistics>,
 }
 
 impl<Node> DTree<Node>
@@ -73,13 +74,17 @@ where
 
     pub fn simulate(&mut self) -> DSimulationStatus {
         let simulation_status;
+        self.time.start = Instant::now();
+        let mut direction_durations = [Duration::default(); 4];
         let mut count = 0;
         'simulation: loop {
             if self.time.is_timed_out() {
                 simulation_status = DSimulationStatus::TimedOut;
                 break 'simulation;
             }
-            match self.queue[count % 4].pop() {
+            let direction = count % 4;
+            let direction_timer = Instant::now();
+            match self.queue[direction].pop() {
                 Some(parent_id) => {
                     if parent_id.len() >= self.max_depth.unwrap_or(usize::MAX) {
                         continue;
@@ -116,8 +121,10 @@ where
                     }
                 }
             }
+            direction_durations[direction] += direction_timer.elapsed();
             count += 1;
         }
+        self.calc_statistics(direction_durations);
         self.simulation_status = simulation_status;
         self.simulation_status
     }
@@ -199,6 +206,21 @@ where
         result
     }
 
+    fn statistics(&self) -> DTreeStatistics {
+        self.statistics.unwrap()
+    }
+
+    fn calc_statistics(&mut self, direction_durations: [Duration; 4]) {
+        let statistics = DTreeStatistics {
+            states: self.statistic_states(),
+            nodes: self.statistic_nodes(),
+            depth: self.statistic_depth(),
+            time: self.statistic_time(),
+            time_per_direction: direction_durations,
+        };
+        self.statistics = Some(statistics);
+    }
+
     fn statistic_states(&self) -> usize {
         let mut states = 0;
         for (_, node) in self.nodes.iter() {
@@ -211,11 +233,11 @@ where
         self.nodes.len()
     }
 
-    fn statistics_time(&self) -> Duration {
+    fn statistic_time(&self) -> Duration {
         self.time.start.elapsed()
     }
 
-    fn statistics_depth(&self) -> usize {
+    fn statistic_depth(&self) -> usize {
         let mut depth = 0;
         for (_, node) in self.nodes.iter() {
             if node.status() != DNodeStatus::TimedOut {
@@ -224,6 +246,15 @@ where
         }
         depth
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct DTreeStatistics {
+    pub states: usize,
+    pub nodes: usize,
+    pub depth: usize,
+    pub time: Duration,
+    pub time_per_direction: [Duration; 4],
 }
 
 pub struct DSimulationResult<'a, Node: DNode> {
@@ -289,18 +320,20 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
 
 impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let statistics = self.tree.statistics();
         writeln!(f, "--- General Info ---")?;
-        writeln!(f, "Nodes: {}", self.tree.statistic_nodes())?;
-        writeln!(f, "States: {}", self.tree.statistic_states())?;
-        writeln!(f, "Depth: {}", self.tree.statistics_depth())?;
-        writeln!(f, "Time: {:?}", self.tree.statistics_time())?;
+        writeln!(f, "Nodes: {}", statistics.nodes)?;
+        writeln!(f, "States: {}", statistics.states)?;
+        writeln!(f, "Depth: {}", statistics.depth)?;
+        writeln!(f, "Time: {:?}", statistics.time)?;
         writeln!(f, "Status: {:?}", self.tree.simulation_status)?;
 
         writeln!(f, "--- Direction Results ---")?;
-        for result in &self.direction_results {
+        for (i, result) in self.direction_results.iter().enumerate() {
             writeln!(f, "{}", result.direction)?;
             writeln!(f, "Depth: {}", result.depth)?;
             writeln!(f, "States: {}", result.states)?;
+            writeln!(f, "Direction Time: {:?}", statistics.time_per_direction[i])?;
             writeln!(f, "Finished: {}", result.finished)?;
             writeln!(
                 f,
@@ -366,6 +399,7 @@ impl<Node: DNode> Default for DTree<Node> {
             time: DTreeTime::default(),
             max_depth: None,
             simulation_status: DSimulationStatus::default(),
+            statistics: None,
         }
     }
 }
@@ -550,7 +584,7 @@ mod tests {
         let mut tree = DTree::default().root(root).max_depth(10);
         tree.simulate();
         println!("{}", tree);
-        assert_eq!(tree.statistics_depth(), 10);
+        assert_eq!(tree.statistic_depth(), 10);
     }
 
     #[test]
@@ -678,5 +712,41 @@ mod tests {
             result_with_ccd.direction_results[1],
             result_without_ccd.direction_results[1]
         );
+    }
+
+    #[test]
+    fn test_split_processing_time_equal_between_directions() {
+        let gamestate = read_game_state("requests/failure_8.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let relevant_snakes = [
+            [true, true, false, false],
+            [true, true, true, false],
+            [true, false, false, false],
+            [true, true, false, false],
+        ];
+
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            DTreeTime::new(Duration::from_millis(200)),
+            DNodeStatus::default(),
+            Some(relevant_snakes),
+        );
+        let mut tree = DTree::default().root(root);
+        tree.simulate();
+        println!("{}", tree);
+        let result = tree.result();
+        println!("{}", result);
+        println!("{:#?}", tree.queue[0]);
+        assert_eq!(result.direction_results[0].finished, true);
+        assert_eq!(result.direction_results[1].finished, false);
+        assert_eq!(result.direction_results[2].finished, true);
+        assert_eq!(result.direction_results[3].finished, false);
     }
 }
