@@ -191,10 +191,22 @@ where
 
     fn calc_children(&mut self, id: &DNodeId) -> Vec<(DNodeId, DNodeStatus)> {
         let mut result = Vec::new();
-        match self.nodes.get(id) {
+        match self.nodes.get_mut(id) {
             Some(node) => {
                 if let DNodeStatus::Alive(_) = node.status() {
                     let children = node.calc_children();
+
+                    // Check for special case timeout in node calc_child
+                    // Just put it back into the queue
+                    // The node itself tracks its child generation progress internally
+                    for child in children.iter() {
+                        if child.status() == DNodeStatus::TimedOut {
+                            self.queue[*id.first().unwrap_or(&DDirection::Up) as usize]
+                                .push(id.clone());
+                            return result;
+                        }
+                    }
+
                     for child in children.into_iter() {
                         result.push((child.id().clone(), child.status()));
                         self.nodes.insert(child.id().clone(), child);
@@ -520,7 +532,7 @@ mod tests {
             DNodeStatus::default(),
             None,
         );
-        let mut tree = DTree::default().root(root);
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree.result());
         println!("{:?}", tree.result().approved_directions());
@@ -734,16 +746,15 @@ mod tests {
         let root = DFullSimulationNode::new(
             DNodeId::default(),
             vec![state],
-            DTreeTime::new(Duration::from_millis(200)),
+            DTreeTime::new(Duration::from_millis(20)),
             DNodeStatus::default(),
             Some(relevant_snakes),
         );
-        let mut tree = DTree::default().root(root);
+        let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree);
         let result = tree.result();
         println!("{}", result);
-        println!("{:#?}", tree.queue[0]);
         assert_eq!(result.direction_results[0].finished, true);
         assert_eq!(result.direction_results[1].finished, false);
         assert_eq!(result.direction_results[2].finished, true);

@@ -8,7 +8,7 @@ pub mod d_pessimistic_capture_node;
 
 pub trait DNode {
     fn id(&self) -> &DNodeId;
-    fn calc_children(&self) -> Vec<Box<Self>>;
+    fn calc_children(&mut self) -> Vec<Box<Self>>;
     fn status(&self) -> DNodeStatus;
     fn info(&self) -> String {
         format!("{} {:?}", self.id(), self.status())

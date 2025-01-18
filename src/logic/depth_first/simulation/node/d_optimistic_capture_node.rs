@@ -127,7 +127,7 @@ impl DNode for DOptimisticCaptureNode {
         format!("{} {:?}", self.id, self.status())
     }
 
-    fn calc_children(&self) -> Vec<Box<Self>> {
+    fn calc_children(&mut self) -> Vec<Box<Self>> {
         self.calc_moves()
             .into_iter()
             .map(|direction| Box::new(self.calc_child(direction)))
@@ -217,7 +217,7 @@ mod tests {
         let request = read_game_state("requests/failure_7.json");
         let gamestate =
             DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
-        let node = DOptimisticCaptureNode::new(
+        let mut node = DOptimisticCaptureNode::new(
             DNodeId::default(),
             gamestate,
             DTreeTime::default(),
@@ -247,7 +247,7 @@ mod tests {
         assert_eq!(children.len(), 2);
         let r = children.pop().unwrap();
         assert_eq!(r.id(), &DNodeId::from("R"));
-        let l = children.pop().unwrap();
+        let mut l = children.pop().unwrap();
         assert_eq!(l.id(), &DNodeId::from("L"));
 
         l.calc_children();

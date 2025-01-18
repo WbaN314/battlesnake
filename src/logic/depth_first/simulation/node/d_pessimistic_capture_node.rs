@@ -72,7 +72,7 @@ impl DNode for DPessimisticCaptureNode {
         self.status.get()
     }
 
-    fn calc_children(&self) -> Vec<Box<Self>> {
+    fn calc_children(&mut self) -> Vec<Box<Self>> {
         self.calc_moves()
             .into_iter()
             .map(|direction| Box::new(self.calc_child(direction)))

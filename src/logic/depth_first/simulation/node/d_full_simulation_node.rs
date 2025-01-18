@@ -5,7 +5,7 @@ use crate::logic::depth_first::{
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
-use std::{cell::Cell, cmp::Ordering, fmt::Display};
+use std::{cell::Cell, cmp::Ordering, fmt::Display, time::Instant};
 
 use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
@@ -17,6 +17,9 @@ pub struct DFullSimulationNode {
     status: Cell<DNodeStatus>,
     statistics: Cell<Option<DNodeStatistics>>,
     direction_relevant_snakes: Option<[[bool; 4]; 4]>,
+    current_state_index: usize,
+    current_child_states: [Vec<DGameState<DFastField>>; 4],
+    current_child_statuses: [DNodeStatus; 4],
 }
 
 impl DFullSimulationNode {
@@ -27,14 +30,19 @@ impl DFullSimulationNode {
         status: DNodeStatus,
         direction_relevant_snakes: Option<[[bool; 4]; 4]>,
     ) -> Self {
-        Self {
+        let mut result = Self {
             id,
             states,
             time,
             direction_relevant_snakes,
             status: Cell::new(status),
             statistics: Cell::new(None),
-        }
+            current_state_index: 0,
+            current_child_states: Default::default(),
+            current_child_statuses: Default::default(),
+        };
+        result.current_child_statuses = [result.status(); 4];
+        result
     }
 }
 
@@ -60,17 +68,14 @@ impl DNode for DFullSimulationNode {
         }
     }
 
-    fn calc_children(&self) -> Vec<Box<Self>> {
-        let mut states = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-        let mut statuses = [self.status(); 4];
-
-        for state in self.states.iter() {
+    fn calc_children(&mut self) -> Vec<Box<Self>> {
+        self.time.start = Instant::now();
+        let mut timed_out = false;
+        while self.current_state_index < self.states.len() {
+            let state = &self.states[self.current_state_index];
+            self.current_state_index += 1;
             if self.time.is_timed_out() {
-                for i in 0..4 {
-                    if let DNodeStatus::Alive(_) = statuses[i] {
-                        statuses[i] = DNodeStatus::TimedOut;
-                    }
-                }
+                timed_out = true;
                 break;
             }
 
@@ -104,29 +109,32 @@ impl DNode for DFullSimulationNode {
 
             // If move is not in possible moves matrix make best status only alive sometimes
             for (i, d) in possible_moves_matrix.get(0).iter().enumerate() {
-                match statuses[i] {
+                match self.current_child_statuses[i] {
                     DNodeStatus::Alive(DNodeAliveStatus::Always) if !d => {
-                        statuses[i] = DNodeStatus::Alive(DNodeAliveStatus::Sometimes)
+                        self.current_child_statuses[i] =
+                            DNodeStatus::Alive(DNodeAliveStatus::Sometimes)
                     }
                     _ => (),
                 }
             }
             for moveset in possible_moves.into_iter() {
                 let index = moveset[0].unwrap() as usize;
-                if statuses[index] == DNodeStatus::Dead {
+                if self.current_child_statuses[index] == DNodeStatus::Dead {
                     continue;
                 }
                 let mut new_state = state.clone();
                 new_state.next_state(moveset);
                 if !new_state.get_alive()[0] {
-                    statuses[index] = DNodeStatus::Dead;
+                    self.current_child_statuses[index] = DNodeStatus::Dead;
                 }
-                states[index].push(new_state);
+                self.current_child_states[index].push(new_state);
             }
         }
         for i in 0..4 {
-            if states[i].is_empty() && statuses[i] != DNodeStatus::TimedOut {
-                statuses[i] = DNodeStatus::Dead;
+            if self.current_child_states[i].is_empty()
+                && self.current_child_statuses[i] != DNodeStatus::TimedOut
+            {
+                self.current_child_statuses[i] = DNodeStatus::Dead;
             }
         }
         let mut result = Vec::new();
@@ -135,9 +143,13 @@ impl DNode for DFullSimulationNode {
             id.push(D_DIRECTION_LIST[i]);
             result.push(Box::new(Self::new(
                 id,
-                states[i].clone(),
+                self.current_child_states[i].clone(),
                 self.time.clone(),
-                statuses[i],
+                if timed_out {
+                    DNodeStatus::TimedOut
+                } else {
+                    self.current_child_statuses[i]
+                },
                 self.direction_relevant_snakes,
             )));
         }
@@ -258,6 +270,9 @@ impl Display for DFullSimulationNode {
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+    use std::time::Duration;
+
     use super::DFullSimulationNode;
     use crate::{
         logic::depth_first::{
@@ -276,7 +291,7 @@ mod tests {
         let request = read_game_state("requests/test_move_request.json");
         let gamestate =
             DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
-        let node = DFullSimulationNode::new(
+        let mut node = DFullSimulationNode::new(
             DNodeId::default(),
             vec![gamestate],
             DTreeTime::default(),
@@ -284,7 +299,7 @@ mod tests {
             None,
         );
         println!("{}", node);
-        let children = node.calc_children();
+        let mut children = node.calc_children();
         assert_eq!(children.len(), 4);
         assert_eq!(
             children[0].status(),
@@ -333,7 +348,7 @@ mod tests {
                 .possible_moves([true, true, true, true])
                 .generate()
         );
-        let node = DFullSimulationNode::new(
+        let mut node = DFullSimulationNode::new(
             DNodeId::default(),
             vec![gamestate],
             DTreeTime::default(),
@@ -365,7 +380,7 @@ mod tests {
             [true, false, true, false],
         ]);
 
-        let root = DFullSimulationNode::new(
+        let mut root = DFullSimulationNode::new(
             DNodeId::default(),
             vec![state],
             Default::default(),
@@ -381,5 +396,45 @@ mod tests {
         for child in children.iter() {
             println!("{}", child.info());
         }
+    }
+
+    #[test]
+    fn test_calc_children_interrupt_and_continue() {
+        let gamestate = read_game_state("requests/test_game_start.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let mut state_vec = Vec::new();
+        for _ in 0..100 {
+            state_vec.push(state.clone());
+        }
+
+        let mut root = DFullSimulationNode::new(
+            DNodeId::default(),
+            state_vec,
+            DTreeTime::new(Duration::from_millis(20)),
+            DNodeStatus::default(),
+            None,
+        );
+
+        let children = root.calc_children();
+
+        for child in children {
+            assert_eq!(child.status(), DNodeStatus::TimedOut);
+        }
+
+        for _ in 0..100 {
+            let children = root.calc_children();
+            println!("{}", root.current_state_index);
+            if children[0].status() != DNodeStatus::TimedOut {
+                return;
+            }
+        }
+
+        panic!("Timed out node not finished in time");
     }
 }
