@@ -1570,7 +1570,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let new_state = state.play(["RU", "", "", ""]);
+        let new_state = state.play(["DL", "", "UL", ""]);
         println!("{}", new_state);
     }
 }
