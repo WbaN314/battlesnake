@@ -106,8 +106,7 @@ where
                                     }
                                 }
                                 DNodeStatus::TimedOut => {
-                                    simulation_status = DSimulationStatus::TimedOut;
-                                    break 'simulation;
+                                    panic!("Should not happen anymore as it is handled in calc_children");
                                 }
                                 _ => (),
                             }
