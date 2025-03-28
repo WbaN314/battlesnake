@@ -271,7 +271,7 @@ impl Display for DFullSimulationNode {
 #[cfg(test)]
 mod tests {
     use core::panic;
-    use std::time::Duration;
+    use std::{cmp::Ordering, time::Duration};
 
     use super::DFullSimulationNode;
     use crate::{
@@ -436,5 +436,58 @@ mod tests {
         }
 
         panic!("Timed out node not finished in time");
+    }
+
+    #[test]
+    fn test_direction_order() {
+        let request = read_game_state("requests/test_move_request.json");
+        let gamestate =
+            DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
+        let request = read_game_state("requests/failure_2.json");
+        let gamestate_2 =
+            DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
+
+        let node1 = DFullSimulationNode::new(
+            DNodeId::from("U"),
+            vec![gamestate.clone()],
+            DTreeTime::default(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always),
+            None,
+        );
+
+        let node2 = DFullSimulationNode::new(
+            DNodeId::from("D"),
+            vec![gamestate_2.clone()],
+            DTreeTime::default(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always),
+            None,
+        );
+
+        let node3 = DFullSimulationNode::new(
+            DNodeId::from("L"),
+            vec![gamestate.clone()],
+            DTreeTime::default(),
+            DNodeStatus::Alive(DNodeAliveStatus::Sometimes),
+            None,
+        );
+
+        let node4 = DFullSimulationNode::new(
+            DNodeId::from("R"),
+            vec![gamestate.clone()],
+            DTreeTime::default(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always),
+            None,
+        );
+
+        // Compare nodes
+        assert_eq!(node1.direction_order(&node2), Ordering::Less);
+        assert_eq!(node1.direction_order(&node3), Ordering::Greater);
+        assert_eq!(node3.direction_order(&node4), Ordering::Less);
+        assert_eq!(node1.direction_order(&node4), Ordering::Equal);
+
+        let mut nodes = vec![node1, node2, node3, node4];
+        nodes.sort_unstable_by(|a, b| a.direction_order(b));
+
+        assert!(nodes[0].direction_order(&nodes[3]) == Ordering::Less);
     }
 }

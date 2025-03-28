@@ -2,6 +2,13 @@
 use battlesnake_game_of_chicken::{get_move_from_json_file, Direction};
 
 #[test]
+fn test_move_request() {
+    let chosen_move = get_move_from_json_file("test_move_request.json");
+    assert_ne!(chosen_move, Direction::Down);
+    assert_ne!(chosen_move, Direction::Left);
+}
+
+#[test]
 fn example_move_request_2() {
     let chosen_move = get_move_from_json_file("example_move_request_2.json");
     assert_eq!(chosen_move, Direction::Up);
@@ -59,7 +66,7 @@ fn failure_7() {
 #[test]
 fn failure_8() {
     let chosen_move = get_move_from_json_file("failure_8.json");
-    assert_eq!(chosen_move, Direction::Right);
+    assert_eq!(chosen_move, Direction::Down);
 }
 
 #[test]

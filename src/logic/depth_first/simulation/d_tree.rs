@@ -2,7 +2,7 @@ use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST}
 
 use super::{
     d_node_id::DNodeId,
-    node::{DNode, DNodeStatus},
+    node::{DNode, DNodeAliveStatus, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
@@ -175,8 +175,19 @@ where
             } else {
                 0
             };
-            results[i].finished = self.queue[i].is_empty();
-            if !results[i].finished {
+            if self.queue[i].is_empty() {
+                results[i].finished = DDirectionFinished::Always;
+            } else {
+                results[i].finished = DDirectionFinished::Sometimes;
+                for id in self.queue[i].iter() {
+                    if let DNodeStatus::Alive(alive_status) = self.nodes.get(id).unwrap().status() {
+                        if alive_status == DNodeAliveStatus::Always {
+                            results[i].finished = DDirectionFinished::Never;
+                        }
+                    }
+                }
+            }
+            if results[i].finished == DDirectionFinished::Never {
                 for j in 0..4 {
                     if results[i].capture_contact_turn[j].is_none() {
                         results[i].capture_contact_turn[j] = Some(results[i].depth as u8);
@@ -285,6 +296,17 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         let mut best_nodes: Vec<&Node> = Vec::new();
         let mut approved_directions = [true; 4];
 
+        // Check if any direction is never finished
+        // if so, all others types are not approved
+        // If not, only Never is not approved
+        let mut not_approved_evaluation_status = DDirectionFinished::Always;
+        for direction_result in self.direction_results.iter() {
+            if direction_result.finished == DDirectionFinished::Never {
+                not_approved_evaluation_status = DDirectionFinished::Sometimes;
+                break;
+            }
+        }
+
         let max_depth = self
             .direction_results
             .iter()
@@ -292,25 +314,30 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             .max()
             .unwrap();
         for direction_result in self.direction_results.iter() {
-            if direction_result.depth < max_depth && direction_result.finished {
+            if direction_result.depth < max_depth
+                && (direction_result.finished == DDirectionFinished::Always
+                    || direction_result.finished == not_approved_evaluation_status)
+            {
                 approved_directions[direction_result.direction as usize] = false;
             }
         }
 
         // Check the best nodes for each direction
-        for direction_result in self.direction_results.iter() {
-            if let Some(id) = direction_result.node_ids.last() {
-                let node = self.tree.nodes.get(id).unwrap();
-                best_nodes.push(node);
+        for (i, direction_result) in self.direction_results.iter().enumerate() {
+            if approved_directions[i] {
+                if let Some(id) = direction_result.node_ids.last() {
+                    let node = self.tree.nodes.get(id).unwrap();
+                    best_nodes.push(node);
+                }
             }
         }
         approved_directions = if best_nodes.is_empty() {
             approved_directions
         } else {
             best_nodes.sort_unstable_by(|node1, node2| node1.direction_order(node2));
-            let last_node = best_nodes.last().unwrap();
+            let best_node = best_nodes.last().unwrap();
             for node in best_nodes.iter() {
-                if node.direction_order(last_node) == Ordering::Less {
+                if node.direction_order(best_node) == Ordering::Less {
                     approved_directions[*node.id().first().unwrap() as usize] = false;
                 }
             }
@@ -345,7 +372,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
             writeln!(f, "Depth: {}", result.depth)?;
             writeln!(f, "States: {}", result.states)?;
             writeln!(f, "Direction Time: {:?}", statistics.time_per_direction[i])?;
-            writeln!(f, "Finished: {}", result.finished)?;
+            writeln!(f, "Finished: {:?}", result.finished)?;
             writeln!(
                 f,
                 "Capture Contact: {:?}",
@@ -377,8 +404,15 @@ pub struct DSimulationDirectionResult {
     pub depth: usize,
     pub node_ids: Vec<DNodeId>,
     pub states: usize,
-    pub finished: bool,
+    pub finished: DDirectionFinished,
     pub capture_contact_turn: [Option<u8>; 4],
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum DDirectionFinished {
+    Never,
+    Sometimes,
+    Always,
 }
 
 impl DSimulationDirectionResult {
@@ -388,7 +422,7 @@ impl DSimulationDirectionResult {
             depth: 0,
             node_ids: Vec::new(),
             states: 0,
-            finished: false,
+            finished: DDirectionFinished::Never,
             capture_contact_turn: [Option::default(); 4],
         }
     }
@@ -438,7 +472,7 @@ mod tests {
             },
             simulation::{
                 d_node_id::DNodeId,
-                d_tree::{DTree, DTreeTime},
+                d_tree::{DDirectionFinished, DTree, DTreeTime},
                 node::{
                     d_full_simulation_node::DFullSimulationNode,
                     d_optimistic_capture_node::DOptimisticCaptureNode,
@@ -754,9 +788,21 @@ mod tests {
         println!("{}", tree);
         let result = tree.result();
         println!("{}", result);
-        assert_eq!(result.direction_results[0].finished, true);
-        assert_eq!(result.direction_results[1].finished, false);
-        assert_eq!(result.direction_results[2].finished, true);
-        assert_eq!(result.direction_results[3].finished, false);
+        assert_eq!(
+            result.direction_results[0].finished,
+            DDirectionFinished::Always
+        );
+        assert_eq!(
+            result.direction_results[1].finished,
+            DDirectionFinished::Never
+        );
+        assert_eq!(
+            result.direction_results[2].finished,
+            DDirectionFinished::Always
+        );
+        assert_eq!(
+            result.direction_results[3].finished,
+            DDirectionFinished::Sometimes
+        );
     }
 }
