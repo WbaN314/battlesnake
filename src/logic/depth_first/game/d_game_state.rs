@@ -241,7 +241,7 @@ impl<T: DField> DGameState<T> {
         moved_tails.move_tails();
         for id in 0..SNAKES {
             if consider[id as usize] {
-                possible_moves[id as usize] = moved_tails.possible_moves_for(id)
+                possible_moves[id as usize] = moved_tails.possible_moves_for(id);
             }
         }
         DMovesSet::new(possible_moves)
@@ -262,6 +262,9 @@ impl<T: DField> DGameState<T> {
                 }
             }
         }
+        if possible_moves.iter().all(|&x| !x) {
+            possible_moves[0] = true;
+        }
         possible_moves
     }
 
@@ -270,6 +273,8 @@ impl<T: DField> DGameState<T> {
         for i in 0..SNAKES {
             alive[i as usize] = match self.snakes.cell(i).get() {
                 DSnake::Alive { .. } => true,
+                DSnake::Headless { .. } => true,
+                DSnake::Vanished { .. } => true,
                 _ => false,
             }
         }
@@ -1558,7 +1563,7 @@ mod tests {
 
         println!("{}", state);
 
-        assert_eq!(state.get_alive(), [true, false, false, false]);
+        assert_eq!(state.get_alive(), [true, false, true, false]);
     }
 
     #[test]

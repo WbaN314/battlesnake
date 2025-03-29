@@ -299,25 +299,15 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         // Check if any direction is never finished
         // if so, all others types are not approved
         // If not, only Never is not approved
-        let mut not_approved_evaluation_status = DDirectionFinished::Always;
+        let mut best_evaulation_status = DDirectionFinished::Always;
         for direction_result in self.direction_results.iter() {
-            if direction_result.finished == DDirectionFinished::Never {
-                not_approved_evaluation_status = DDirectionFinished::Sometimes;
-                break;
+            if direction_result.finished > best_evaulation_status {
+                best_evaulation_status = direction_result.finished.clone();
             }
         }
 
-        let max_depth = self
-            .direction_results
-            .iter()
-            .map(|r| r.depth)
-            .max()
-            .unwrap();
         for direction_result in self.direction_results.iter() {
-            if direction_result.depth < max_depth
-                && (direction_result.finished == DDirectionFinished::Always
-                    || direction_result.finished == not_approved_evaluation_status)
-            {
+            if direction_result.finished < best_evaulation_status {
                 approved_directions[direction_result.direction as usize] = false;
             }
         }
@@ -328,6 +318,8 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
                 if let Some(id) = direction_result.node_ids.last() {
                     let node = self.tree.nodes.get(id).unwrap();
                     best_nodes.push(node);
+                } else {
+                    approved_directions[i] = false;
                 }
             }
         }
@@ -408,11 +400,11 @@ pub struct DSimulationDirectionResult {
     pub capture_contact_turn: [Option<u8>; 4],
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DDirectionFinished {
-    Never,
-    Sometimes,
     Always,
+    Sometimes,
+    Never,
 }
 
 impl DSimulationDirectionResult {
@@ -790,7 +782,7 @@ mod tests {
         println!("{}", result);
         assert_eq!(
             result.direction_results[0].finished,
-            DDirectionFinished::Always
+            DDirectionFinished::Sometimes
         );
         assert_eq!(
             result.direction_results[1].finished,
@@ -804,5 +796,11 @@ mod tests {
             result.direction_results[3].finished,
             DDirectionFinished::Sometimes
         );
+    }
+
+    #[test]
+    fn test_ddirectionfinished_ordering() {
+        assert!(DDirectionFinished::Always < DDirectionFinished::Sometimes);
+        assert!(DDirectionFinished::Sometimes < DDirectionFinished::Never);
     }
 }

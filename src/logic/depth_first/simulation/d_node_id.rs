@@ -4,12 +4,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[derive(Eq, PartialEq, Debug, Clone)]
-#[derive(Default)]
+#[derive(Eq, PartialEq, Debug, Clone, Default)]
 pub struct DNodeId(Vec<DDirection>);
 
 impl DNodeId {
-    #[cfg(test)]
     pub fn from(directions: &str) -> Self {
         let mut id = Vec::new();
         for direction in directions.chars() {
@@ -57,7 +55,6 @@ impl DerefMut for DNodeId {
         &mut self.0
     }
 }
-
 
 #[cfg(test)]
 mod tests {
