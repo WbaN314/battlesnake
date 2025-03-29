@@ -8,6 +8,7 @@ use std::{
 pub struct DNodeId(Vec<DDirection>);
 
 impl DNodeId {
+    #[allow(dead_code)]
     pub fn from(directions: &str) -> Self {
         let mut id = Vec::new();
         for direction in directions.chars() {
