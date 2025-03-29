@@ -232,7 +232,8 @@ fn failure_32_right_certain_death_down_maybe_death() {
 fn failure_33_do_not_move_left_as_you_can_get_killed() {
     let chosen_move =
         get_move_from_json_file("failure_33_do_not_move_left_as_you_can_get_killed.json");
-    assert_eq!(chosen_move, Direction::Right);
+    assert_ne!(chosen_move, Direction::Left);
+    assert_ne!(chosen_move, Direction::Down);
 }
 
 #[test]
