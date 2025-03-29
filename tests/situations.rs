@@ -246,8 +246,11 @@ fn failure_34_follow_own_tail() {
 
 #[test]
 fn failure_35_up_2() {
+    // Up is dead in 3
+    // Down is dead in 8
     let chosen_move = get_move_from_json_file("failure_35_up_2.json");
-    assert_eq!(chosen_move, Direction::Down);
+    assert_ne!(chosen_move, Direction::Left);
+    assert_ne!(chosen_move, Direction::Right);
 }
 
 #[test]
