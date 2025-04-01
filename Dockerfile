@@ -1,4 +1,4 @@
-FROM rust:1.72
+FROM rustlang/rust:nightly
 
 COPY . /usr/app
 WORKDIR /usr/app
