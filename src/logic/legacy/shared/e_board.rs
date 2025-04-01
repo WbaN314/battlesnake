@@ -1,6 +1,5 @@
-use std::cell::RefCell;
-
 use super::{e_coord::ECoord, e_snakes::SNAKES};
+use std::cell::RefCell;
 
 pub const X_SIZE: i8 = 11;
 pub const Y_SIZE: i8 = 11;
@@ -36,68 +35,6 @@ impl EBoard {
             let index = X_SIZE as usize * y as usize + x as usize;
             Some(*self.0[index].borrow())
         }
-    }
-
-    pub fn fill(&mut self, start: &ECoord) -> Option<EArea> {
-        let mut area = EArea::new();
-        let x = start.x;
-        let y = start.y;
-        match self.get(x, y) {
-            Some(EField::Empty) | Some(EField::Food) => {
-                let mut s = Vec::new();
-                s.push((x, x, y, 1));
-                s.push((x, x, y - 1, -1));
-                while let Some((mut x1, x2, y, dy)) = s.pop() {
-                    let mut x = x1;
-                    match self.get(x, y) {
-                        Some(EField::Empty) | Some(EField::Food) => {
-                            let mut candidate = self.get(x - 1, y);
-                            while candidate == Some(EField::Empty)
-                                || candidate == Some(EField::Food)
-                            {
-                                self.set(x - 1, y, EField::Filled);
-                                area.area += 1;
-                                x -= 1;
-                                candidate = self.get(x - 1, y);
-                            }
-                            if x < x1 {
-                                s.push((x, x1 - 1, y - dy, -dy))
-                            }
-                        }
-                        _ => (),
-                    }
-                    while x1 <= x2 {
-                        let mut candidate = self.get(x1, y);
-                        while candidate == Some(EField::Empty) || candidate == Some(EField::Food) {
-                            self.set(x1, y, EField::Filled);
-                            area.area += 1;
-                            x1 += 1;
-                            candidate = self.get(x1, y);
-                        }
-                        if x1 > x {
-                            s.push((x, x1 - 1, y + dy, dy));
-                        }
-                        if x1 - 1 > x2 {
-                            s.push((x2 + 1, x1 - 1, y - dy, -dy));
-                        }
-                        x1 += 1;
-                        loop {
-                            let candidate = self.get(x1, y);
-                            if x1 > x2
-                                || candidate == Some(EField::Empty)
-                                || candidate == Some(EField::Food)
-                            {
-                                break;
-                            }
-                            x1 += 1;
-                        }
-                        x = x1;
-                    }
-                }
-            }
-            _ => return None,
-        }
-        Some(area)
     }
 }
 
