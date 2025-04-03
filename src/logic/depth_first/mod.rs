@@ -29,12 +29,12 @@ impl DepthFirstSnake {
 
 impl Brain for DepthFirstSnake {
     fn logic(&self, gamestate: &GameState) -> Direction {
-        let state = DGameState::<DSlowField>::from_request(
+        let d_state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
             &gamestate.turn,
         );
-        let simulation = DSimulation::new(state.clone());
+        let simulation = DSimulation::new(d_state.clone());
         let simulation_result = simulation
             .capture(true)
             .capture_max_duration(Duration::from_millis(50))
@@ -43,7 +43,7 @@ impl Brain for DepthFirstSnake {
             .simulation_node_max_duration(Duration::from_millis(20))
             .simulation_max_depth(8)
             .run();
-        let intuition = DIntuition::new(state);
+        let intuition = DIntuition::new(d_state, gamestate);
         let intuition_result = intuition.allowed_directions(simulation_result).run();
         match intuition_result {
             DDirection::Up => Direction::Up,

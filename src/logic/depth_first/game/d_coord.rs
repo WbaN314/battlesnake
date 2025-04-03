@@ -29,6 +29,15 @@ impl From<&Coord> for DCoord {
     }
 }
 
+impl From<Coord> for DCoord {
+    fn from(coord: Coord) -> Self {
+        DCoord {
+            x: coord.x as i8,
+            y: coord.y as i8,
+        }
+    }
+}
+
 impl From<DDirection> for DCoord {
     fn from(direction: DDirection) -> Self {
         match direction {
