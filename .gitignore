@@ -1,3 +1,4 @@
 /target
 *.rs.swp
 .DS_store
+winners_tally.txt
