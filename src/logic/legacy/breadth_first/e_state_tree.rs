@@ -306,13 +306,12 @@ impl Display for EStateTree {
 #[cfg(test)]
 mod json_requests {
 
-    use crate::read_game_state;
-
     use super::*;
+    use crate::read_game_state;
 
     #[ignore]
     #[test]
-    fn evaluate_best_move() {
+    fn test_evaluate_best_move() {
         let filename = "failure_33_do_not_move_left_as_you_can_get_killed.json";
         let s = String::from("requests/") + filename;
         let game_state = read_game_state(&s);

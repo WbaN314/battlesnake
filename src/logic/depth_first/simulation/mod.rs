@@ -124,7 +124,6 @@ impl DSimulation {
                     }
                 }
             }
-            println!("CAPTURE RESULT\n{}\n", capture_result);
         }
 
         // Simulation Node
@@ -154,17 +153,14 @@ impl DSimulation {
         // Simulation Tree Result
         let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
-        println!("SIMULATION RESULT \n{}\n", simulation_result);
 
         // Final Result
-        println!("--- Final Result ---");
         let mut result: ArrayVec<DDirection, 4> = ArrayVec::new();
         for (i, direction) in simulation_directions.into_iter().enumerate() {
             if direction {
                 result.push(i.try_into().unwrap());
             }
         }
-        println!("{:?}\n", result);
 
         result
     }
