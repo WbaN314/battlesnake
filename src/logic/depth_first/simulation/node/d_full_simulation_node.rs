@@ -1,7 +1,9 @@
 use crate::logic::depth_first::{
     game::{
-        d_direction::D_DIRECTION_LIST, d_field::DFastField, d_game_state::DGameState,
-        d_moves_set::DMoves,
+        d_direction::D_DIRECTION_LIST,
+        d_field::DFastField,
+        d_game_state::DGameState,
+        d_moves_set::{DMoves, DMovesSet},
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
@@ -55,6 +57,33 @@ impl DFullSimulationNode {
         result.current_child_statuses = [result.status(); 4];
         result
     }
+
+    /// Generates all possible moves for the current state.
+    fn generate_all_valid_moves(&self, state: &DGameState<DFastField>) -> (Vec<DMoves>, DMovesSet) {
+        let mut possible_moves: Vec<DMoves> = Vec::new();
+        let mut possible_moves_matrix = state.possible_moves([true, true, true, true]);
+        if let Some(direction_relevant_snakes) = self.direction_relevant_snakes {
+            if self.id.len() == 0 {
+                for d in 0..4 {
+                    let mut poss_moves = state
+                        .possible_moves(direction_relevant_snakes[d])
+                        .generate()
+                        .into_iter()
+                        .filter(|m| m[0] == Some(d.try_into().unwrap()))
+                        .collect::<Vec<DMoves>>();
+                    possible_moves.append(&mut poss_moves);
+                }
+            } else {
+                let direction = self.id().first().unwrap();
+                possible_moves_matrix =
+                    state.possible_moves(direction_relevant_snakes[*direction as usize]);
+                possible_moves = possible_moves_matrix.generate();
+            }
+        } else {
+            possible_moves = possible_moves_matrix.generate();
+        }
+        (possible_moves, possible_moves_matrix)
+    }
 }
 
 impl DNode for DFullSimulationNode {
@@ -100,28 +129,7 @@ impl DNode for DFullSimulationNode {
                 }
             }
 
-            let mut possible_moves: Vec<DMoves> = Vec::new();
-            let mut possible_moves_matrix = state.possible_moves([true, true, true, true]);
-            if let Some(direction_relevant_snakes) = self.direction_relevant_snakes {
-                if self.id.len() == 0 {
-                    for d in 0..4 {
-                        let mut poss_moves = state
-                            .possible_moves(direction_relevant_snakes[d])
-                            .generate()
-                            .into_iter()
-                            .filter(|m| m[0] == Some(d.try_into().unwrap()))
-                            .collect::<Vec<DMoves>>();
-                        possible_moves.append(&mut poss_moves);
-                    }
-                } else {
-                    let direction = self.id().first().unwrap();
-                    possible_moves_matrix =
-                        state.possible_moves(direction_relevant_snakes[*direction as usize]);
-                    possible_moves = possible_moves_matrix.generate();
-                }
-            } else {
-                possible_moves = possible_moves_matrix.generate();
-            }
+            let (possible_moves, possible_moves_matrix) = self.generate_all_valid_moves(state);
 
             if possible_moves.is_empty() {
                 self.status.set(DNodeStatus::DeadEnd);
