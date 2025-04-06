@@ -124,7 +124,7 @@ impl PartialEq for DReached {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Hash)]
 pub enum DFastField {
     Empty,
     Food,

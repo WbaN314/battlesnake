@@ -5,7 +5,7 @@ use crate::logic::depth_first::{
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
-use std::{cell::Cell, cmp::Ordering, fmt::Display, time::Instant};
+use std::{cell::Cell, cmp::Ordering, collections::HashSet, fmt::Display, time::Instant};
 
 use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
@@ -20,6 +20,7 @@ pub struct DFullSimulationNode {
     current_state_index: usize,
     current_child_states: [Vec<DGameState<DFastField>>; 4],
     current_child_statuses: [DNodeStatus; 4],
+    state_sameness_distance: Option<u8>,
 }
 
 impl DFullSimulationNode {
@@ -40,9 +41,14 @@ impl DFullSimulationNode {
             current_state_index: 0,
             current_child_states: Default::default(),
             current_child_statuses: Default::default(),
+            state_sameness_distance: None,
         };
         result.current_child_statuses = [result.status(); 4];
         result
+    }
+
+    pub fn set_state_sameness_distance(&mut self, distance: u8) {
+        self.state_sameness_distance = Some(distance)
     }
 }
 

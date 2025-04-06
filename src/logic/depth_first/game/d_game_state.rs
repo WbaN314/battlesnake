@@ -11,7 +11,11 @@ use super::{
     d_snakes::DSnakes,
 };
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
-use std::fmt::{Display, Formatter};
+use core::hash;
+use std::{
+    fmt::{Display, Formatter},
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 #[derive(Clone)]
 pub struct DGameState<T: DField> {
@@ -286,6 +290,31 @@ impl<T: DField> DGameState<T> {
         match snake {
             DSnake::Alive { length, .. } => Some(length as usize),
             _ => None,
+        }
+    }
+}
+
+impl DGameState<DFastField> {
+    pub fn quick_hash(&self, distance: u8) -> u64 {
+        let distance = distance as i8;
+        let snake = self.snakes.cell(0).get();
+        let mut hasher = DefaultHasher::new();
+        match snake {
+            DSnake::Alive { head, .. } => {
+                // loop over all cells that are at most distance away from head
+                // the distance is the manhattan distance, i.e. x and y distance added
+                for y in -distance..=distance {
+                    for x in -distance + y.abs()..=distance - y.abs() {
+                        let new_x = head.x + x;
+                        let new_y = head.y + y;
+                        if let Some(cell) = self.board.cell(new_x, new_y) {
+                            cell.get().hash(&mut hasher);
+                        }
+                    }
+                }
+                return hasher.finish();
+            }
+            _ => return hasher.finish(),
         }
     }
 }
@@ -1577,5 +1606,34 @@ mod tests {
         println!("{}", state);
         let new_state = state.play(["DL", "", "UL", ""]);
         println!("{}", new_state);
+    }
+
+    #[test]
+    fn test_quick_hash() {
+        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let gamestate_2 = read_game_state("requests/test_move_request_2b.json");
+        let state_2 = DGameState::<DFastField>::from_request(
+            &gamestate_2.board,
+            &gamestate_2.you,
+            &gamestate_2.turn,
+        );
+        println!("{}", state_2);
+        let hash = state.quick_hash(9);
+        let hash_2 = state_2.quick_hash(9);
+        println!("Hash: {}", hash);
+        println!("Hash: {}", hash_2);
+        assert_eq!(hash, hash_2);
+
+        let hash_3 = state.quick_hash(10);
+        let hash_4 = state_2.quick_hash(10);
+        println!("Hash: {}", hash_3);
+        println!("Hash: {}", hash_4);
+        assert_ne!(hash_3, hash_4);
     }
 }
