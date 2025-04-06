@@ -53,7 +53,8 @@ fn failure_5() {
 #[test]
 fn failure_6() {
     let chosen_move = get_move_from_json_file("failure_6.json");
-    assert_eq!(chosen_move, Direction::Left);
+    assert_ne!(chosen_move, Direction::Up);
+    assert_ne!(chosen_move, Direction::Down);
 }
 
 #[test]

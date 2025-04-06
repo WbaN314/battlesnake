@@ -295,4 +295,43 @@ mod tests {
         assert_eq!(relevant_snakes[1], None);
         assert_eq!(relevant_snakes[2], Some(1));
     }
+
+    #[test]
+    fn test_relevant_snakes_2() {
+        let request =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let gamestate =
+            DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
+        let node = DOptimisticCaptureNode::new(
+            DNodeId::default(),
+            gamestate,
+            DTreeTime::default(),
+            DNodeStatus::default(),
+            DNodeStatistics::default(),
+        );
+        println!("{}", node);
+        let d = node.calc_child(DDirection::Down);
+        println!("{}", d);
+        let dd = d.calc_child(DDirection::Down);
+        println!("{}", dd);
+        let ddd = dd.calc_child(DDirection::Down);
+        println!("{}", ddd);
+        let dddd = ddd.calc_child(DDirection::Down);
+        println!("{}", dddd);
+        let ddddd = dddd.calc_child(DDirection::Down);
+        println!("{}", ddddd);
+        let dddddd = ddddd.calc_child(DDirection::Down);
+        println!("{}", dddddd);
+        let ddddddd = dddddd.calc_child(DDirection::Down);
+        println!("{}", ddddddd);
+        let dddddddl = ddddddd.calc_child(DDirection::Left);
+        println!("{}", dddddddl);
+
+        let relevant_snakes = dddddddl.statistics().relevant_snakes;
+        println!("{relevant_snakes:?}");
+        assert_eq!(relevant_snakes[0], None);
+        assert_eq!(relevant_snakes[1], None);
+        assert_eq!(relevant_snakes[2], Some(8));
+        assert_eq!(relevant_snakes[3], None);
+    }
 }

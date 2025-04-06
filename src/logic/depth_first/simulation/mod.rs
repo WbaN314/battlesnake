@@ -2,7 +2,7 @@ mod d_node_id;
 mod d_tree;
 mod node;
 
-use std::{time::Duration, usize};
+use std::{env, time::Duration, usize};
 
 use arrayvec::ArrayVec;
 use d_tree::{DTree, DTreeTime};
@@ -109,6 +109,12 @@ impl DSimulation {
 
             // Capture Tree Result
             let capture_result = capture_tree.result();
+
+            if env::var("MODE").unwrap_or("".to_string()) == "test" {
+                println!("CAPTURE RESULT");
+                println!("{}", capture_result);
+            }
+
             let capture_contact_turn = capture_result.capture_contact_turn();
             snake_relevance_depths = [
                 [true, false, false, false],
@@ -153,6 +159,11 @@ impl DSimulation {
         // Simulation Tree Result
         let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
+
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("SIMULATION RESULT");
+            println!("{}", simulation_result);
+        }
 
         // Final Result
         let mut result: ArrayVec<DDirection, 4> = ArrayVec::new();
