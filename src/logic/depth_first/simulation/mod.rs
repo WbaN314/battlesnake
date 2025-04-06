@@ -144,6 +144,7 @@ impl DSimulation {
             simulation_node_time,
             Default::default(),
             Some(snake_relevance_depths),
+            self.simulation_max_depth.map(|d| 2 * d as u8),
         );
 
         // Simulation Tree
@@ -155,6 +156,11 @@ impl DSimulation {
             simulation_tree = simulation_tree.max_depth(max_depth);
         }
         simulation_tree.simulate();
+
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("SIMULATION TREE");
+            println!("{}", simulation_tree);
+        }
 
         // Simulation Tree Result
         let simulation_result = simulation_tree.result();
