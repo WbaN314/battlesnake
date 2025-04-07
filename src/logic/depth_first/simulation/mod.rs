@@ -20,6 +20,7 @@ pub struct DSimulation {
     simulation_max_depth: Option<usize>,
     capture_max_depth: Option<usize>,
     simulation_node_max_duration: Option<Duration>,
+    sparse_simulation_distance: Option<u8>,
 }
 
 impl DSimulation {
@@ -32,6 +33,14 @@ impl DSimulation {
             simulation_max_depth: None,
             simulation_node_max_duration: None,
             capture_max_depth: None,
+            sparse_simulation_distance: None,
+        }
+    }
+
+    pub fn sparse_simulation_distance(self, distance: u8) -> Self {
+        Self {
+            sparse_simulation_distance: Some(distance),
+            ..self
         }
     }
 
@@ -145,6 +154,7 @@ impl DSimulation {
             Default::default(),
             Some(snake_relevance_depths),
             self.simulation_max_depth.map(|d| 2 * d as u8),
+            self.sparse_simulation_distance,
         );
 
         // Simulation Tree
@@ -156,11 +166,6 @@ impl DSimulation {
             simulation_tree = simulation_tree.max_depth(max_depth);
         }
         simulation_tree.simulate();
-
-        if env::var("MODE").unwrap_or("".to_string()) == "test" {
-            println!("SIMULATION TREE");
-            println!("{}", simulation_tree);
-        }
 
         // Simulation Tree Result
         let simulation_result = simulation_tree.result();

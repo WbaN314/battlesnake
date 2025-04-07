@@ -493,6 +493,7 @@ mod tests {
                 DNodeStatus::default(),
                 None,
                 None,
+                None,
             );
             let mut tree = DTree::default().root(root).max_depth(4);
             tree.simulate()
@@ -558,6 +559,7 @@ mod tests {
             DNodeStatus::default(),
             None,
             None,
+            None,
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));
         tree.simulate();
@@ -579,6 +581,7 @@ mod tests {
             vec![state],
             DTreeTime::default(),
             DNodeStatus::default(),
+            None,
             None,
             None,
         );
@@ -670,6 +673,7 @@ mod tests {
             DNodeStatus::default(),
             None,
             None,
+            None,
         );
 
         let capture_contact_depth = Some([
@@ -685,6 +689,7 @@ mod tests {
             Default::default(),
             DNodeStatus::default(),
             capture_contact_depth,
+            None,
             None,
         );
 
@@ -718,6 +723,7 @@ mod tests {
             DNodeStatus::default(),
             None,
             None,
+            None,
         );
 
         let capture_contact_depth = Some([
@@ -733,6 +739,7 @@ mod tests {
             Default::default(),
             DNodeStatus::default(),
             capture_contact_depth,
+            None,
             None,
         );
 
@@ -781,6 +788,7 @@ mod tests {
             DTreeTime::new(Duration::from_millis(20)),
             DNodeStatus::default(),
             Some(relevant_snakes),
+            None,
             None,
         );
         let mut tree = DTree::default().root(root).time(Duration::from_millis(200));

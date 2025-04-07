@@ -51,10 +51,11 @@ impl DMovesSet {
         let old_head = heads[0].unwrap();
         let moved_old_head = old_head + direction;
         let mut prioritized_moves_matrix = self.moves;
-
+        prioritized_moves_matrix[0] = [false; 4];
+        prioritized_moves_matrix[0][direction as usize] = true;
         for i in 1..4 {
             if let Some(head) = heads[i] {
-                if head.distance_to(moved_old_head) > distance {
+                if head.distance_to(old_head) > distance {
                     // Sparse matrix adaption
                     let mut priorities = [2, 2, 2, 2];
                     let difference = head - moved_old_head;
@@ -152,18 +153,18 @@ impl DMovesSet {
                                 priorities[3] = 1;
                             }
                         }
-                        let mut priority_direction_order = [DDirection::Up; 4];
-                        for i in 0..4 {
-                            priority_direction_order[priorities[i]] = D_DIRECTION_LIST[i];
+                    }
+                    let mut priority_direction_order = [DDirection::Up; 4];
+                    for i in 0..4 {
+                        priority_direction_order[priorities[i]] = D_DIRECTION_LIST[i];
+                    }
+                    let mut found = false;
+                    for d in priority_direction_order {
+                        if found {
+                            prioritized_moves_matrix[i][d as usize] = false;
                         }
-                        let mut found = false;
-                        for d in priority_direction_order {
-                            if found {
-                                prioritized_moves_matrix[i][d as usize] = false;
-                            }
-                            if prioritized_moves_matrix[i][d as usize] {
-                                found = true;
-                            }
+                        if prioritized_moves_matrix[i][d as usize] {
+                            found = true;
                         }
                     }
                 }
@@ -321,5 +322,41 @@ mod tests {
         ]);
         let moves_list = one_with_no_moves.generate();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
+    }
+
+    #[test]
+    fn test_generate_sparse() {
+        let one_with_no_moves = DMovesSet::new([
+            [true, true, false, true],
+            [false, false, false, false],
+            [true, false, true, false],
+            [true, true, false, true],
+        ]);
+
+        let move_sparse = one_with_no_moves.generate_sparse(
+            [
+                Some(DCoord::new(2, 2)),
+                Some(DCoord::new(8, 2)),
+                Some(DCoord::new(2, 8)),
+                Some(DCoord::new(8, 8)),
+            ],
+            4,
+        );
+        let moves = one_with_no_moves.generate();
+
+        assert_eq!(moves.len(), 3 * 2 * 3);
+        assert_eq!(move_sparse.len(), 3);
+
+        let move_sparse = one_with_no_moves.generate_sparse(
+            [
+                Some(DCoord::new(2, 2)),
+                Some(DCoord::new(8, 2)),
+                Some(DCoord::new(3, 6)),
+                Some(DCoord::new(5, 3)),
+            ],
+            4,
+        );
+
+        assert_eq!(move_sparse.len(), 3 * 3);
     }
 }

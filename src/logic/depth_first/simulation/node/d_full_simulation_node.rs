@@ -35,6 +35,7 @@ impl DFullSimulationNode {
         status: DNodeStatus,
         direction_relevant_snakes: Option<[[bool; 4]; 4]>,
         state_sameness_distance: Option<u8>,
+        sparse_simulation_distance: Option<u8>,
     ) -> Self {
         let mut result = Self {
             id,
@@ -48,7 +49,7 @@ impl DFullSimulationNode {
             current_child_statuses: Default::default(),
             state_sameness_distance: state_sameness_distance,
             state_sameness_set: HashMap::new(),
-            sparse_simulation_distance: None,
+            sparse_simulation_distance: sparse_simulation_distance,
         };
         result.current_child_statuses = [result.status(); 4];
         result
@@ -215,6 +216,7 @@ impl DNode for DFullSimulationNode {
                 self.direction_relevant_snakes,
                 self.state_sameness_distance
                     .map(|distance| 0.max(distance as i8 - 2) as u8),
+                self.sparse_simulation_distance,
             )));
         }
         result
@@ -370,6 +372,7 @@ mod tests {
             DNodeStatus::default(),
             None,
             None,
+            None,
         );
         println!("{}", node);
         let mut children = node.calc_children();
@@ -428,6 +431,7 @@ mod tests {
             DNodeStatus::default(),
             None,
             None,
+            None,
         );
         println!("{}", node);
         let children = node.calc_children();
@@ -461,6 +465,7 @@ mod tests {
             DNodeStatus::default(),
             capture_contact_depth,
             None,
+            None,
         );
 
         let children = root.calc_children();
@@ -493,6 +498,7 @@ mod tests {
             state_vec,
             DTreeTime::new(Duration::from_millis(20)),
             DNodeStatus::default(),
+            None,
             None,
             None,
         );
@@ -530,6 +536,7 @@ mod tests {
             DNodeStatus::Alive(DNodeAliveStatus::Always),
             None,
             None,
+            None,
         );
 
         let node2 = DFullSimulationNode::new(
@@ -537,6 +544,7 @@ mod tests {
             vec![gamestate_2.clone()],
             DTreeTime::default(),
             DNodeStatus::Alive(DNodeAliveStatus::Always),
+            None,
             None,
             None,
         );
@@ -548,6 +556,7 @@ mod tests {
             DNodeStatus::Alive(DNodeAliveStatus::Sometimes),
             None,
             None,
+            None,
         );
 
         let node4 = DFullSimulationNode::new(
@@ -555,6 +564,7 @@ mod tests {
             vec![gamestate.clone()],
             DTreeTime::default(),
             DNodeStatus::Alive(DNodeAliveStatus::Always),
+            None,
             None,
             None,
         );
