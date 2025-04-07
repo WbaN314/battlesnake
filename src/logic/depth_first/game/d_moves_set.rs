@@ -1,6 +1,9 @@
 use crate::logic::legacy::shared::e_snakes::SNAKES;
 
-use super::d_direction::DDirection;
+use super::{
+    d_coord::DCoord,
+    d_direction::{DDirection, D_DIRECTION_LIST},
+};
 
 pub type DMove = Option<DDirection>;
 pub type DMoves = [DMove; SNAKES as usize];
@@ -19,9 +22,159 @@ impl DMovesSet {
         self.moves[index]
     }
 
+    pub fn generate_sparse(
+        &self,
+        heads: [Option<DCoord>; SNAKES as usize],
+        distance: u8,
+    ) -> Vec<DMoves> {
+        let mut moves_list = Vec::new();
+        for d in 0..4 {
+            if self.moves[0][d] {
+                let prioritized_moves_matrix =
+                    self.prioritized_moves_matrix(heads, d.try_into().unwrap(), distance);
+                moves_list.append(&mut self.generate_from_moves(&prioritized_moves_matrix));
+            }
+        }
+        return moves_list;
+    }
+
     pub fn generate(&self) -> Vec<DMoves> {
-        let prod = self
-            .moves
+        self.generate_from_moves(&self.moves)
+    }
+
+    fn prioritized_moves_matrix(
+        &self,
+        heads: [Option<DCoord>; SNAKES as usize],
+        direction: DDirection,
+        distance: u8,
+    ) -> [[bool; 4]; SNAKES as usize] {
+        let old_head = heads[0].unwrap();
+        let moved_old_head = old_head + direction;
+        let mut prioritized_moves_matrix = self.moves;
+
+        for i in 1..4 {
+            if let Some(head) = heads[i] {
+                if head.distance_to(moved_old_head) > distance {
+                    // Sparse matrix adaption
+                    let mut priorities = [2, 2, 2, 2];
+                    let difference = head - moved_old_head;
+                    if difference.x.abs() > difference.y.abs() {
+                        if difference.x > 0 {
+                            priorities[2] = 0;
+                            priorities[3] = 3;
+                        } else if difference.x < 0 {
+                            priorities[2] = 3;
+                            priorities[3] = 0;
+                        }
+                        if difference.y > 0 {
+                            priorities[0] = 2;
+                            priorities[1] = 1;
+                        } else if difference.y < 0 {
+                            priorities[0] = 1;
+                            priorities[1] = 2;
+                        } else if difference.y == 0 {
+                            if direction == DDirection::Up {
+                                priorities[0] = 1;
+                                priorities[1] = 2;
+                            } else if direction == DDirection::Down {
+                                priorities[0] = 2;
+                                priorities[1] = 1;
+                            } else {
+                                if rand::random::<bool>() {
+                                    priorities[0] = 1;
+                                    priorities[1] = 2;
+                                } else {
+                                    priorities[0] = 2;
+                                    priorities[1] = 1;
+                                }
+                            }
+                        }
+                    } else if difference.y.abs() > difference.x.abs() {
+                        if difference.y > 0 {
+                            priorities[0] = 3;
+                            priorities[1] = 0;
+                        } else if difference.y < 0 {
+                            priorities[0] = 0;
+                            priorities[1] = 3;
+                        }
+                        if difference.x > 0 {
+                            priorities[2] = 1;
+                            priorities[3] = 2;
+                        } else if difference.x < 0 {
+                            priorities[2] = 2;
+                            priorities[3] = 1;
+                        } else if difference.x == 0 {
+                            if direction == DDirection::Left {
+                                priorities[2] = 1;
+                                priorities[3] = 2;
+                            } else if direction == DDirection::Right {
+                                priorities[2] = 2;
+                                priorities[3] = 1;
+                            } else {
+                                if rand::random::<bool>() {
+                                    priorities[2] = 1;
+                                    priorities[3] = 2;
+                                } else {
+                                    priorities[2] = 2;
+                                    priorities[3] = 1;
+                                }
+                            }
+                        }
+                    } else if difference.x.abs() == difference.y.abs() {
+                        if direction == DDirection::Up || direction == DDirection::Down {
+                            if difference.x > 0 {
+                                priorities[0] = 3;
+                                priorities[1] = 0;
+                            } else {
+                                priorities[0] = 0;
+                                priorities[1] = 3;
+                            }
+                            if difference.y > 0 {
+                                priorities[2] = 1;
+                                priorities[3] = 2;
+                            } else {
+                                priorities[2] = 2;
+                                priorities[3] = 1;
+                            }
+                        } else {
+                            if difference.y > 0 {
+                                priorities[0] = 3;
+                                priorities[1] = 0;
+                            } else {
+                                priorities[0] = 0;
+                                priorities[1] = 3;
+                            }
+                            if difference.x > 0 {
+                                priorities[2] = 1;
+                                priorities[3] = 2;
+                            } else {
+                                priorities[2] = 2;
+                                priorities[3] = 1;
+                            }
+                        }
+                        let mut priority_direction_order = [DDirection::Up; 4];
+                        for i in 0..4 {
+                            priority_direction_order[priorities[i]] = D_DIRECTION_LIST[i];
+                        }
+                        let mut found = false;
+                        for d in priority_direction_order {
+                            if found {
+                                prioritized_moves_matrix[i][d as usize] = false;
+                            }
+                            if prioritized_moves_matrix[i][d as usize] {
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        prioritized_moves_matrix
+    }
+
+    fn generate_from_moves(&self, moves: &[[bool; 4]; SNAKES as usize]) -> Vec<DMoves> {
+        let prod = moves
             .iter()
             .map(|x| x.iter().filter(|y| **y).count().max(1))
             .product::<usize>();
@@ -32,13 +185,13 @@ impl DMovesSet {
         let mut c_end = 1;
         let mut d_end = 1;
         for i in 0..4 {
-            if self.moves[1][i] {
+            if moves[1][i] {
                 b_end = 4;
             }
-            if self.moves[2][i] {
+            if moves[2][i] {
                 c_end = 4;
             }
-            if self.moves[3][i] {
+            if moves[3][i] {
                 d_end = 4;
             }
         }
@@ -47,10 +200,10 @@ impl DMovesSet {
             for b in 0..b_end {
                 for c in 0..c_end {
                     for d in 0..d_end {
-                        if self.moves[0][a as usize]
-                            && (self.moves[1][b as usize] || b_end == 1)
-                            && (self.moves[2][c as usize] || c_end == 1)
-                            && (self.moves[3][d as usize] || d_end == 1)
+                        if moves[0][a as usize]
+                            && (moves[1][b as usize] || b_end == 1)
+                            && (moves[2][c as usize] || c_end == 1)
+                            && (moves[3][d as usize] || d_end == 1)
                         {
                             let b_val = if b_end == 1 {
                                 None

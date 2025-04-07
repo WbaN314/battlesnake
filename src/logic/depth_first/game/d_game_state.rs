@@ -266,6 +266,8 @@ impl<T: DField> DGameState<T> {
                 }
             }
         }
+        // At least one move must be possible
+        // If no move is possible, set the first one to true
         if possible_moves.iter().all(|&x| !x) {
             possible_moves[0] = true;
         }
@@ -316,6 +318,18 @@ impl DGameState<DFastField> {
             }
             _ => return hasher.finish(),
         }
+    }
+
+    pub fn get_heads(&self) -> [Option<DCoord>; SNAKES as usize] {
+        let mut heads = [None; SNAKES as usize];
+        for i in 0..SNAKES {
+            let snake = self.snakes.cell(i).get();
+            match snake {
+                DSnake::Alive { head, .. } => heads[i as usize] = Some(head),
+                _ => (),
+            }
+        }
+        heads
     }
 }
 

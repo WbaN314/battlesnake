@@ -7,13 +7,7 @@ use crate::logic::depth_first::{
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
-use std::{
-    cell::Cell,
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    fmt::Display,
-    time::Instant,
-};
+use std::{cell::Cell, cmp::Ordering, collections::HashMap, fmt::Display, time::Instant};
 
 use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
@@ -30,6 +24,7 @@ pub struct DFullSimulationNode {
     current_child_statuses: [DNodeStatus; 4],
     state_sameness_distance: Option<u8>,
     state_sameness_set: HashMap<u64, usize>,
+    sparse_simulation_distance: Option<u8>,
 }
 
 impl DFullSimulationNode {
@@ -53,13 +48,14 @@ impl DFullSimulationNode {
             current_child_statuses: Default::default(),
             state_sameness_distance: state_sameness_distance,
             state_sameness_set: HashMap::new(),
+            sparse_simulation_distance: None,
         };
         result.current_child_statuses = [result.status(); 4];
         result
     }
 
     /// Generates all possible moves for the current state.
-    fn generate_all_valid_moves(&self, state: &DGameState<DFastField>) -> (Vec<DMoves>, DMovesSet) {
+    fn generate_all_valid_moves(&self, state: &DGameState<DFastField>) -> (Vec<DMoves>, [bool; 4]) {
         let mut possible_moves: Vec<DMoves> = Vec::new();
         let mut possible_moves_matrix = state.possible_moves([true, true, true, true]);
         if let Some(direction_relevant_snakes) = self.direction_relevant_snakes {
@@ -82,7 +78,38 @@ impl DFullSimulationNode {
         } else {
             possible_moves = possible_moves_matrix.generate();
         }
-        (possible_moves, possible_moves_matrix)
+        (possible_moves, possible_moves_matrix.get(0))
+    }
+
+    fn generate_sparse_moves(&self, state: &DGameState<DFastField>) -> (Vec<DMoves>, [bool; 4]) {
+        let mut possible_moves: Vec<DMoves> = Vec::new();
+        let mut possible_moves_matrix = state.possible_moves([true, true, true, true]);
+        if let Some(direction_relevant_snakes) = self.direction_relevant_snakes {
+            if self.id.len() == 0 {
+                for d in 0..4 {
+                    let mut poss_moves = state
+                        .possible_moves(direction_relevant_snakes[d])
+                        .generate_sparse(
+                            state.get_heads(),
+                            self.sparse_simulation_distance.unwrap(),
+                        )
+                        .into_iter()
+                        .filter(|m| m[0] == Some(d.try_into().unwrap()))
+                        .collect::<Vec<DMoves>>();
+                    possible_moves.append(&mut poss_moves);
+                }
+            } else {
+                let direction = self.id().first().unwrap();
+                possible_moves_matrix =
+                    state.possible_moves(direction_relevant_snakes[*direction as usize]);
+                possible_moves = possible_moves_matrix
+                    .generate_sparse(state.get_heads(), self.sparse_simulation_distance.unwrap());
+            }
+        } else {
+            possible_moves = possible_moves_matrix
+                .generate_sparse(state.get_heads(), self.sparse_simulation_distance.unwrap());
+        }
+        (possible_moves, possible_moves_matrix.get(0))
     }
 }
 
@@ -129,7 +156,12 @@ impl DNode for DFullSimulationNode {
                 }
             }
 
-            let (possible_moves, possible_moves_matrix) = self.generate_all_valid_moves(state);
+            let (possible_moves, possible_moves_matrix) =
+                if self.sparse_simulation_distance.is_some() {
+                    self.generate_sparse_moves(state)
+                } else {
+                    self.generate_all_valid_moves(state)
+                };
 
             if possible_moves.is_empty() {
                 self.status.set(DNodeStatus::DeadEnd);
@@ -137,7 +169,7 @@ impl DNode for DFullSimulationNode {
             }
 
             // If move is not in possible moves matrix make best status only alive sometimes
-            for (i, d) in possible_moves_matrix.get(0).iter().enumerate() {
+            for (i, d) in possible_moves_matrix.iter().enumerate() {
                 match self.current_child_statuses[i] {
                     DNodeStatus::Alive(DNodeAliveStatus::Always) if !d => {
                         self.current_child_statuses[i] =
@@ -146,6 +178,7 @@ impl DNode for DFullSimulationNode {
                     _ => (),
                 }
             }
+
             for moveset in possible_moves.into_iter() {
                 let index = moveset[0].unwrap() as usize;
                 if self.current_child_statuses[index] == DNodeStatus::Dead {
