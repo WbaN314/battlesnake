@@ -306,7 +306,7 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             }
         }
 
-        let max_depth = self
+        let max_depth_of_best_statuses = self
             .direction_results
             .iter()
             .filter(|result| result.finished == best_evaulation_status)
@@ -314,13 +314,14 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             .max()
             .unwrap();
         let best_direction_on_limit_depth = if let Some(max_depth) = self.tree.max_depth {
-            max_depth >= max_depth
+            max_depth >= max_depth_of_best_statuses
         } else {
             false
         };
 
         for direction_result in self.direction_results.iter() {
-            if best_direction_on_limit_depth && direction_result.depth < max_depth {
+            if best_direction_on_limit_depth && direction_result.depth < max_depth_of_best_statuses
+            {
                 approved_directions[direction_result.direction as usize] = false;
             } else if direction_result.finished < best_evaulation_status {
                 approved_directions[direction_result.direction as usize] = false;
