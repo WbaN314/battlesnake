@@ -38,11 +38,11 @@ impl Brain for DepthFirstSnake {
         let simulation_result = simulation
             .capture(true)
             .capture_max_duration(Duration::from_millis(50))
-            .capture_max_depth(16)
+            .capture_max_depth(20)
             .simulation_max_duration(Duration::from_millis(200))
             .simulation_node_max_duration(Duration::from_millis(20))
-            .simulation_max_depth(8)
-            .sparse_simulation_distance(4)
+            .simulation_max_depth(10)
+            .sparse_simulation_distance(6)
             .run();
         let intuition = DIntuition::new(d_state, gamestate);
         let intuition_result = intuition.allowed_directions(simulation_result).run();

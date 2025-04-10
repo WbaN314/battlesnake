@@ -314,7 +314,7 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             .max()
             .unwrap();
         let best_direction_on_limit_depth = if let Some(max_depth) = self.tree.max_depth {
-            max_depth >= max_depth_of_best_statuses
+            max_depth == max_depth_of_best_statuses
         } else {
             false
         };

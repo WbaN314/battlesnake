@@ -184,6 +184,11 @@ impl DSimulation {
             }
         }
 
+        if env::var("MODE").unwrap_or("".to_string()) == "test" {
+            println!("APPROVED SIMULATION DIRECTIONS");
+            println!("{:?}", result);
+        }
+
         result
     }
 }
