@@ -306,8 +306,23 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
             }
         }
 
+        let max_depth = self
+            .direction_results
+            .iter()
+            .filter(|result| result.finished == best_evaulation_status)
+            .map(|result| result.depth)
+            .max()
+            .unwrap();
+        let best_direction_on_limit_depth = if let Some(max_depth) = self.tree.max_depth {
+            max_depth >= max_depth
+        } else {
+            false
+        };
+
         for direction_result in self.direction_results.iter() {
-            if direction_result.finished < best_evaulation_status {
+            if best_direction_on_limit_depth && direction_result.depth < max_depth {
+                approved_directions[direction_result.direction as usize] = false;
+            } else if direction_result.finished < best_evaulation_status {
                 approved_directions[direction_result.direction as usize] = false;
             }
         }
