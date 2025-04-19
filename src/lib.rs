@@ -106,12 +106,17 @@ fn check_game_state(state: &GameState) {
 }
 
 pub fn get_move_from_json_file(path: &str) -> Direction {
+    let _ = env_logger::builder()
+        .format_timestamp(None)
+        .format_target(false)
+        .try_init();
+
     let gamestate = read_game_state(&(DIR.to_string() + path));
     let print =
         DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
     println!("{}", print);
     env::set_var("MODE", "test");
-    
+
     get_move(
         &gamestate,
         env::var("VARIANT").unwrap_or("depth_first".to_string()),

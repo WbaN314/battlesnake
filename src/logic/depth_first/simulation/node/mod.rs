@@ -48,6 +48,7 @@ pub enum DNodeAliveStatus {
     Unknown,
     Sometimes,
     Always,
+    Fast,
 }
 
 #[derive(Default, Copy, Clone, Debug)]

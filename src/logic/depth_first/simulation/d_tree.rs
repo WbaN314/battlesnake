@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
@@ -89,6 +91,7 @@ where
                     if parent_id.len() >= self.max_depth.unwrap_or(usize::MAX) {
                         continue;
                     }
+                    debug!("Simulating {}", self.nodes.get(&parent_id).unwrap().info());
                     let parent = self.nodes.get(&parent_id).unwrap();
                     if let DNodeStatus::Alive(_) = parent.status() {
                         let children_status = self.calc_children(&parent_id);

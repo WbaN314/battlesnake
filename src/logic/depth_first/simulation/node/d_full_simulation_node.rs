@@ -1,9 +1,11 @@
+use log::debug;
+
 use crate::logic::depth_first::{
     game::{
-        d_direction::D_DIRECTION_LIST,
+        d_direction::{DDirection, D_DIRECTION_LIST},
         d_field::DFastField,
         d_game_state::DGameState,
-        d_moves_set::{DMoves, DMovesSet},
+        d_moves_set::DMoves,
     },
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
@@ -25,6 +27,7 @@ pub struct DFullSimulationNode {
     state_sameness_distance: Option<u8>,
     state_sameness_set: HashMap<u64, usize>,
     sparse_simulation_distance: Option<u8>,
+    fast_child: Option<Box<Self>>,
 }
 
 impl DFullSimulationNode {
@@ -50,6 +53,7 @@ impl DFullSimulationNode {
             state_sameness_distance: state_sameness_distance,
             state_sameness_set: HashMap::new(),
             sparse_simulation_distance: sparse_simulation_distance,
+            fast_child: None,
         };
         result.current_child_statuses = [result.status(); 4];
         result
@@ -139,6 +143,8 @@ impl DNode for DFullSimulationNode {
     fn calc_children(&mut self) -> Vec<Box<Self>> {
         self.time.start = Instant::now();
         let mut timed_out = false;
+        let mut result = Vec::new();
+
         while self.current_state_index < self.states.len() {
             let state = &self.states[self.current_state_index];
             self.current_state_index += 1;
@@ -157,7 +163,7 @@ impl DNode for DFullSimulationNode {
                 }
             }
 
-            let (possible_moves, possible_moves_matrix) =
+            let (possible_moves, mut possible_own_directions) =
                 if self.sparse_simulation_distance.is_some() {
                     self.generate_sparse_moves(state)
                 } else {
@@ -170,7 +176,7 @@ impl DNode for DFullSimulationNode {
             }
 
             // If move is not in possible moves matrix make best status only alive sometimes
-            for (i, d) in possible_moves_matrix.iter().enumerate() {
+            for (i, d) in possible_own_directions.iter().enumerate() {
                 match self.current_child_statuses[i] {
                     DNodeStatus::Alive(DNodeAliveStatus::Always) if !d => {
                         self.current_child_statuses[i] =
@@ -187,8 +193,45 @@ impl DNode for DFullSimulationNode {
                 }
                 let mut new_state = state.clone();
                 new_state.next_state(moveset);
+
                 if !new_state.get_alive()[0] {
+                    // Direction is invalid as there exists a state and a moveset for this direction where we die
                     self.current_child_statuses[index] = DNodeStatus::Dead;
+                    possible_own_directions[index] = false;
+
+                    // If this means there is only one direction left we can try to find a fasttrack with this config
+                    let only_one_direction_possible =
+                        possible_own_directions.iter().filter(|&&x| x).count() == 1;
+                    if only_one_direction_possible {
+                        let only_possible_direction: DDirection = possible_own_directions
+                            .iter()
+                            .position(|&x| x)
+                            .unwrap_or(0)
+                            .try_into()
+                            .unwrap();
+                        let mut new_moveset = moveset.clone();
+                        new_moveset[0] = Some(only_possible_direction.try_into().unwrap());
+                        let mut new_id = self.id.clone();
+                        new_id.push(new_moveset[0].unwrap());
+                        new_id.set_sparse(true);
+                        let mut new_state_again = state.clone();
+                        new_state_again.next_state(new_moveset);
+                        let fast_child_node = Box::new(Self::new(
+                            new_id,
+                            vec![new_state_again.clone()],
+                            self.time.clone(),
+                            DNodeStatus::Alive(DNodeAliveStatus::Fast),
+                            self.direction_relevant_snakes,
+                            self.state_sameness_distance
+                                .map(|distance| 0.max(distance as i8 - 2) as u8),
+                            self.sparse_simulation_distance,
+                        ));
+                        debug!(
+                            "Only {} possible for state\n{}",
+                            only_possible_direction, state
+                        );
+                        self.fast_child = Some(fast_child_node);
+                    }
                 }
                 self.current_child_states[index].push(new_state);
             }
@@ -200,7 +243,19 @@ impl DNode for DFullSimulationNode {
                 self.current_child_statuses[i] = DNodeStatus::Dead;
             }
         }
-        let mut result = Vec::new();
+
+        // If we have a fast node, we need to add it to the result
+        if self.current_state_index == self.states.len() {
+            if let Some(fast_node) = self.fast_child.take() {
+                debug!(
+                    "Spawning fast node {}:\n{}",
+                    fast_node.id(),
+                    fast_node.states[0]
+                );
+                result.push(fast_node);
+            }
+        }
+
         for i in 0..4 {
             let mut id = self.id.clone();
             id.push(D_DIRECTION_LIST[i]);

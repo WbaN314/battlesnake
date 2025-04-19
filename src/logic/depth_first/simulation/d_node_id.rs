@@ -5,7 +5,10 @@ use std::{
 };
 
 #[derive(Eq, PartialEq, Debug, Clone, Default)]
-pub struct DNodeId(Vec<DDirection>);
+pub struct DNodeId {
+    id: Vec<DDirection>,
+    sparse: bool,
+}
 
 impl DNodeId {
     #[allow(dead_code)]
@@ -14,18 +17,25 @@ impl DNodeId {
         for direction in directions.chars() {
             id.push(direction.try_into().unwrap());
         }
-        Self(id)
+        Self { id, sparse: false }
     }
 
     pub fn direction(&self) -> Option<DDirection> {
-        self.0.first().copied()
+        self.id.first().copied()
+    }
+
+    pub fn set_sparse(&mut self, sparse: bool) {
+        self.sparse = sparse;
     }
 }
 
 impl Display for DNodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for direction in &self.0 {
+        for direction in &self.id {
             write!(f, "{}", direction)?;
+        }
+        if self.sparse {
+            write!(f, " sparse")?;
         }
         Ok(())
     }
@@ -39,7 +49,10 @@ impl PartialOrd for DNodeId {
 
 impl Ord for DNodeId {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.iter().cmp(other.0.iter())
+        self.id
+            .iter()
+            .cmp(other.id.iter())
+            .then(self.sparse.cmp(&other.sparse))
     }
 }
 
@@ -47,13 +60,13 @@ impl Deref for DNodeId {
     type Target = Vec<DDirection>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.id
     }
 }
 
 impl DerefMut for DNodeId {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.id
     }
 }
 
@@ -63,10 +76,10 @@ mod tests {
 
     #[test]
     fn test_ordering() {
-        let a = DNodeId(vec![DDirection::Up, DDirection::Down]);
-        let b = DNodeId(vec![DDirection::Up, DDirection::Down]);
-        let c = DNodeId(vec![DDirection::Up, DDirection::Down, DDirection::Left]);
-        let d = DNodeId(vec![DDirection::Up, DDirection::Down, DDirection::Right]);
+        let a = DNodeId::from("UD");
+        let b = DNodeId::from("UD");
+        let c = DNodeId::from("UDL");
+        let d = DNodeId::from("UDR");
 
         assert_eq!(a, b);
         assert_ne!(a, c);
@@ -76,5 +89,18 @@ mod tests {
         assert!(a < c);
         assert!(a < d);
         assert!(c < d);
+    }
+
+    #[test]
+    fn test_sparse() {
+        let a = DNodeId::from("UD");
+
+        let mut sparse_a = a.clone();
+        sparse_a.sparse = true;
+
+        assert_ne!(sparse_a, a);
+
+        //sparse before others
+        assert!(sparse_a > a);
     }
 }
