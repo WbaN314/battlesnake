@@ -1,10 +1,10 @@
-use log::debug;
+use log::{debug, info};
 
 use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
-    node::{DNode, DNodeAliveStatus, DNodeStatus},
+    node::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
@@ -91,7 +91,6 @@ where
                     if parent_id.len() >= self.max_depth.unwrap_or(usize::MAX) {
                         continue;
                     }
-                    debug!("Simulating {}", self.nodes.get(&parent_id).unwrap().info());
                     let parent = self.nodes.get(&parent_id).unwrap();
                     if let DNodeStatus::Alive(_) = parent.status() {
                         let children_status = self.calc_children(&parent_id);
@@ -207,23 +206,32 @@ where
         match self.nodes.get_mut(id) {
             Some(node) => {
                 if let DNodeStatus::Alive(_) = node.status() {
+                    debug!("Simulating: {}", node.info());
                     let children = node.calc_children();
 
-                    // Check for special case timeout in node calc_child
-                    // Just put it back into the queue
-                    // The node itself tracks its child generation progress internally
-                    for child in children.iter() {
-                        if child.status() == DNodeStatus::TimedOut {
+                    match children {
+                        DChildrenStatus::DeadEnd => {
+                            debug!("Simulation DeadEnd: {}", node.info());
+                        }
+                        DChildrenStatus::TimedOut => {
+                            debug!("Simulation TimedOut: {}", node.info());
                             self.queue[*id.first().unwrap_or(&DDirection::Up) as usize]
                                 .push(id.clone());
-                            return result;
+                        }
+                        DChildrenStatus::Ok(children) => {
+                            // Check for special case timeout in node calc_child
+                            // Just put it back into the queue
+                            // The node itself tracks its child generation progress internally
+                            debug!("Simulation Ok: {}", node.info());
+                            for child in children.into_iter() {
+                                debug!("Child: {}", child.info());
+                                result.push((child.id().clone(), child.status()));
+                                self.nodes.insert(child.id().clone(), child);
+                            }
                         }
                     }
-
-                    for child in children.into_iter() {
-                        result.push((child.id().clone(), child.status()));
-                        self.nodes.insert(child.id().clone(), child);
-                    }
+                } else {
+                    panic!("Calculating children of a non alive node");
                 }
             }
             _ => panic!("Node not found"),

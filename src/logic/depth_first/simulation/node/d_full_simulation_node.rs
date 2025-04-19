@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, trace};
 
 use crate::logic::depth_first::{
     game::{
@@ -11,7 +11,7 @@ use crate::logic::depth_first::{
 };
 use std::{cell::Cell, cmp::Ordering, collections::HashMap, fmt::Display, time::Instant};
 
-use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
+use super::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
 #[derive(Default)]
 pub struct DFullSimulationNode {
@@ -140,17 +140,15 @@ impl DNode for DFullSimulationNode {
         }
     }
 
-    fn calc_children(&mut self) -> Vec<Box<Self>> {
+    fn calc_children(&mut self) -> DChildrenStatus<Self> {
         self.time.start = Instant::now();
-        let mut timed_out = false;
         let mut result = Vec::new();
 
         while self.current_state_index < self.states.len() {
             let state = &self.states[self.current_state_index];
             self.current_state_index += 1;
             if self.time.is_timed_out() {
-                timed_out = true;
-                break;
+                return DChildrenStatus::TimedOut;
             }
 
             if let Some(distance) = self.state_sameness_distance {
@@ -171,8 +169,7 @@ impl DNode for DFullSimulationNode {
                 };
 
             if possible_moves.is_empty() {
-                self.status.set(DNodeStatus::DeadEnd);
-                return Vec::new();
+                return DChildrenStatus::DeadEnd;
             }
 
             // If move is not in possible moves matrix make best status only alive sometimes
@@ -226,9 +223,10 @@ impl DNode for DFullSimulationNode {
                                 .map(|distance| 0.max(distance as i8 - 2) as u8),
                             self.sparse_simulation_distance,
                         ));
-                        debug!(
+                        trace!(
                             "Only {} possible for state\n{}",
-                            only_possible_direction, state
+                            only_possible_direction,
+                            state
                         );
                         self.fast_child = Some(fast_child_node);
                     }
@@ -247,7 +245,7 @@ impl DNode for DFullSimulationNode {
         // If we have a fast node, we need to add it to the result
         if self.current_state_index == self.states.len() {
             if let Some(fast_node) = self.fast_child.take() {
-                debug!(
+                trace!(
                     "Spawning fast node {}:\n{}",
                     fast_node.id(),
                     fast_node.states[0]
@@ -263,18 +261,14 @@ impl DNode for DFullSimulationNode {
                 id,
                 self.current_child_states[i].clone(),
                 self.time.clone(),
-                if timed_out {
-                    DNodeStatus::TimedOut
-                } else {
-                    self.current_child_statuses[i]
-                },
+                self.current_child_statuses[i],
                 self.direction_relevant_snakes,
                 self.state_sameness_distance
                     .map(|distance| 0.max(distance as i8 - 2) as u8),
                 self.sparse_simulation_distance,
             )));
         }
-        result
+        DChildrenStatus::Ok(result)
     }
 
     fn info(&self) -> String {
@@ -409,7 +403,7 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeAliveStatus, DNodeStatus},
+                node::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatus},
             },
         },
         read_game_state,
@@ -430,7 +424,11 @@ mod tests {
             None,
         );
         println!("{}", node);
-        let mut children = node.calc_children();
+        let mut children = if let DChildrenStatus::Ok(children) = node.calc_children() {
+            children
+        } else {
+            panic!("No children generated");
+        };
         assert_eq!(children.len(), 4);
         assert_eq!(
             children[0].status(),
@@ -447,7 +445,11 @@ mod tests {
         );
         assert_eq!(children[3].id, DNodeId::from("R"));
         println!("{}", children[3]);
-        let children_right = children[3].calc_children();
+        let children_right = if let DChildrenStatus::Ok(children) = children[3].calc_children() {
+            children
+        } else {
+            panic!("No children generated");
+        };
         assert_eq!(children_right.len(), 4);
         assert_eq!(
             children_right[0].status(),
@@ -489,7 +491,11 @@ mod tests {
             None,
         );
         println!("{}", node);
-        let children = node.calc_children();
+        let children = if let DChildrenStatus::Ok(children) = node.calc_children() {
+            children
+        } else {
+            panic!("No children generated");
+        };
         println!("{}", children[0]);
         println!("{}", children[1]);
         println!("{}", children[2]);
@@ -523,9 +529,12 @@ mod tests {
             None,
         );
 
-        let children = root.calc_children();
+        let children = if let DChildrenStatus::Ok(children) = root.calc_children() {
+            children
+        } else {
+            panic!("No children generated");
+        };
 
-        assert_ne!(root.status(), DNodeStatus::DeadEnd);
         assert_eq!(children.len(), 4);
 
         for child in children.iter() {
@@ -558,17 +567,18 @@ mod tests {
             None,
         );
 
-        let children = root.calc_children();
-
-        for child in children {
-            assert_eq!(child.status(), DNodeStatus::TimedOut);
+        match root.calc_children() {
+            DChildrenStatus::Ok(_) => {
+                panic!("Should not be ok yet");
+            }
+            DChildrenStatus::DeadEnd => panic!("Dead end"),
+            DChildrenStatus::TimedOut => (),
         }
 
         for _ in 0..100 {
-            let children = root.calc_children();
-            println!("{}", root.current_state_index);
-            if children[0].status() != DNodeStatus::TimedOut {
-                return;
+            match root.calc_children() {
+                DChildrenStatus::TimedOut => return,
+                _ => (),
             }
         }
 

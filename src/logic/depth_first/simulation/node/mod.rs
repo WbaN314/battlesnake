@@ -8,7 +8,7 @@ pub mod d_pessimistic_capture_node;
 
 pub trait DNode {
     fn id(&self) -> &DNodeId;
-    fn calc_children(&mut self) -> Vec<Box<Self>>;
+    fn calc_children(&mut self) -> DChildrenStatus<Self>;
     fn status(&self) -> DNodeStatus;
     fn info(&self) -> String {
         format!("{} {:?}", self.id(), self.status())
@@ -32,12 +32,17 @@ pub trait DNode {
     }
 }
 
+pub enum DChildrenStatus<T: DNode + ?Sized> {
+    DeadEnd,
+    TimedOut,
+    Ok(Vec<Box<T>>),
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DNodeStatus {
     #[default]
     Unknown,
     Dead,
-    DeadEnd,
     TimedOut,
     Alive(DNodeAliveStatus),
 }
@@ -70,7 +75,6 @@ mod tests {
         let should_be_ordered = [
             DNodeStatus::Unknown,
             DNodeStatus::Dead,
-            DNodeStatus::DeadEnd,
             DNodeStatus::TimedOut,
             DNodeStatus::Alive(DNodeAliveStatus::Unknown),
             DNodeStatus::Alive(DNodeAliveStatus::Sometimes),

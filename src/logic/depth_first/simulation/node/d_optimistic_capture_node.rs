@@ -1,4 +1,4 @@
-use super::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
+use super::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 use crate::logic::{
     depth_first::{
         game::{
@@ -127,11 +127,13 @@ impl DNode for DOptimisticCaptureNode {
         format!("{} {:?}", self.id, self.status())
     }
 
-    fn calc_children(&mut self) -> Vec<Box<Self>> {
-        self.calc_moves()
-            .into_iter()
-            .map(|direction| Box::new(self.calc_child(direction)))
-            .collect()
+    fn calc_children(&mut self) -> DChildrenStatus<Self> {
+        DChildrenStatus::Ok(
+            self.calc_moves()
+                .into_iter()
+                .map(|direction| Box::new(self.calc_child(direction)))
+                .collect(),
+        )
     }
 }
 
@@ -152,7 +154,7 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus},
+                node::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus},
             },
         },
         read_game_state,
@@ -234,7 +236,12 @@ mod tests {
                 DNodeAliveStatus::Unknown
             ]
         );
-        let mut children = node.calc_children();
+        let mut children = if let DChildrenStatus::Ok(children) = node.calc_children() {
+            children
+        } else {
+            panic!("Failed to calculate children");
+        };
+
         assert_eq!(
             node.child_alive_helper.get(),
             [
@@ -244,6 +251,7 @@ mod tests {
                 DNodeAliveStatus::Always
             ]
         );
+
         assert_eq!(children.len(), 2);
         let r = children.pop().unwrap();
         assert_eq!(r.id(), &DNodeId::from("R"));
