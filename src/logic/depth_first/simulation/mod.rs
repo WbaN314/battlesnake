@@ -2,10 +2,11 @@ mod d_node_id;
 mod d_tree;
 mod node;
 
-use std::{env, time::Duration, usize};
+use std::{time::Duration, usize};
 
 use arrayvec::ArrayVec;
 use d_tree::{DTree, DTreeTime};
+use log::info;
 use node::{
     d_full_simulation_node::DFullSimulationNode, d_optimistic_capture_node::DOptimisticCaptureNode,
 };
@@ -119,10 +120,7 @@ impl DSimulation {
             // Capture Tree Result
             let capture_result = capture_tree.result();
 
-            if env::var("MODE").unwrap_or("".to_string()) == "test" {
-                println!("CAPTURE RESULT");
-                println!("{}", capture_result);
-            }
+            info!("CAPTURE RESULT\n{}", capture_result);
 
             let capture_contact_turn = capture_result.capture_contact_turn();
             snake_relevance_depths = [
@@ -171,10 +169,7 @@ impl DSimulation {
         let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
 
-        if env::var("MODE").unwrap_or("".to_string()) == "test" {
-            println!("SIMULATION RESULT");
-            println!("{}", simulation_result);
-        }
+        info!("SIMULATION RESULT\n{}", simulation_result);
 
         // Final Result
         let mut result: ArrayVec<DDirection, 4> = ArrayVec::new();
@@ -184,10 +179,7 @@ impl DSimulation {
             }
         }
 
-        if env::var("MODE").unwrap_or("".to_string()) == "test" {
-            println!("APPROVED SIMULATION DIRECTIONS");
-            println!("{:?}", result);
-        }
+        info!("APPROVED SIMULATION DIRECTIONS\n{:?}", result);
 
         result
     }

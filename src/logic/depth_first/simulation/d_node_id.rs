@@ -35,7 +35,7 @@ impl Display for DNodeId {
             write!(f, "{}", direction)?;
         }
         if self.sparse {
-            write!(f, " sparse")?;
+            write!(f, "-s")?;
         }
         Ok(())
     }

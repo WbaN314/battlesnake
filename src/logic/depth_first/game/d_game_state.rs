@@ -11,7 +11,6 @@ use super::{
     d_snakes::DSnakes,
 };
 use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
-use core::hash;
 use std::{
     fmt::{Display, Formatter},
     hash::{DefaultHasher, Hash, Hasher},
@@ -812,7 +811,7 @@ where
         }
         output.push_str(&other_info);
 
-        writeln!(f, "{}", output)?;
+        write!(f, "{}", output)?;
         Ok(())
     }
 }
