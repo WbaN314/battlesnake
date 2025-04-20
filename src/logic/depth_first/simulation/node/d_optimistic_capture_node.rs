@@ -1,4 +1,4 @@
-use super::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
+use super::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 use crate::logic::{
     depth_first::{
         game::{
@@ -127,8 +127,8 @@ impl DNode for DOptimisticCaptureNode {
         format!("{} {:?}", self.id, self.status())
     }
 
-    fn calc_children(&mut self) -> DChildrenStatus<Self> {
-        DChildrenStatus::Ok(
+    fn calc_children(&mut self) -> DChildrenCalculationResult<Self> {
+        DChildrenCalculationResult::Ok(
             self.calc_moves()
                 .into_iter()
                 .map(|direction| Box::new(self.calc_child(direction)))
@@ -154,7 +154,10 @@ mod tests {
             simulation::{
                 d_node_id::DNodeId,
                 d_tree::DTreeTime,
-                node::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus},
+                node::{
+                    DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatistics,
+                    DNodeStatus,
+                },
             },
         },
         read_game_state,
@@ -236,7 +239,7 @@ mod tests {
                 DNodeAliveStatus::Unknown
             ]
         );
-        let mut children = if let DChildrenStatus::Ok(children) = node.calc_children() {
+        let mut children = if let DChildrenCalculationResult::Ok(children) = node.calc_children() {
             children
         } else {
             panic!("Failed to calculate children");

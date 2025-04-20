@@ -7,7 +7,7 @@ use crate::logic::depth_first::{
     simulation::{d_node_id::DNodeId, d_tree::DTreeTime},
 };
 
-use super::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
+use super::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
 pub struct DPessimisticCaptureNode {
     id: DNodeId,
@@ -72,8 +72,8 @@ impl DNode for DPessimisticCaptureNode {
         self.status.get()
     }
 
-    fn calc_children(&mut self) -> DChildrenStatus<Self> {
-        DChildrenStatus::Ok(
+    fn calc_children(&mut self) -> DChildrenCalculationResult<Self> {
+        DChildrenCalculationResult::Ok(
             self.calc_moves()
                 .into_iter()
                 .map(|direction| Box::new(self.calc_child(direction)))

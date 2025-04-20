@@ -1,10 +1,10 @@
-use log::debug;
+use log::{debug, trace};
 
 use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
-    node::{DChildrenStatus, DNode, DNodeAliveStatus, DNodeStatus},
+    node::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
@@ -127,6 +127,43 @@ where
         }
         self.calc_statistics(direction_durations);
         self.simulation_status = simulation_status;
+
+        trace!(
+            "{:#?}",
+            self.nodes
+                .iter()
+                .map(|(_, node)| (*node).info())
+                .collect::<Vec<_>>()
+        );
+        trace!(
+            "U Queue:\n{:?}",
+            self.queue[0]
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+        );
+        trace!(
+            "D Queue:\n{:?}",
+            self.queue[1]
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+        );
+        trace!(
+            "L Queue:\n{:?}",
+            self.queue[2]
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+        );
+        trace!(
+            "R Queue:\n{:?}",
+            self.queue[3]
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+        );
+
         self.simulation_status
     }
 
@@ -210,18 +247,18 @@ where
                     let children = node.calc_children();
 
                     match children {
-                        DChildrenStatus::FastEnd => {
+                        DChildrenCalculationResult::FastEnd => {
                             debug!("Simulation FastEnd: {}", node.info());
                         }
-                        DChildrenStatus::DeadEnd => {
+                        DChildrenCalculationResult::DeadEnd => {
                             debug!("Simulation DeadEnd: {}", node.info());
                         }
-                        DChildrenStatus::TimedOut => {
+                        DChildrenCalculationResult::TimedOut => {
                             debug!("Simulation TimedOut: {}", node.info());
                             self.queue[*id.first().unwrap_or(&DDirection::Up) as usize]
                                 .push(id.clone());
                         }
-                        DChildrenStatus::Ok(children) => {
+                        DChildrenCalculationResult::Ok(children) => {
                             // Check for special case timeout in node calc_child
                             // Just put it back into the queue
                             // The node itself tracks its child generation progress internally

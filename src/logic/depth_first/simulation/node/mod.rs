@@ -8,7 +8,7 @@ pub mod d_pessimistic_capture_node;
 
 pub trait DNode {
     fn id(&self) -> &DNodeId;
-    fn calc_children(&mut self) -> DChildrenStatus<Self>;
+    fn calc_children(&mut self) -> DChildrenCalculationResult<Self>;
     fn status(&self) -> DNodeStatus;
     fn info(&self) -> String {
         format!("{} {:?}", self.id(), self.status())
@@ -32,7 +32,7 @@ pub trait DNode {
     }
 }
 
-pub enum DChildrenStatus<T: DNode + ?Sized> {
+pub enum DChildrenCalculationResult<T: DNode + ?Sized> {
     FastEnd,
     DeadEnd,
     TimedOut,
