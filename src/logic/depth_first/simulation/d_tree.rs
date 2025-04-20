@@ -210,6 +210,9 @@ where
                     let children = node.calc_children();
 
                     match children {
+                        DChildrenStatus::FastEnd => {
+                            debug!("Simulation FastEnd: {}", node.info());
+                        }
                         DChildrenStatus::DeadEnd => {
                             debug!("Simulation DeadEnd: {}", node.info());
                         }

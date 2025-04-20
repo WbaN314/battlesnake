@@ -253,6 +253,31 @@ impl DNode for DFullSimulationNode {
                 result.push(fast_node);
             }
         }
+        if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
+            // Fast simulation ended
+            let count_non_dead_children = self
+                .current_child_statuses
+                .iter()
+                .filter(|&&x| x != DNodeStatus::Dead)
+                .count();
+            if count_non_dead_children == 0 {
+                trace!(
+                    "Ended fast node {} as dead end:\n{}",
+                    self.id,
+                    self.states[0]
+                );
+                return DChildrenStatus::DeadEnd;
+            } else if count_non_dead_children == 1 {
+                return DChildrenStatus::Ok(result);
+            } else {
+                trace!(
+                    "Ended fast node {} as fast end:\n{}",
+                    self.id,
+                    self.states[0]
+                );
+                return DChildrenStatus::FastEnd;
+            }
+        }
 
         for i in 0..4 {
             let mut id = self.id.clone();
@@ -573,6 +598,7 @@ mod tests {
             }
             DChildrenStatus::DeadEnd => panic!("Dead end"),
             DChildrenStatus::TimedOut => (),
+            DChildrenStatus::FastEnd => panic!("Fast end"),
         }
 
         for _ in 0..100 {

@@ -33,6 +33,7 @@ pub trait DNode {
 }
 
 pub enum DChildrenStatus<T: DNode + ?Sized> {
+    FastEnd,
     DeadEnd,
     TimedOut,
     Ok(Vec<Box<T>>),
