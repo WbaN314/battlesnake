@@ -107,9 +107,6 @@ where
                                         });
                                     }
                                 }
-                                DNodeStatus::TimedOut => {
-                                    panic!("Should not happen anymore as it is handled in calc_children");
-                                }
                                 _ => (),
                             }
                         }
@@ -313,9 +310,7 @@ where
     fn statistic_depth(&self) -> usize {
         let mut depth = 0;
         for (_, node) in self.nodes.iter() {
-            if node.status() != DNodeStatus::TimedOut {
-                depth = depth.max(node.id().len());
-            }
+            depth = depth.max(node.id().len());
         }
         depth
     }

@@ -44,7 +44,6 @@ pub enum DNodeStatus {
     #[default]
     Unknown,
     Dead,
-    TimedOut,
     Alive(DNodeAliveStatus),
 }
 
@@ -76,7 +75,6 @@ mod tests {
         let should_be_ordered = [
             DNodeStatus::Unknown,
             DNodeStatus::Dead,
-            DNodeStatus::TimedOut,
             DNodeStatus::Alive(DNodeAliveStatus::Unknown),
             DNodeStatus::Alive(DNodeAliveStatus::Sometimes),
             DNodeStatus::Alive(DNodeAliveStatus::Always),

@@ -235,9 +235,7 @@ impl DNode for DFullSimulationNode {
             }
         }
         for i in 0..4 {
-            if self.current_child_states[i].is_empty()
-                && self.current_child_statuses[i] != DNodeStatus::TimedOut
-            {
+            if self.current_child_states[i].is_empty() {
                 self.current_child_statuses[i] = DNodeStatus::Dead;
             }
         }
