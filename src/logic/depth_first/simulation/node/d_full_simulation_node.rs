@@ -278,18 +278,20 @@ impl DNode for DFullSimulationNode {
         }
 
         for i in 0..4 {
-            let mut id = self.id.clone();
-            id.push(D_DIRECTION_LIST[i]);
-            result.push(Box::new(Self::new(
-                id,
-                self.current_child_states[i].clone(),
-                self.time.clone(),
-                self.current_child_statuses[i],
-                self.direction_relevant_snakes,
-                self.state_sameness_distance
-                    .map(|distance| 0.max(distance as i8 - 2) as u8),
-                self.sparse_simulation_distance,
-            )));
+            if let DNodeStatus::Alive(_) = self.current_child_statuses[i] {
+                let mut id = self.id.clone();
+                id.push(D_DIRECTION_LIST[i]);
+                result.push(Box::new(Self::new(
+                    id,
+                    self.current_child_states[i].clone(),
+                    self.time.clone(),
+                    self.current_child_statuses[i],
+                    self.direction_relevant_snakes,
+                    self.state_sameness_distance
+                        .map(|distance| 0.max(distance as i8 - 2) as u8),
+                    self.sparse_simulation_distance,
+                )));
+            }
         }
         DChildrenCalculationResult::Ok(result)
     }
@@ -452,29 +454,26 @@ mod tests {
         } else {
             panic!("No children generated");
         };
-        assert_eq!(children.len(), 4);
+        assert_eq!(children.len(), 2);
         assert_eq!(
             children[0].status(),
             DNodeStatus::Alive(DNodeAliveStatus::Always)
         );
         assert_eq!(children[0].id, DNodeId::from("U"));
-        assert_eq!(children[1].status(), DNodeStatus::Dead);
-        assert_eq!(children[1].id, DNodeId::from("D"));
-        assert_eq!(children[2].status(), DNodeStatus::Dead);
-        assert_eq!(children[2].id, DNodeId::from("L"));
+
         assert_eq!(
-            children[3].status(),
+            children[1].status(),
             DNodeStatus::Alive(DNodeAliveStatus::Always)
         );
-        assert_eq!(children[3].id, DNodeId::from("R"));
-        println!("{}", children[3]);
+        assert_eq!(children[1].id, DNodeId::from("R"));
+        println!("{}", children[1]);
         let children_right =
-            if let DChildrenCalculationResult::Ok(children) = children[3].calc_children() {
+            if let DChildrenCalculationResult::Ok(children) = children[1].calc_children() {
                 children
             } else {
                 panic!("No children generated");
             };
-        assert_eq!(children_right.len(), 4);
+        assert_eq!(children_right.len(), 3);
         assert_eq!(
             children_right[0].status(),
             DNodeStatus::Alive(DNodeAliveStatus::Always)
@@ -485,13 +484,12 @@ mod tests {
             DNodeStatus::Alive(DNodeAliveStatus::Always)
         );
         assert_eq!(children_right[1].id, DNodeId::from("RD"));
-        assert_eq!(children_right[2].status(), DNodeStatus::Dead);
-        assert_eq!(children_right[2].id, DNodeId::from("RL"));
+
         assert_eq!(
-            children_right[3].status(),
+            children_right[2].status(),
             DNodeStatus::Alive(DNodeAliveStatus::Always)
         );
-        assert_eq!(children_right[3].id, DNodeId::from("RR"));
+        assert_eq!(children_right[2].id, DNodeId::from("RR"));
     }
 
     #[test]
@@ -520,10 +518,7 @@ mod tests {
         } else {
             panic!("No children generated");
         };
-        println!("{}", children[0]);
-        println!("{}", children[1]);
-        println!("{}", children[2]);
-        println!("{}", children[3]);
+        assert_eq!(children.len(), 2);
     }
 
     #[test]
@@ -559,7 +554,7 @@ mod tests {
             panic!("No children generated");
         };
 
-        assert_eq!(children.len(), 4);
+        assert_eq!(children.len(), 2);
 
         for child in children.iter() {
             println!("{}", child.info());
