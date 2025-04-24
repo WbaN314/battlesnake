@@ -27,6 +27,10 @@ impl DNodeId {
     pub fn set_sparse(&mut self, sparse: bool) {
         self.sparse = sparse;
     }
+
+    pub fn is_sparse(&self) -> bool {
+        self.sparse
+    }
 }
 
 impl Display for DNodeId {

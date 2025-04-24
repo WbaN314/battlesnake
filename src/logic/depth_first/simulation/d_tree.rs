@@ -50,7 +50,7 @@ pub struct DTree<Node: DNode> {
     time: DTreeTime,
     max_depth: Option<usize>,
     simulation_status: DSimulationStatus,
-    statistics: Option<DTreeStatistics>,
+    statistics: DTreeStatistics,
 }
 
 impl<Node> DTree<Node>
@@ -262,6 +262,11 @@ where
                             debug!("Simulation Ok: {}", node.info());
                             for child in children.into_iter() {
                                 debug!("Child: {}", child.info());
+                                if child.id().is_sparse() && self.nodes.contains_key(child.id()) {
+                                    self.statistics.ignored_fast_nodes += 1;
+                                    debug!("Child ignored: {}", child.info());
+                                    continue;
+                                }
                                 result.push((child.id().clone(), child.status()));
                                 self.nodes.insert(child.id().clone(), child);
                             }
@@ -276,19 +281,16 @@ where
         result
     }
 
-    fn statistics(&self) -> DTreeStatistics {
-        self.statistics.unwrap()
+    fn get_statistics(&self) -> DTreeStatistics {
+        self.statistics
     }
 
     fn calc_statistics(&mut self, direction_durations: [Duration; 4]) {
-        let statistics = DTreeStatistics {
-            states: self.statistic_states(),
-            nodes: self.statistic_nodes(),
-            depth: self.statistic_depth(),
-            time: self.statistic_time(),
-            time_per_direction: direction_durations,
-        };
-        self.statistics = Some(statistics);
+        self.statistics.states = self.statistic_states();
+        self.statistics.nodes = self.statistic_nodes();
+        self.statistics.depth = self.statistic_depth();
+        self.statistics.time = self.statistic_time();
+        self.statistics.time_per_direction = direction_durations;
     }
 
     fn statistic_states(&self) -> usize {
@@ -316,13 +318,14 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct DTreeStatistics {
     pub states: usize,
     pub nodes: usize,
     pub depth: usize,
     pub time: Duration,
     pub time_per_direction: [Duration; 4],
+    pub ignored_fast_nodes: usize,
 }
 
 pub struct DSimulationResult<'a, Node: DNode> {
@@ -412,7 +415,7 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
 
 impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let statistics = self.tree.statistics();
+        let statistics = self.tree.get_statistics();
         writeln!(f, "--- General Info ---")?;
         writeln!(f, "Nodes: {}", statistics.nodes)?;
         writeln!(f, "States: {}", statistics.states)?;
@@ -498,7 +501,7 @@ impl<Node: DNode> Default for DTree<Node> {
             time: DTreeTime::default(),
             max_depth: None,
             simulation_status: DSimulationStatus::default(),
-            statistics: None,
+            statistics: DTreeStatistics::default(),
         }
     }
 }
@@ -880,5 +883,56 @@ mod tests {
     fn test_ddirectionfinished_ordering() {
         assert!(DDirectionFinished::Always < DDirectionFinished::Sometimes);
         assert!(DDirectionFinished::Sometimes < DDirectionFinished::Never);
+    }
+
+    #[test]
+    fn test_that_fast_nodes_are_not_inserted_multiple_time() {
+        let gamestate =
+            read_game_state("requests/failure_33_do_not_move_left_as_you_can_get_killed.json");
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        state = state.play(["L", "", "", "D"]);
+        println!("{}", state);
+
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+            None,
+            None,
+        );
+        let mut tree = DTree::default().root(root).max_depth(3);
+        tree.simulate();
+        println!("{}", tree);
+        assert_eq!(tree.statistics.ignored_fast_nodes, 1);
+
+        let gamestate =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        state = state.play(["D", "", "D", ""]);
+        println!("{}", state);
+
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+            None,
+            None,
+        );
+        let mut tree = DTree::default().root(root).max_depth(4);
+        tree.simulate();
+        println!("{}", tree);
+        assert_eq!(tree.statistics.ignored_fast_nodes, 3);
     }
 }

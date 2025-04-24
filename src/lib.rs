@@ -91,6 +91,10 @@ impl Serialize for Direction {
 const DIR: &str = "requests/";
 
 pub fn read_game_state(path: &str) -> GameState {
+    let _ = env_logger::builder()
+        .format_timestamp(None)
+        .format_target(false)
+        .try_init();
     let file = std::fs::File::open(path).unwrap();
     let reader = std::io::BufReader::new(file);
     let game_state: GameState = serde_json::from_reader(reader).unwrap();
@@ -106,11 +110,6 @@ fn check_game_state(state: &GameState) {
 }
 
 pub fn get_move_from_json_file(path: &str) -> Direction {
-    let _ = env_logger::builder()
-        .format_timestamp(None)
-        .format_target(false)
-        .try_init();
-
     let gamestate = read_game_state(&(DIR.to_string() + path));
     let print =
         DGameState::<DSlowField>::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
