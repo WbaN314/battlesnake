@@ -254,9 +254,31 @@ where
                                 id.set_sparse(false);
                                 let mut reverse_depth: u8 = 0;
                                 while !self.nodes.contains_key(&id) {
+                                    id.set_sparse(true);
+                                    self.nodes.get_mut(&id).map(|existing_node| {
+                                        let new_status = DNodeStatus::DeadEndIn(reverse_depth);
+                                        debug!(
+                                            "Changing status to {:?}: {}",
+                                            new_status,
+                                            existing_node.info()
+                                        );
+                                        existing_node.set_status(new_status)
+                                    });
+                                    id.set_sparse(false);
                                     id = id.parent().unwrap();
                                     reverse_depth += 1;
                                 }
+                                id.set_sparse(true);
+                                self.nodes.get_mut(&id).map(|existing_node| {
+                                    let new_status = DNodeStatus::DeadEndIn(reverse_depth);
+                                    debug!(
+                                        "Changing status to {:?}: {}",
+                                        new_status,
+                                        existing_node.info()
+                                    );
+                                    existing_node.set_status(new_status)
+                                });
+                                id.set_sparse(false);
                                 self.nodes.get_mut(&id).map(|existing_node| {
                                     let new_status = DNodeStatus::DeadEndIn(reverse_depth);
                                     debug!(
@@ -992,6 +1014,18 @@ mod tests {
         assert_eq!(
             tree_7.nodes.get(&"D".into()).unwrap().status(),
             DNodeStatus::DeadEndIn(5)
+        );
+        assert_eq!(
+            tree_7.nodes.get(&"D-s".into()).unwrap().status(),
+            DNodeStatus::DeadEndIn(5)
+        );
+        assert_eq!(
+            tree_7.nodes.get(&"DD-s".into()).unwrap().status(),
+            DNodeStatus::DeadEndIn(4)
+        );
+        assert_eq!(
+            tree_7.nodes.get(&"DDDDDD-s".into()).unwrap().status(),
+            DNodeStatus::DeadEndIn(0)
         );
         assert_eq!(tree_7.nodes.len(), 8);
     }
