@@ -60,6 +60,10 @@ impl DNode for DPessimisticCaptureNode {
         DNodeStatistics::default()
     }
 
+    fn set_status(&mut self, status: DNodeStatus) {
+        self.status.set(status);
+    }
+
     fn status(&self) -> DNodeStatus {
         if self.status.get() == DNodeStatus::Unknown {
             if self.state.get_alive()[0] {

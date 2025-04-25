@@ -10,6 +10,7 @@ pub trait DNode {
     fn id(&self) -> &DNodeId;
     fn calc_children(&mut self) -> DChildrenCalculationResult<Self>;
     fn status(&self) -> DNodeStatus;
+    fn set_status(&mut self, status: DNodeStatus);
     fn info(&self) -> String {
         format!("{} {:?}", self.id(), self.status())
     }
@@ -44,6 +45,7 @@ pub enum DNodeStatus {
     #[default]
     Unknown,
     Dead,
+    DeadEndIn(u8),
     Alive(DNodeAliveStatus),
 }
 

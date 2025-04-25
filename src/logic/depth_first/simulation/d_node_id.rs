@@ -11,15 +11,6 @@ pub struct DNodeId {
 }
 
 impl DNodeId {
-    #[allow(dead_code)]
-    pub fn from(directions: &str) -> Self {
-        let mut id = Vec::new();
-        for direction in directions.chars() {
-            id.push(direction.try_into().unwrap());
-        }
-        Self { id, sparse: false }
-    }
-
     pub fn direction(&self) -> Option<DDirection> {
         self.id.first().copied()
     }
@@ -30,6 +21,33 @@ impl DNodeId {
 
     pub fn is_sparse(&self) -> bool {
         self.sparse
+    }
+
+    pub fn parent(&self) -> Option<Self> {
+        if self.id.is_empty() {
+            return None;
+        }
+        let mut parent = self.clone();
+        parent.id.pop();
+        Some(parent)
+    }
+}
+
+impl From<&str> for DNodeId {
+    fn from(directions: &str) -> Self {
+        let mut id = Vec::new();
+        let mut sparse = false;
+
+        let mut directions = directions.to_string();
+        if directions.ends_with("-s") {
+            directions.truncate(directions.len() - 2);
+            sparse = true;
+        }
+
+        for direction in directions.chars() {
+            id.push(direction.try_into().unwrap());
+        }
+        Self { id, sparse }
     }
 }
 
@@ -76,6 +94,8 @@ impl DerefMut for DNodeId {
 
 #[cfg(test)]
 mod tests {
+    use crate::logic::depth_first::simulation::node::DNode;
+
     use super::*;
 
     #[test]
@@ -106,5 +126,24 @@ mod tests {
 
         //sparse before others
         assert!(sparse_a > a);
+    }
+
+    #[test]
+    fn test_parent() {
+        let a = DNodeId::from("UD");
+        let b = a.parent().unwrap();
+
+        assert_eq!(b, DNodeId::from("U"));
+        assert_eq!(b.parent().unwrap(), DNodeId::from(""));
+        assert_eq!(b.parent().unwrap().parent(), None);
+
+        let c = DNodeId::from("UDL");
+        let d = c.parent().unwrap();
+        assert_eq!(d, a);
+
+        let mut c_sparse = c.clone();
+        c_sparse.sparse = true;
+        let d_sparse = c_sparse.parent().unwrap();
+        assert_ne!(d_sparse, a);
     }
 }

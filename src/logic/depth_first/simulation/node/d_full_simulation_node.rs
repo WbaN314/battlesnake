@@ -13,7 +13,7 @@ use std::{cell::Cell, cmp::Ordering, collections::HashMap, fmt::Display, time::I
 
 use super::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DFullSimulationNode {
     id: DNodeId,
     states: Vec<DGameState<DFastField>>,
@@ -121,6 +121,10 @@ impl DFullSimulationNode {
 impl DNode for DFullSimulationNode {
     fn id(&self) -> &DNodeId {
         &self.id
+    }
+
+    fn set_status(&mut self, status: DNodeStatus) {
+        self.status.set(status);
     }
 
     fn status(&self) -> DNodeStatus {
@@ -251,49 +255,52 @@ impl DNode for DFullSimulationNode {
                 result.push(fast_node);
             }
         }
-        if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
-            // Fast simulation ended
-            let count_non_dead_children = self
-                .current_child_statuses
-                .iter()
-                .filter(|&&x| x != DNodeStatus::Dead)
-                .count();
-            if count_non_dead_children == 0 {
-                trace!(
-                    "Ended fast node {} as dead end:\n{}",
-                    self.id,
-                    self.states[0]
-                );
-                return DChildrenCalculationResult::DeadEnd;
-            } else if count_non_dead_children == 1 {
-                return DChildrenCalculationResult::Ok(result);
-            } else {
-                trace!(
-                    "Ended fast node {} as fast end:\n{}",
-                    self.id,
-                    self.states[0]
-                );
-                return DChildrenCalculationResult::FastEnd;
-            }
-        }
 
-        for i in 0..4 {
-            if let DNodeStatus::Alive(_) = self.current_child_statuses[i] {
-                let mut id = self.id.clone();
-                id.push(D_DIRECTION_LIST[i]);
-                result.push(Box::new(Self::new(
-                    id,
-                    self.current_child_states[i].clone(),
-                    self.time.clone(),
-                    self.current_child_statuses[i],
-                    self.direction_relevant_snakes,
-                    self.state_sameness_distance
-                        .map(|distance| 0.max(distance as i8 - 2) as u8),
-                    self.sparse_simulation_distance,
-                )));
+        let count_non_dead_children = self
+            .current_child_statuses
+            .iter()
+            .filter(|&&x| x != DNodeStatus::Dead)
+            .count();
+        if count_non_dead_children == 0 {
+            return DChildrenCalculationResult::DeadEnd;
+        } else {
+            if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
+                if count_non_dead_children == 1 {
+                    // Fast simulation ended
+                    trace!(
+                        "Ended fast node {} as dead end:\n{}",
+                        self.id,
+                        self.states[0]
+                    );
+                    return DChildrenCalculationResult::Ok(result);
+                } else {
+                    trace!(
+                        "Ended fast node {} as fast end:\n{}",
+                        self.id,
+                        self.states[0]
+                    );
+                    return DChildrenCalculationResult::FastEnd;
+                }
+            } else {
+                for i in 0..4 {
+                    if let DNodeStatus::Alive(_) = self.current_child_statuses[i] {
+                        let mut id = self.id.clone();
+                        id.push(D_DIRECTION_LIST[i]);
+                        result.push(Box::new(Self::new(
+                            id,
+                            self.current_child_states[i].clone(),
+                            self.time.clone(),
+                            self.current_child_statuses[i],
+                            self.direction_relevant_snakes,
+                            self.state_sameness_distance
+                                .map(|distance| 0.max(distance as i8 - 2) as u8),
+                            self.sparse_simulation_distance,
+                        )));
+                    }
+                }
+                DChildrenCalculationResult::Ok(result)
             }
         }
-        DChildrenCalculationResult::Ok(result)
     }
 
     fn info(&self) -> String {

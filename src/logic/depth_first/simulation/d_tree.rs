@@ -77,7 +77,6 @@ where
     pub fn simulate(&mut self) -> DSimulationStatus {
         let simulation_status;
         self.time.start = Instant::now();
-        let mut direction_durations = [Duration::default(); 4];
         let mut count = 0;
         'simulation: loop {
             if self.time.is_timed_out() {
@@ -119,10 +118,10 @@ where
                     }
                 }
             }
-            direction_durations[direction] += direction_timer.elapsed();
+            self.statistics.time_per_direction[direction] += direction_timer.elapsed();
             count += 1;
         }
-        self.calc_statistics(direction_durations);
+        self.calc_statistics();
         self.simulation_status = simulation_status;
 
         trace!(
@@ -245,10 +244,33 @@ where
 
                     match children {
                         DChildrenCalculationResult::FastEnd => {
+                            // Only possible for fast nodes that open up to have multiple choices again
                             debug!("Simulation FastEnd: {}", node.info());
                         }
                         DChildrenCalculationResult::DeadEnd => {
                             debug!("Simulation DeadEnd: {}", node.info());
+                            let mut id = id.clone();
+                            if id.is_sparse() {
+                                id.set_sparse(false);
+                                let mut reverse_depth: u8 = 0;
+                                while !self.nodes.contains_key(&id) {
+                                    id = id.parent().unwrap();
+                                    reverse_depth += 1;
+                                }
+                                self.nodes.get_mut(&id).map(|existing_node| {
+                                    let new_status = DNodeStatus::DeadEndIn(reverse_depth);
+                                    debug!(
+                                        "Changing status to {:?}: {}",
+                                        new_status,
+                                        existing_node.info()
+                                    );
+                                    existing_node.set_status(new_status)
+                                });
+                            } else {
+                                let new_status = DNodeStatus::DeadEndIn(0);
+                                debug!("Changing status to {:?}: {}", new_status, node.info());
+                                node.set_status(new_status);
+                            }
                         }
                         DChildrenCalculationResult::TimedOut => {
                             debug!("Simulation TimedOut: {}", node.info());
@@ -285,12 +307,11 @@ where
         self.statistics
     }
 
-    fn calc_statistics(&mut self, direction_durations: [Duration; 4]) {
+    fn calc_statistics(&mut self) {
         self.statistics.states = self.statistic_states();
         self.statistics.nodes = self.statistic_nodes();
         self.statistics.depth = self.statistic_depth();
         self.statistics.time = self.statistic_time();
-        self.statistics.time_per_direction = direction_durations;
     }
 
     fn statistic_states(&self) -> usize {
@@ -934,5 +955,73 @@ mod tests {
         tree.simulate();
         println!("{}", tree);
         assert_eq!(tree.statistics.ignored_fast_nodes, 3);
+    }
+
+    #[test]
+    fn test_dead_end_propagation_to_spawn_node() {
+        let gamestate =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        state = state.play(["D", "", "D", ""]);
+        println!("{}", state);
+
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+            None,
+            None,
+        );
+        let mut tree_6 = DTree::default().root(root.clone()).max_depth(6);
+        tree_6.simulate();
+        println!("{}", tree_6);
+        assert_eq!(
+            tree_6.nodes.get(&"D".into()).unwrap().status(),
+            DNodeStatus::Alive(DNodeAliveStatus::Always)
+        );
+        assert_eq!(tree_6.nodes.len(), 13);
+        let mut tree_7 = DTree::default().root(root).max_depth(7);
+        tree_7.simulate();
+        println!("{}", tree_7);
+        assert_eq!(
+            tree_7.nodes.get(&"D".into()).unwrap().status(),
+            DNodeStatus::DeadEndIn(5)
+        );
+        assert_eq!(tree_7.nodes.len(), 8);
+    }
+
+    #[test]
+    fn test_dead_end() {
+        let gamestate =
+            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let mut state = DGameState::<DFastField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        state = state.play(["UULU", "", "D", ""]);
+        println!("{}", state);
+        let root = DFullSimulationNode::new(
+            DNodeId::default(),
+            vec![state],
+            Default::default(),
+            DNodeStatus::default(),
+            None,
+            None,
+            None,
+        );
+        let mut tree = DTree::default().root(root).max_depth(4);
+        tree.simulate();
+        println!("{}", tree);
+        assert_eq!(
+            tree.nodes.get(&"R".into()).unwrap().status(),
+            DNodeStatus::DeadEndIn(0)
+        );
     }
 }
