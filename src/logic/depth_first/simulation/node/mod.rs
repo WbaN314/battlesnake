@@ -65,8 +65,6 @@ pub struct DNodeStatistics {
     pub states: Option<usize>,
     pub highest_alive_snakes: Option<usize>,
     pub lowest_self_length: Option<usize>,
-    pub real_children: Option<usize>,
-    pub fast_children: Option<usize>,
     pub relevant_snakes: [Option<u8>; 4],
 }
 

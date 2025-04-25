@@ -94,8 +94,6 @@ impl DerefMut for DNodeId {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::depth_first::simulation::node::DNode;
-
     use super::*;
 
     #[test]
