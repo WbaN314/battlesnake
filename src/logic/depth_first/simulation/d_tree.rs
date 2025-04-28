@@ -186,6 +186,7 @@ where
         // Add alive nodes to results and count the states
         for (_, node) in self.nodes.iter() {
             match (node.status(), best_status) {
+                (DNodeStatus::Alive(DNodeAliveStatus::Fast), _) => (), // Ignore fast nodes
                 (DNodeStatus::Alive(_), DNodeStatus::Alive(_))
                 | (DNodeStatus::DeadEndIn(_), DNodeStatus::DeadEndIn(_))
                     if node.id().len() > 0 =>
@@ -430,7 +431,9 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
         };
 
         for direction_result in self.direction_results.iter() {
-            if best_direction_on_limit_depth && direction_result.depth < max_depth_of_best_statuses
+            if (best_direction_on_limit_depth
+                || self.tree.simulation_status == DSimulationStatus::Finished)
+                && direction_result.depth < max_depth_of_best_statuses
             {
                 approved_directions[direction_result.direction as usize] = false;
             } else if direction_result.finished < best_evaulation_status {

@@ -1609,19 +1609,6 @@ mod tests {
     }
 
     #[test]
-    fn play_state() {
-        let gamestate = read_game_state("requests/failure_8.json");
-        let state = DGameState::<DSlowField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
-        println!("{}", state);
-        let new_state = state.play(["DL", "", "UL", ""]);
-        println!("{}", new_state);
-    }
-
-    #[test]
     fn test_quick_hash() {
         let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = DGameState::<DFastField>::from_request(
@@ -1648,5 +1635,18 @@ mod tests {
         println!("Hash: {}", hash_3);
         println!("Hash: {}", hash_4);
         assert_ne!(hash_3, hash_4);
+    }
+
+    #[test]
+    fn play_state() {
+        let gamestate = read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let new_state = state.play(["UULLLUR", "", "LLLUUUR", "RDRRRRR"]);
+        println!("{}", new_state);
     }
 }

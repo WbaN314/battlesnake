@@ -197,6 +197,12 @@ impl DNode for DFullSimulationNode {
 
                 if !new_state.get_alive()[0] {
                     // Direction is invalid as there exists a state and a moveset for this direction where we die
+                    trace!(
+                        "Direction {} is invalid for state\n{}",
+                        moveset[0].unwrap(),
+                        state
+                    );
+
                     self.current_child_statuses[index] = DNodeStatus::Dead;
                     possible_own_directions[index] = false;
 
@@ -227,11 +233,7 @@ impl DNode for DFullSimulationNode {
                                 .map(|distance| 0.max(distance as i8 - 2) as u8),
                             self.sparse_simulation_distance,
                         ));
-                        trace!(
-                            "Possibly only {} possible for state\n{}",
-                            only_possible_direction,
-                            state
-                        );
+                        trace!("Only {} left for state\n{}", only_possible_direction, state);
                         self.fast_child = Some(fast_child_node);
                     }
                 }
@@ -262,11 +264,7 @@ impl DNode for DFullSimulationNode {
             .filter(|&&x| x != DNodeStatus::Dead)
             .count();
         if count_non_dead_children == 0 {
-            trace!(
-                "Node {} is dead end, no children spawned:\n{}",
-                self.id,
-                self.states[0]
-            );
+            trace!("Node {} is dead end, no children spawned", self.id);
             return DChildrenCalculationResult::DeadEnd;
         } else {
             if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
