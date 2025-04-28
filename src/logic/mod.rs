@@ -60,7 +60,6 @@ pub fn get_move(gamestate: &GameState, variant: String) -> Direction {
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-    
-    // info!("MOVE {}: {}", turn, next_move);
+
     brain.logic(gamestate)
 }

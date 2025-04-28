@@ -4,6 +4,7 @@ use game::d_direction::DDirection;
 use game::d_field::DSlowField;
 use game::d_game_state::DGameState;
 use intuition::DIntuition;
+use log::info;
 use simulation::DSimulation;
 
 use crate::logic::legacy::shared::brain::Brain;
@@ -45,7 +46,13 @@ impl Brain for DepthFirstSnake {
             .sparse_simulation_distance(6)
             .run();
         let intuition = DIntuition::new(d_state, gamestate);
-        let intuition_result = intuition.allowed_directions(simulation_result).run();
+        let intuition_result = intuition
+            .allowed_directions(simulation_result.clone())
+            .run();
+        info!(
+            "Intuition selected {:?} from simulation result {:?}",
+            intuition_result, simulation_result
+        );
         match intuition_result {
             DDirection::Up => Direction::Up,
             DDirection::Down => Direction::Down,
