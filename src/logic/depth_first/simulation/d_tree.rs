@@ -1,10 +1,11 @@
+use itertools::Itertools;
 use log::{debug, trace};
 
 use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
-    node::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatus},
+    node::{self, DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
@@ -169,10 +170,26 @@ where
             results.push(DSimulationDirectionResult::new(d));
         }
 
+        let best_status = self
+            .nodes
+            .iter()
+            .filter_map(|(id, node)| {
+                if id == &DNodeId::default() {
+                    None
+                } else {
+                    Some(node.status())
+                }
+            })
+            .max()
+            .unwrap_or(DNodeStatus::Dead);
+
         // Add alive nodes to results and count the states
         for (_, node) in self.nodes.iter() {
-            match node.status() {
-                DNodeStatus::Alive(_) if node.id().len() > 0 => {
+            match (node.status(), best_status) {
+                (DNodeStatus::Alive(_), DNodeStatus::Alive(_))
+                | (DNodeStatus::DeadEndIn(_), DNodeStatus::DeadEndIn(_))
+                    if node.id().len() > 0 =>
+                {
                     let direction = node.id().first().unwrap();
                     let index: usize = *direction as usize;
                     let statistics = node.statistics();
@@ -195,6 +212,7 @@ where
                 _ => (),
             }
         }
+
         // Sort the node ids by the node result order
         for result in results.iter_mut() {
             result.node_ids.sort_unstable_by(|id1, id2| {

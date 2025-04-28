@@ -228,7 +228,7 @@ impl DNode for DFullSimulationNode {
                             self.sparse_simulation_distance,
                         ));
                         trace!(
-                            "Only {} possible for state\n{}",
+                            "Possibly only {} possible for state\n{}",
                             only_possible_direction,
                             state
                         );
@@ -248,7 +248,7 @@ impl DNode for DFullSimulationNode {
         if self.current_state_index == self.states.len() {
             if let Some(fast_node) = self.fast_child.take() {
                 trace!(
-                    "Spawning fast node {}:\n{}",
+                    "Adding fast node to simulation result {}:\n{}",
                     fast_node.id(),
                     fast_node.states[0]
                 );
@@ -262,6 +262,11 @@ impl DNode for DFullSimulationNode {
             .filter(|&&x| x != DNodeStatus::Dead)
             .count();
         if count_non_dead_children == 0 {
+            trace!(
+                "Node {} is dead end, no children spawned:\n{}",
+                self.id,
+                self.states[0]
+            );
             return DChildrenCalculationResult::DeadEnd;
         } else {
             if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
