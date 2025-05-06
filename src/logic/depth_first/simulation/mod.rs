@@ -120,7 +120,7 @@ impl DSimulation {
             // Capture Tree Result
             let capture_result = capture_tree.result();
 
-            debug!("CAPTURE RESULT\n{}", capture_result);
+            info!("CAPTURE RESULT\n{}", capture_result);
 
             let capture_contact_turn = capture_result.capture_contact_turn();
             snake_relevance_depths = [
@@ -169,7 +169,7 @@ impl DSimulation {
         let simulation_result = simulation_tree.result();
         let simulation_directions = simulation_result.approved_directions();
 
-        debug!("SIMULATION RESULT\n{}", simulation_result);
+        info!("SIMULATION RESULT\n{}", simulation_result);
 
         // Final Result
         let mut result: ArrayVec<DDirection, 4> = ArrayVec::new();
@@ -179,7 +179,7 @@ impl DSimulation {
             }
         }
 
-        debug!("APPROVED SIMULATION DIRECTIONS\n{:?}", result);
+        info!("APPROVED SIMULATION DIRECTIONS\n{:?}", result);
 
         result
     }

@@ -322,3 +322,9 @@ fn failure_45_panic_again() {
     let chosen_move = get_move_from_json_file("failure_45_panic_again.json");
     assert_eq!(chosen_move, Direction::Right);
 }
+
+#[test]
+fn failure_46_go_for_kill() {
+    let chosen_move = get_move_from_json_file("failure_46_go_for_kill.json");
+    assert_eq!(chosen_move, Direction::Right);
+}

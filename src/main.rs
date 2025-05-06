@@ -2,7 +2,7 @@
 extern crate rocket;
 
 use battlesnake_game_of_chicken::{logic, GameState};
-use log::info;
+use log::{info, warn};
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -30,7 +30,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
-    info!("{}", serde_json::to_string(&r).unwrap());
+    warn!("{}", serde_json::to_string(&r).unwrap());
 
     let variant = env::var("VARIANT").unwrap_or(String::from("breadth_first"));
 
