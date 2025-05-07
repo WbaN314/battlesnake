@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746544308840,
+  "lastUpdate": 1746603453542,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -3209,6 +3209,84 @@ window.BENCHMARK_DATA = {
             "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
             "value": 230.72,
             "range": "± 4.00",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "f272a60e5ddbd8a358acbca6abfadfc2f66262a6",
+          "message": "bugfix with simulations partly reaching max depth and other directions being discarded",
+          "timestamp": "2025-05-07T09:35:13+02:00",
+          "tree_id": "697e036e29f3a2f29fa0611d905e8d4f782de706",
+          "url": "https://github.com/WbaN314/battlesnake/commit/f272a60e5ddbd8a358acbca6abfadfc2f66262a6"
+        },
+        "date": 1746603453198,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_move_reachable",
+            "value": 720.03,
+            "range": "± 10.10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_fast",
+            "value": 136.65,
+            "range": "± 2.12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_slow",
+            "value": 124.51,
+            "range": "± 1.53",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_possible_moves",
+            "value": 93.69,
+            "range": "± 1.42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_scope_moves",
+            "value": 124.71,
+            "range": "± 1.44",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_moves_set::tests::bench_generate",
+            "value": 137.12,
+            "range": "± 2.06",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::simulation::d_tree::tests::bench_tree_simulate",
+            "value": 135380894.7,
+            "range": "± 2848943.97",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_next_state",
+            "value": 218.77,
+            "range": "± 2.05",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
+            "value": 241.75,
+            "range": "± 6.32",
             "unit": "ns/iter"
           }
         ]
