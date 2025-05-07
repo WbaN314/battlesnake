@@ -269,12 +269,6 @@ impl DNode for DFullSimulationNode {
         } else {
             if self.status.get() == DNodeStatus::Alive(DNodeAliveStatus::Fast) {
                 if count_non_dead_children == 1 {
-                    // Fast simulation ended
-                    trace!(
-                        "Ended fast node {} as dead end:\n{}",
-                        self.id,
-                        self.states[0]
-                    );
                     return DChildrenCalculationResult::Ok(result);
                 } else {
                     trace!(

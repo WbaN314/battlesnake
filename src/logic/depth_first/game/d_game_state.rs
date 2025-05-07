@@ -1639,14 +1639,14 @@ mod tests {
 
     #[test]
     fn play_state() {
-        let gamestate = read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+        let gamestate = read_game_state("requests/failure_48_grab_food.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
             &gamestate.turn,
         );
         println!("{}", state);
-        let new_state = state.play(["UULLLUR", "", "LLLUUUR", "RDRRRRR"]);
+        let new_state = state.play(["L", "D", "", ""]);
         println!("{}", new_state);
     }
 }

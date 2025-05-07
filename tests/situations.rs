@@ -334,3 +334,11 @@ fn failure_47_grab_food() {
     let chosen_move = get_move_from_json_file("failure_47_grab_food.json");
     assert_eq!(chosen_move, Direction::Down);
 }
+
+#[test]
+fn failure_48_grab_food() {
+    // Depending on what B does in the next move it is always possible to escape
+    // But after moving left, decision where to move must depend on which move B took and go in opposite direction
+    let chosen_move = get_move_from_json_file("failure_48_grab_food.json");
+    assert_eq!(chosen_move, Direction::Left);
+}
