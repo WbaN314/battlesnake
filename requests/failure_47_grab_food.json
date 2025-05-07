@@ -1,0 +1,196 @@
+{
+    "game": {
+        "id": "6f4dce3d-d4b0-4ad6-b67b-38cda4bc6731",
+        "ruleset": {
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "version": "v1.2.3",
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 31,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 5,
+                "y": 1
+            },
+            {
+                "x": 10,
+                "y": 5
+            },
+            {
+                "x": 10,
+                "y": 4
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_RbDvbrQ9r7YWdQdm3J7chpBb",
+                "name": "Chicklet",
+                "health": 90,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 2
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 5,
+                        "y": 4
+                    },
+                    {
+                        "x": 5,
+                        "y": 5
+                    },
+                    {
+                        "x": 6,
+                        "y": 5
+                    },
+                    {
+                        "x": 6,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 2
+                },
+                "length": 6,
+                "latency": "279",
+                "shout": ""
+            },
+            {
+                "id": "gs_HcGBRpqXQgSW6xGQdPTY8Jg8",
+                "name": "Game of Chicken",
+                "health": 97,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 6
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 2,
+                        "y": 6
+                    },
+                    {
+                        "x": 2,
+                        "y": 5
+                    },
+                    {
+                        "x": 2,
+                        "y": 4
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 6
+                },
+                "length": 8,
+                "latency": "243",
+                "shout": ""
+            },
+            {
+                "id": "gs_7FTC7gdjCg7mdfV9Qv33cbqB",
+                "name": "Scared Bot",
+                "health": 69,
+                "body": [
+                    {
+                        "x": 10,
+                        "y": 3
+                    },
+                    {
+                        "x": 9,
+                        "y": 3
+                    },
+                    {
+                        "x": 9,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 10,
+                    "y": 3
+                },
+                "length": 3,
+                "latency": "1",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_RbDvbrQ9r7YWdQdm3J7chpBb",
+        "name": "Chicklet",
+        "health": 90,
+        "body": [
+            {
+                "x": 5,
+                "y": 2
+            },
+            {
+                "x": 5,
+                "y": 3
+            },
+            {
+                "x": 5,
+                "y": 4
+            },
+            {
+                "x": 5,
+                "y": 5
+            },
+            {
+                "x": 6,
+                "y": 5
+            },
+            {
+                "x": 6,
+                "y": 4
+            }
+        ],
+        "head": {
+            "x": 5,
+            "y": 2
+        },
+        "length": 6,
+        "latency": "279",
+        "shout": ""
+    }
+}
