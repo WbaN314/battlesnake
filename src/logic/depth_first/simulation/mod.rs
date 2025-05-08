@@ -7,19 +7,15 @@ use std::{time::Duration, usize};
 use arrayvec::ArrayVec;
 use d_tree::{DTree, DTreeTime};
 use log::info;
-use node::{
-    d_full_simulation_node::DFullSimulationNode, d_optimistic_capture_node::DOptimisticCaptureNode,
-};
+use node::d_full_simulation_node::DFullSimulationNode;
 
 use super::game::{d_direction::DDirection, d_field::DSlowField, d_game_state::DGameState};
 
 pub struct DSimulation {
     initial_state: DGameState<DSlowField>,
-    capture: bool,
-    capture_max_duration: Option<Duration>,
+
     simulation_max_duration: Option<Duration>,
     simulation_max_depth: Option<usize>,
-    capture_max_depth: Option<usize>,
     simulation_node_max_duration: Option<Duration>,
     sparse_simulation_distance: Option<u8>,
 }
@@ -28,12 +24,9 @@ impl DSimulation {
     pub fn new(state: DGameState<DSlowField>) -> Self {
         Self {
             initial_state: state,
-            capture: true,
-            capture_max_duration: None,
             simulation_max_duration: None,
             simulation_max_depth: None,
             simulation_node_max_duration: None,
-            capture_max_depth: None,
             sparse_simulation_distance: None,
         }
     }
@@ -41,20 +34,6 @@ impl DSimulation {
     pub fn sparse_simulation_distance(self, distance: u8) -> Self {
         Self {
             sparse_simulation_distance: Some(distance),
-            ..self
-        }
-    }
-
-    pub fn capture_max_duration(self, duration: Duration) -> Self {
-        Self {
-            capture_max_duration: Some(duration),
-            ..self
-        }
-    }
-
-    pub fn capture(self, activated: bool) -> Self {
-        Self {
-            capture: activated,
             ..self
         }
     }
@@ -73,13 +52,6 @@ impl DSimulation {
         }
     }
 
-    pub fn capture_max_depth(self, depth: usize) -> Self {
-        Self {
-            capture_max_depth: Some(depth),
-            ..self
-        }
-    }
-
     pub fn simulation_node_max_duration(self, duration: Duration) -> Self {
         Self {
             simulation_node_max_duration: Some(duration),
@@ -88,56 +60,12 @@ impl DSimulation {
     }
 
     pub fn run(self) -> ArrayVec<DDirection, 4> {
-        let mut snake_relevance_depths = [
+        let snake_relevance_depths = [
             [true, true, true, true],
             [true, true, true, true],
             [true, true, true, true],
             [true, true, true, true],
         ];
-
-        // Capture
-        if self.capture {
-            // Capture Node
-            let capture_simulation = DOptimisticCaptureNode::new(
-                Default::default(),
-                self.initial_state.clone(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-            );
-
-            // Capture Tree
-            let mut capture_tree = DTree::default().root(capture_simulation);
-
-            if let Some(duration) = self.capture_max_duration {
-                capture_tree = capture_tree.time(duration);
-            }
-            if let Some(max_depth) = self.capture_max_depth {
-                capture_tree = capture_tree.max_depth(max_depth);
-            }
-            capture_tree.simulate();
-
-            // Capture Tree Result
-            let capture_result = capture_tree.result();
-
-            info!("CAPTURE RESULT\n{}", capture_result);
-
-            let capture_contact_turn = capture_result.capture_contact_turn();
-            snake_relevance_depths = [
-                [true, false, false, false],
-                [true, false, false, false],
-                [true, false, false, false],
-                [true, false, false, false],
-            ];
-            for i in 0..4 {
-                for j in 1..4 {
-                    if let Some(depth) = capture_contact_turn[i][j] {
-                        snake_relevance_depths[i][j] =
-                            depth < self.simulation_max_depth.unwrap_or(u8::MAX as usize) as u8;
-                    }
-                }
-            }
-        }
 
         // Simulation Node
         let simulation_node_time = if let Some(duration) = self.simulation_node_max_duration {
@@ -208,7 +136,6 @@ mod tests {
         println!("{}", state);
 
         let directions = DSimulation::new(state)
-            .capture(false)
             .simulation_max_duration(Duration::from_millis(250))
             .run();
 
@@ -228,7 +155,6 @@ mod tests {
         println!("{}", state);
 
         let directions = DSimulation::new(state)
-            .capture(false)
             .simulation_max_depth(10)
             .sparse_simulation_distance(6)
             .run();
@@ -247,7 +173,6 @@ mod tests {
         println!("{}", state);
 
         let directions = DSimulation::new(state)
-            .capture(false)
             .simulation_max_depth(10)
             .sparse_simulation_distance(6)
             .run();

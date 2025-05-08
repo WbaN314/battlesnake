@@ -37,9 +37,6 @@ impl Brain for DepthFirstSnake {
         );
         let simulation = DSimulation::new(d_state.clone());
         let simulation_result = simulation
-            .capture(true)
-            .capture_max_duration(Duration::from_millis(50))
-            .capture_max_depth(20)
             .simulation_max_duration(Duration::from_millis(200))
             .simulation_node_max_duration(Duration::from_millis(20))
             .simulation_max_depth(10)

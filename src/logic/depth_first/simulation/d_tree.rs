@@ -195,19 +195,6 @@ where
                     let statistics = node.statistics();
                     results[index].states += statistics.states.unwrap_or(1);
                     results[index].node_ids.push(node.id().clone());
-                    results[index]
-                        .capture_contact_turn
-                        .iter_mut()
-                        .enumerate()
-                        .for_each(|(i, s)| {
-                            if let Some(relevance) = statistics.relevant_snakes[i] {
-                                if let Some(current_relevance) = s {
-                                    *s = Some(relevance.min(*current_relevance));
-                                } else {
-                                    *s = Some(relevance);
-                                }
-                            }
-                        });
                 }
                 _ => (),
             }
@@ -237,13 +224,6 @@ where
                         if alive_status == DNodeAliveStatus::Always {
                             results[i].finished = DDirectionFinished::Never;
                         }
-                    }
-                }
-            }
-            if results[i].finished == DDirectionFinished::Never {
-                for j in 0..4 {
-                    if results[i].capture_contact_turn[j].is_none() {
-                        results[i].capture_contact_turn[j] = Some(results[i].depth as u8);
                     }
                 }
             }
@@ -460,14 +440,6 @@ impl<'a, Node: DNode> DSimulationResult<'a, Node> {
 
         approved_directions
     }
-
-    pub fn capture_contact_turn(&self) -> [[Option<u8>; 4]; 4] {
-        let mut capture_contact_turn: [[Option<u8>; 4]; 4] = Default::default();
-        for (i, result) in self.direction_results.iter().enumerate() {
-            capture_contact_turn[i] = result.capture_contact_turn;
-        }
-        capture_contact_turn
-    }
 }
 
 impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
@@ -487,17 +459,6 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
             writeln!(f, "States: {}", result.states)?;
             writeln!(f, "Direction Time: {:?}", statistics.time_per_direction[i])?;
             writeln!(f, "Finished: {:?}", result.finished)?;
-            writeln!(
-                f,
-                "Capture Contact: {:?}",
-                result
-                    .capture_contact_turn
-                    .map(|rel| if let Some(rel) = rel {
-                        rel.to_string()
-                    } else {
-                        "X".to_string()
-                    })
-            )?;
 
             if !result.node_ids.is_empty() {
                 let best_node = self
@@ -519,7 +480,6 @@ pub struct DSimulationDirectionResult {
     pub node_ids: Vec<DNodeId>,
     pub states: usize,
     pub finished: DDirectionFinished,
-    pub capture_contact_turn: [Option<u8>; 4],
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -537,7 +497,6 @@ impl DSimulationDirectionResult {
             node_ids: Vec::new(),
             states: 0,
             finished: DDirectionFinished::Never,
-            capture_contact_turn: [Option::default(); 4],
         }
     }
 }
@@ -750,33 +709,6 @@ mod tests {
         tree.simulate();
         println!("{}", tree);
         assert_eq!(tree.statistic_depth(), 10);
-    }
-
-    #[test]
-    fn test_capture_contact_turn() {
-        let gamestate = read_game_state("requests/failure_8.json");
-        let state = DGameState::<DSlowField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
-        println!("{}", state);
-        let root = DOptimisticCaptureNode::new(
-            DNodeId::default(),
-            state,
-            DTreeTime::new(Duration::from_millis(200)),
-            DNodeStatus::default(),
-            DNodeStatistics::default(),
-        );
-        let mut tree = DTree::default().root(root).max_depth(10);
-        tree.simulate();
-        println!("{}", tree);
-        let result = tree.result();
-        let capture_contact_turn = result.capture_contact_turn();
-        assert_eq!(capture_contact_turn[0], [None, Some(2), None, None]);
-        assert_eq!(capture_contact_turn[1], [None, Some(5), Some(2), None]);
-        assert_eq!(capture_contact_turn[2], [None, None, None, None]);
-        assert_eq!(capture_contact_turn[3], [None, Some(1), None, None]);
     }
 
     #[test]
