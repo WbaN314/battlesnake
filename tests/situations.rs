@@ -342,3 +342,17 @@ fn failure_48_grab_food() {
     let chosen_move = get_move_from_json_file("failure_48_grab_food.json");
     assert_eq!(chosen_move, Direction::Left);
 }
+
+#[test]
+fn failure_49() {
+    // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
+    let chosen_move = get_move_from_json_file("failure_49.json");
+    assert_eq!(chosen_move, Direction::Down);
+}
+
+#[test]
+fn failure_50() {
+    // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
+    let chosen_move = get_move_from_json_file("failure_50.json");
+    assert_eq!(chosen_move, Direction::Left);
+}

@@ -6,7 +6,7 @@ use std::{time::Duration, usize};
 
 use arrayvec::ArrayVec;
 use d_tree::{DTree, DTreeTime};
-use log::{debug, info};
+use log::info;
 use node::{
     d_full_simulation_node::DFullSimulationNode, d_optimistic_capture_node::DOptimisticCaptureNode,
 };
@@ -215,5 +215,44 @@ mod tests {
         assert_eq!(directions.len(), 2);
         assert!(directions.contains(&DDirection::Up));
         assert!(directions.contains(&DDirection::Right));
+    }
+
+    #[test]
+    fn test_max_depth() {
+        let gamestate = read_game_state("requests/failure_49.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let directions = DSimulation::new(state)
+            .capture(false)
+            .simulation_max_depth(10)
+            .sparse_simulation_distance(6)
+            .run();
+
+        println!("{:?}", directions)
+    }
+
+    #[test]
+    fn test_max_depth_2() {
+        let gamestate = read_game_state("requests/failure_50.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let directions = DSimulation::new(state)
+            .capture(false)
+            .simulation_max_depth(10)
+            .sparse_simulation_distance(6)
+            .run();
+
+        assert_eq!(directions.len(), 1);
+        assert_eq!(directions[0], DDirection::Left)
     }
 }

@@ -1,11 +1,10 @@
-use itertools::Itertools;
 use log::{debug, trace};
 
 use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
 
 use super::{
     d_node_id::DNodeId,
-    node::{self, DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatus},
+    node::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatus},
 };
 use std::{
     cmp::Ordering,
