@@ -301,7 +301,7 @@ impl DGameState<DFastField> {
         let snake = self.snakes.cell(0).get();
         let mut hasher = DefaultHasher::new();
         match snake {
-            DSnake::Alive { head, .. } => {
+            DSnake::Alive { head, length, .. } => {
                 // loop over all cells that are at most distance away from head
                 // the distance is the manhattan distance, i.e. x and y distance added
                 for y in -distance..=distance {
@@ -313,10 +313,12 @@ impl DGameState<DFastField> {
                         }
                     }
                 }
-                return hasher.finish();
+                length.hash(&mut hasher);
             }
-            _ => return hasher.finish(),
+            _ => (),
         }
+        self.get_alive().hash(&mut hasher);
+        return hasher.finish();
     }
 
     pub fn get_heads(&self) -> [Option<DCoord>; SNAKES as usize] {
@@ -1610,7 +1612,7 @@ mod tests {
 
     #[test]
     fn test_quick_hash() {
-        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let gamestate = read_game_state("requests/test_move_request_2c.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -1639,14 +1641,14 @@ mod tests {
 
     #[test]
     fn play_state() {
-        let gamestate = read_game_state("requests/failure_48_grab_food.json");
+        let gamestate = read_game_state("requests/failure_53_go_for_kill.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
             &gamestate.turn,
         );
         println!("{}", state);
-        let new_state = state.play(["L", "D", "", ""]);
+        let new_state = state.play(["LLLLLDRRR", "LLLLLDDDR", "", ""]);
         println!("{}", new_state);
     }
 }

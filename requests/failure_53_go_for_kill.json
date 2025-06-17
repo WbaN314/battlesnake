@@ -1,0 +1,186 @@
+{
+    "game": {
+        "id": "990ccf36-6b78-446e-a26e-034ae6f8d82b",
+        "ruleset": {
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard",
+            "version": "v1.2.3"
+        },
+        "timeout": 500
+    },
+    "turn": 41,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 10,
+                "y": 10
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_XfBBGqT6jMF9V8SJv3Bjtw76",
+                "name": "Chicklet",
+                "health": 91,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 9
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 5
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 2
+                    },
+                    {
+                        "x": 7,
+                        "y": 1
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 9
+                },
+                "length": 10,
+                "latency": "225",
+                "shout": ""
+            },
+            {
+                "id": "gs_HXWTgQ8PCjCvCkh3cBFWFwfM",
+                "name": "Game of Chicken",
+                "health": 91,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 10
+                    },
+                    {
+                        "x": 6,
+                        "y": 10
+                    },
+                    {
+                        "x": 7,
+                        "y": 10
+                    },
+                    {
+                        "x": 8,
+                        "y": 10
+                    },
+                    {
+                        "x": 9,
+                        "y": 10
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 10
+                },
+                "length": 6,
+                "latency": "16",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_XfBBGqT6jMF9V8SJv3Bjtw76",
+        "name": "Chicklet",
+        "health": 91,
+        "body": [
+            {
+                "x": 6,
+                "y": 9
+            },
+            {
+                "x": 7,
+                "y": 9
+            },
+            {
+                "x": 7,
+                "y": 8
+            },
+            {
+                "x": 7,
+                "y": 7
+            },
+            {
+                "x": 7,
+                "y": 6
+            },
+            {
+                "x": 7,
+                "y": 5
+            },
+            {
+                "x": 7,
+                "y": 4
+            },
+            {
+                "x": 7,
+                "y": 3
+            },
+            {
+                "x": 7,
+                "y": 2
+            },
+            {
+                "x": 7,
+                "y": 1
+            }
+        ],
+        "head": {
+            "x": 6,
+            "y": 9
+        },
+        "length": 10,
+        "latency": "225",
+        "shout": ""
+    }
+}

@@ -180,4 +180,26 @@ mod tests {
         assert_eq!(directions.len(), 1);
         assert_eq!(directions[0], DDirection::Left)
     }
+
+    #[test]
+    fn test_keep_worst_node_on_sameness_reduction() {
+        let gamestate = read_game_state("requests/failure_53_go_for_kill.json");
+        let state = DGameState::<DSlowField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+
+        let directions = DSimulation::new(state)
+            .simulation_max_duration(Duration::from_millis(200))
+            .simulation_node_max_duration(Duration::from_millis(20))
+            .simulation_max_depth(10)
+            .sparse_simulation_distance(6)
+            .run();
+
+        // Directions should not contain down because only left will lead to a kill and reduce alive_snakes
+        assert_eq!(directions.len(), 1);
+        assert_eq!(directions[0], DDirection::Left);
+    }
 }

@@ -467,6 +467,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
                     .nodes
                     .get(result.node_ids.last().unwrap())
                     .unwrap();
+                writeln!(f, "{}", best_node.id())?;
                 writeln!(f, "{}", best_node.statistics())?;
             }
         }

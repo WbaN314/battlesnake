@@ -370,3 +370,9 @@ fn failure_52_grab_food_after_other_moved_up_in_48() {
         get_move_from_json_file("failure_52_grab_food_after_other_moved_up_in_48.json");
     assert_eq!(chosen_move, Direction::Down);
 }
+
+#[test]
+fn failure_53_go_for_kill() {
+    let chosen_move = get_move_from_json_file("failure_53_go_for_kill.json");
+    assert_eq!(chosen_move, Direction::Left);
+}
