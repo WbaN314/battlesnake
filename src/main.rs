@@ -30,7 +30,12 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
-    warn!("{}", serde_json::to_string(&r).unwrap());
+    warn!(
+        "ID {} Turn {} -> {}",
+        r.game.id,
+        r.turn,
+        serde_json::to_string(&r).unwrap()
+    );
 
     let variant = env::var("VARIANT").unwrap_or(String::from("breadth_first"));
 
