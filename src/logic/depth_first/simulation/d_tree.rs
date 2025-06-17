@@ -450,6 +450,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
         writeln!(f, "States: {}", statistics.states)?;
         writeln!(f, "Depth: {}", statistics.depth)?;
         writeln!(f, "Time: {:?}", statistics.time)?;
+        writeln!(f, "Ignored Fast Nodes: {}", statistics.ignored_fast_nodes)?;
         writeln!(f, "Status: {:?}", self.tree.simulation_status)?;
 
         writeln!(f, "--- Direction Results ---")?;
@@ -466,7 +467,7 @@ impl<'a, Node: DNode> Display for DSimulationResult<'a, Node> {
                     .nodes
                     .get(result.node_ids.last().unwrap())
                     .unwrap();
-                writeln!(f, "{}", best_node.info())?;
+                writeln!(f, "{}", best_node.statistics())?;
             }
         }
         Ok(())

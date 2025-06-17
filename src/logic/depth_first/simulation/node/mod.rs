@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Display};
 
 use super::d_node_id::DNodeId;
 
@@ -66,6 +66,15 @@ pub struct DNodeStatistics {
     pub highest_alive_snakes: Option<usize>,
     pub lowest_self_length: Option<usize>,
     pub relevant_snakes: [Option<u8>; 4],
+}
+
+impl Display for DNodeStatistics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "States: {:?}", self.states)?;
+        writeln!(f, "Alive Snakes: {:?}", self.highest_alive_snakes)?;
+        writeln!(f, "Self Length: {:?}", self.lowest_self_length)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
