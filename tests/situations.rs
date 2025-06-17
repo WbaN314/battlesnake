@@ -344,6 +344,14 @@ fn failure_48_grab_food() {
 }
 
 #[test]
+fn failure_48_grab_food_after_other_moved_up() {
+    // Depending on what B does in the next move it is always possible to escape
+    // But after moving left, decision where to move must depend on which move B took and go in opposite direction
+    let chosen_move = get_move_from_json_file("failure_48_grab_food_after_other_moved_up.json");
+    assert_eq!(chosen_move, Direction::Down);
+}
+
+#[test]
 fn failure_49() {
     // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
     let chosen_move = get_move_from_json_file("failure_49.json");
@@ -355,4 +363,22 @@ fn failure_50() {
     // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
     let chosen_move = get_move_from_json_file("failure_50.json");
     assert_eq!(chosen_move, Direction::Left);
+}
+
+#[test]
+fn failure_51_grab_food_after_other_moved_down_in_48() {
+    // Depending on what B does in the next move it is always possible to escape
+    // But after moving left, decision where to move must depend on which move B took and go in opposite direction
+    let chosen_move =
+        get_move_from_json_file("failure_51_grab_food_after_other_moved_down_in_48.json");
+    assert_eq!(chosen_move, Direction::Up);
+}
+
+#[test]
+fn failure_52_grab_food_after_other_moved_up_in_48() {
+    // Depending on what B does in the next move it is always possible to escape
+    // But after moving left, decision where to move must depend on which move B took and go in opposite direction
+    let chosen_move =
+        get_move_from_json_file("failure_52_grab_food_after_other_moved_up_in_48.json");
+    assert_eq!(chosen_move, Direction::Down);
 }
