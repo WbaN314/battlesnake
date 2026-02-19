@@ -9,6 +9,17 @@ description = """
 A simple Battlesnake written in Rust
 """
 
+[lib]
+name = "battlesnake_game_of_chicken_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "battlesnake_game_of_chicken_bin"
+path = "src/main.rs"
+
+[profile.bench]
+debug = true
+
 [dependencies]
 rocket = { version = "0.5.0", features = ["json"] }
 serde = { version = "1.0.117", features = ["derive"] }

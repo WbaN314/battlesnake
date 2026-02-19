@@ -10,6 +10,7 @@ use std::{collections::HashMap, env};
 use crate::logic::get_move;
 
 pub mod logic;
+mod game; 
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct OriginalGame {
@@ -51,6 +52,16 @@ pub struct OriginalGameState {
     pub turn: i32,
     pub board: OriginalBoard,
     pub you: OriginalBattlesnake,
+}
+
+impl fmt::Display for OriginalGameState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Game ID: {}", self.game.id)?;
+        writeln!(f, "Turn: {}", self.turn)?;
+        writeln!(f, "Board: {}x{}", self.board.width, self.board.height)?;
+        writeln!(f, "You: {}", self.you.name)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]

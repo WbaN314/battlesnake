@@ -19,6 +19,7 @@ use crate::{OriginalDirection, OriginalGameState, OriginalBattlesnake, OriginalB
 
 pub mod depth_first;
 pub mod legacy;
+pub mod new_year_new_snake;
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -63,8 +64,8 @@ pub fn get_move(gamestate: &OriginalGameState, variant: String) -> OriginalDirec
         "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),
         "breadth_first" => Box::new(legacy::breadth_first::BreadthFirstSnake::new()),
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
+        "new_year_new_snake" => Box::new(new_year_new_snake::NewYearNewSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
-
     brain.logic(gamestate)
 }
