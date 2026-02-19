@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771497740464,
+  "lastUpdate": 1771525983713,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -3677,6 +3677,114 @@ window.BENCHMARK_DATA = {
             "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
             "value": 201.62,
             "range": "± 5.57",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "d6680d231f3d86a7af35b6ea131827afac30ba68",
+          "message": "correct lib imports",
+          "timestamp": "2026-02-19T19:30:00+01:00",
+          "tree_id": "40000355c3c529d7668f75ccee545d72be3bfc4d",
+          "url": "https://github.com/WbaN314/battlesnake/commit/d6680d231f3d86a7af35b6ea131827afac30ba68"
+        },
+        "date": 1771525982638,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "game::field::benchmarks::bench_next_state_with_basic_field",
+            "value": 138.32,
+            "range": "± 2.22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "game::field::benchmarks::bench_next_state_with_bit_field",
+            "value": 117.08,
+            "range": "± 13.60",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "game::game_state::benchmarks::bench_next_state",
+            "value": 133.48,
+            "range": "± 0.71",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "game::game_state::benchmarks::bench_possible_moves",
+            "value": 88.65,
+            "range": "± 1.50",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "game::moves::benchmarks::bench_generate",
+            "value": 150.79,
+            "range": "± 1.70",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_move_reachable",
+            "value": 679.43,
+            "range": "± 4.85",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_fast",
+            "value": 137.56,
+            "range": "± 0.92",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_next_state_slow",
+            "value": 123.19,
+            "range": "± 1.45",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_possible_moves",
+            "value": 84.57,
+            "range": "± 1.56",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_game_state::tests::bench_scope_moves",
+            "value": 133.94,
+            "range": "± 2.82",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::game::d_moves_set::tests::bench_generate",
+            "value": 131.68,
+            "range": "± 2.72",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::depth_first::simulation::d_tree::tests::bench_tree_simulate",
+            "value": 168691979.1,
+            "range": "± 1162397.02",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_next_state",
+            "value": 215.62,
+            "range": "± 2.63",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::legacy::shared::e_game_state::tests::bench_possible_moves",
+            "value": 202.45,
+            "range": "± 3.78",
             "unit": "ns/iter"
           }
         ]
