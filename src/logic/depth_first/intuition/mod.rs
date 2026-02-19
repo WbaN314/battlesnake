@@ -4,8 +4,6 @@ use super::game::{
     d_board::{HEIGHT, WIDTH},
     d_coord::DCoord,
     d_direction::DDirection,
-    d_field::DSlowField,
-    d_game_state::DGameState,
 };
 use arrayvec::ArrayVec;
 use d_scores::DScores;
@@ -13,15 +11,15 @@ use d_scores::DScores;
 mod d_scores;
 
 pub struct DIntuition<'a> {
-    d_state: DGameState<DSlowField>,
+
     state: &'a OriginalGameState,
     allowed_directions: ArrayVec<DDirection, 4>,
 }
 
 impl<'a> DIntuition<'a> {
-    pub fn new(d_state: DGameState<DSlowField>, state: &'a OriginalGameState) -> Self {
+    pub fn new(
+        state: &'a OriginalGameState) -> Self {
         Self {
-            d_state,
             state,
             allowed_directions: ArrayVec::from([
                 DDirection::Up,
@@ -98,6 +96,7 @@ impl<'a> DIntuition<'a> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::{
         logic::depth_first::{
@@ -116,7 +115,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let intuition = DIntuition::new(state, &gamestate);
+        let intuition = DIntuition::new(&gamestate);
         assert_eq!(intuition.distance_to_middle(DDirection::Up), -8.0);
         assert_eq!(intuition.distance_to_middle(DDirection::Down), -10.0);
         assert_eq!(intuition.distance_to_middle(DDirection::Left), -10.0);
@@ -132,7 +131,7 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", state);
-        let intuition = DIntuition::new(state, &gamestate);
+        let intuition = DIntuition::new(&gamestate);
         assert_eq!(intuition.distance_to_food(DDirection::Up), -5.0);
         assert_eq!(intuition.distance_to_food(DDirection::Down), -7.0);
         assert_eq!(intuition.distance_to_food(DDirection::Left), -7.0);

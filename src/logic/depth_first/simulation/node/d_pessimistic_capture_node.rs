@@ -9,6 +9,7 @@ use crate::logic::depth_first::{
 
 use super::{DChildrenCalculationResult, DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus};
 
+#[allow(dead_code)]
 pub struct DPessimisticCaptureNode {
     id: DNodeId,
     state: DGameState<DSlowField>,
@@ -17,6 +18,7 @@ pub struct DPessimisticCaptureNode {
 }
 
 impl DPessimisticCaptureNode {
+    #[allow(dead_code)]
     pub fn new(
         id: DNodeId,
         state: DGameState<DSlowField>,
@@ -31,6 +33,7 @@ impl DPessimisticCaptureNode {
         }
     }
 
+    #[allow(dead_code)]
     fn calc_child(&self, direction: DDirection) -> Self {
         let moves = [Some(direction), None, None, None];
         let mut new_id = self.id.clone();
@@ -46,6 +49,7 @@ impl DPessimisticCaptureNode {
         Self::new(new_id, new_state, self.time.clone(), status)
     }
 
+    #[allow(dead_code)]
     fn calc_moves(&self) -> ArrayVec<DDirection, 4> {
         self.state.scope_moves_pessimistic(self.id().len() as u8)
     }

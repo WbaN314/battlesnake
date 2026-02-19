@@ -13,6 +13,7 @@ use crate::logic::{
 use arrayvec::ArrayVec;
 use std::{cell::Cell, fmt::Display};
 
+#[allow(dead_code)]
 pub struct DOptimisticCaptureNode {
     id: DNodeId,
     state: DGameState<DSlowField>,
@@ -23,6 +24,7 @@ pub struct DOptimisticCaptureNode {
 }
 
 impl DOptimisticCaptureNode {
+    #[allow(dead_code)]
     pub fn new(
         id: DNodeId,
         state: DGameState<DSlowField>,
@@ -40,6 +42,7 @@ impl DOptimisticCaptureNode {
         }
     }
 
+    #[allow(dead_code)]
     fn calc_child(&self, direction: DDirection) -> Self {
         let moves = [Some(direction), None, None, None];
         let mut new_id = self.id.clone();
@@ -71,6 +74,7 @@ impl DOptimisticCaptureNode {
         Self::new(new_id, new_state, self.time.clone(), status, statistics)
     }
 
+    #[allow(dead_code)]
     fn calc_moves(&self) -> ArrayVec<DDirection, 4> {
         let turn = self.id.len() as u8 + 1;
         let mut child_direction_states = [DNodeAliveStatus::default(); 4];

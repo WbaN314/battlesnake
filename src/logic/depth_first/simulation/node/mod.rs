@@ -65,6 +65,7 @@ pub struct DNodeStatistics {
     pub states: Option<usize>,
     pub highest_alive_snakes: Option<usize>,
     pub lowest_self_length: Option<usize>,
+    #[allow(dead_code)]
     pub relevant_snakes: [Option<u8>; 4],
 }
 

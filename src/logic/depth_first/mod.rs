@@ -42,7 +42,7 @@ impl Brain for DepthFirstSnake {
             .simulation_max_depth(10)
             .sparse_simulation_distance(6)
             .run();
-        let intuition = DIntuition::new(d_state, gamestate);
+        let intuition = DIntuition::new(gamestate);
         let intuition_result = intuition
             .allowed_directions(simulation_result.clone())
             .run();

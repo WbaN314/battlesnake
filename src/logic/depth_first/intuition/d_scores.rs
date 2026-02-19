@@ -48,6 +48,7 @@ impl DScores {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::DScores;
     use crate::logic::depth_first::game::d_direction::DDirection;

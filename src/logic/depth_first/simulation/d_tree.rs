@@ -163,7 +163,7 @@ where
         self.simulation_status
     }
 
-    pub fn result(&self) -> DSimulationResult<Node> {
+    pub fn result(&self) -> DSimulationResult<'_, Node> {
         let mut results = Vec::new();
         for d in D_DIRECTION_LIST {
             results.push(DSimulationDirectionResult::new(d));
