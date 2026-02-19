@@ -1,7 +1,7 @@
 [package]
 name = "battlesnake_game_of_chicken"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 homepage = "https://play.battlesnake.com"
 readme = "README.md"
 keywords = ["battlesnake"]

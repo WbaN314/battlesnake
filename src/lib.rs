@@ -109,7 +109,10 @@ fn check_game_state(state: &OriginalGameState) {
 
 pub fn get_move_from_json_file(path: &str) -> OriginalDirection {
     let gamestate = read_game_state(&(DIR.to_string() + path));
-    env::set_var("MODE", "test");
+
+    unsafe {
+        env::set_var("MODE", "test");
+    }
 
     get_move(
         &gamestate,
