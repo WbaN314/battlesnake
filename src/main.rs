@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
-use battlesnake_game_of_chicken::{logic, OriginalGameState};
+use battlesnake_game_of_chicken_lib::{logic, OriginalGameState};
 use log::{info, warn};
 use rocket::fairing::AdHoc;
 use rocket::http::Status;

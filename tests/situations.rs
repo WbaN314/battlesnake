@@ -1,5 +1,5 @@
 #[cfg(test)]
-use battlesnake_game_of_chicken::{get_move_from_json_file, OriginalDirection};
+use battlesnake_game_of_chicken_lib::{get_move_from_json_file, OriginalDirection};
 
 #[test]
 fn test_move_request() {
