@@ -1,5 +1,5 @@
 use super::d_snake::DSnake;
-use crate::{Battlesnake, Board};
+use crate::{OriginalBattlesnake, OriginalBoard};
 use std::cell::Cell;
 
 const SNAKES: usize = 4;
@@ -10,7 +10,7 @@ pub struct DSnakes {
 }
 
 impl DSnakes {
-    pub fn from_request(board: &Board, you: &Battlesnake) -> Self {
+    pub fn from_request(board: &OriginalBoard, you: &OriginalBattlesnake) -> Self {
         let mut d_snakes = [
             Cell::new(DSnake::default()),
             Cell::new(DSnake::default()),

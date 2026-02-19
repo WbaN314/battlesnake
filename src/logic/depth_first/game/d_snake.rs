@@ -1,7 +1,7 @@
 use core::panic;
 
 use super::d_coord::DCoord;
-use crate::Battlesnake;
+use crate::OriginalBattlesnake;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum DSnake {
@@ -144,7 +144,7 @@ impl DSnake {
 }
 
 impl DSnake {
-    pub fn from_request(snake: &Battlesnake, id: u8) -> Self {
+    pub fn from_request(snake: &OriginalBattlesnake, id: u8) -> Self {
         let head = DCoord::from(&snake.head);
         let tail = DCoord::from(snake.body.last().unwrap());
         let mut last = snake.body[0];

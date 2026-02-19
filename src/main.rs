@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
-use battlesnake_game_of_chicken::{logic, GameState};
+use battlesnake_game_of_chicken::{logic, OriginalGameState};
 use log::{info, warn};
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
@@ -15,7 +15,7 @@ fn handle_index() -> Json<Value> {
 }
 
 #[post("/start", format = "json", data = "<start_req>")]
-fn handle_start(start_req: Json<GameState>) -> Status {
+fn handle_start(start_req: Json<OriginalGameState>) -> Status {
     logic::start(
         &start_req.game,
         &start_req.turn,
@@ -27,7 +27,7 @@ fn handle_start(start_req: Json<GameState>) -> Status {
 }
 
 #[post("/move", format = "json", data = "<move_req>")]
-fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
+fn handle_move(mut move_req: Json<OriginalGameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
     warn!(
@@ -46,7 +46,7 @@ fn handle_move(mut move_req: Json<GameState>) -> Json<Value> {
 }
 
 #[post("/end", format = "json", data = "<end_req>")]
-fn handle_end(end_req: Json<GameState>) -> Status {
+fn handle_end(end_req: Json<OriginalGameState>) -> Status {
     logic::end(&end_req.game, &end_req.turn, &end_req.board, &end_req.you);
 
     Status::Ok

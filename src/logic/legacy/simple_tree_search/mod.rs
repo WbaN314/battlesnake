@@ -1,10 +1,10 @@
 use log::debug;
 
-use crate::{Board, Coord, Direction, GameState};
+use crate::{OriginalBoard, OriginalCoord, OriginalDirection, OriginalGameState};
 
 use super::shared::brain::Brain;
 
-fn simulate_snakes_step(board: &Board) -> Vec<Board> {
+fn simulate_snakes_step(board: &OriginalBoard) -> Vec<OriginalBoard> {
     let mut new_boards = Vec::with_capacity(board.snakes.len().pow(4));
 
     let mut decisions = Directions::new(board.snakes.len());
@@ -16,10 +16,10 @@ fn simulate_snakes_step(board: &Board) -> Vec<Board> {
             let x = board_clone.snakes[snake_index].body[0].x;
             let y = board_clone.snakes[snake_index].body[0].y;
             let new_head = match directions[snake_index] {
-                Direction::Up => Coord { x, y: y + 1 },
-                Direction::Down => Coord { x, y: y - 1 },
-                Direction::Left => Coord { x: x - 1, y },
-                Direction::Right => Coord { x: x + 1, y },
+                OriginalDirection::Up => OriginalCoord { x, y: y + 1 },
+                OriginalDirection::Down => OriginalCoord { x, y: y - 1 },
+                OriginalDirection::Left => OriginalCoord { x: x - 1, y },
+                OriginalDirection::Right => OriginalCoord { x: x + 1, y },
             };
             board_clone.snakes[snake_index].head = new_head;
             // leave body untouched yet
@@ -40,7 +40,7 @@ enum SnakeChange {
     Battle(usize),
 }
 
-fn evaluate_snakes_step(board: &mut Board, you: &String) -> (Direction, i32) {
+fn evaluate_snakes_step(board: &mut OriginalBoard, you: &String) -> (OriginalDirection, i32) {
     // find own snake
     let mut own_snake_index = None;
     for i in 0..board.snakes.len() {
@@ -58,10 +58,10 @@ fn evaluate_snakes_step(board: &mut Board, you: &String) -> (Direction, i32) {
             own_snake.head.x - own_snake.body[0].x,
             own_snake.head.y - own_snake.body[0].y,
         ) {
-            (1, 0) => Direction::Right,
-            (-1, 0) => Direction::Left,
-            (0, 1) => Direction::Up,
-            (0, -1) => Direction::Down,
+            (1, 0) => OriginalDirection::Right,
+            (-1, 0) => OriginalDirection::Left,
+            (0, 1) => OriginalDirection::Up,
+            (0, -1) => OriginalDirection::Down,
             _ => unreachable!(),
         };
 
@@ -184,40 +184,40 @@ fn evaluate_snakes_step(board: &mut Board, you: &String) -> (Direction, i32) {
         }
     } else {
         // no own snake
-        (Direction::Up, 0)
+        (OriginalDirection::Up, 0)
     }
 }
 
 struct Directions {
-    v: Vec<Direction>,
+    v: Vec<OriginalDirection>,
 }
 
 impl Directions {
     fn new(n: usize) -> Self {
         let mut v = Vec::with_capacity(n);
         for _ in 0..n {
-            v.push(Direction::Up)
+            v.push(OriginalDirection::Up)
         }
         Directions { v }
     }
 
-    fn next(&mut self) -> Option<&Vec<Direction>> {
+    fn next(&mut self) -> Option<&Vec<OriginalDirection>> {
         let mut working_index = None;
         for i in 0..self.v.len() {
-            if self.v[i] != Direction::Right {
+            if self.v[i] != OriginalDirection::Right {
                 working_index = Some(i);
                 break;
             }
         }
         if let Some(i) = working_index {
             match self.v[i] {
-                Direction::Up => self.v[i] = Direction::Down,
-                Direction::Down => self.v[i] = Direction::Left,
-                Direction::Left => self.v[i] = Direction::Right,
-                Direction::Right => unreachable!(),
+                OriginalDirection::Up => self.v[i] = OriginalDirection::Down,
+                OriginalDirection::Down => self.v[i] = OriginalDirection::Left,
+                OriginalDirection::Left => self.v[i] = OriginalDirection::Right,
+                OriginalDirection::Right => unreachable!(),
             }
             for j in 0..i {
-                self.v[j] = Direction::Up;
+                self.v[j] = OriginalDirection::Up;
             }
             Some(&self.v)
         } else {
@@ -241,7 +241,7 @@ impl SimpleTreeSearchSnake {
 }
 
 impl Brain for SimpleTreeSearchSnake {
-    fn logic(&self, gamestate: &GameState) -> Direction {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
         let (mut new_boards, mut move_scores) = step(&gamestate.board, &gamestate.you.id);
 
         let depth = if gamestate.board.snakes.len() == 2 {
@@ -269,15 +269,15 @@ impl Brain for SimpleTreeSearchSnake {
 
         debug!("{:?}", move_scores);
 
-        let mut best_move = Direction::Up;
+        let mut best_move = OriginalDirection::Up;
         let mut best_score = move_scores[0];
         for i in 1..move_scores.len() {
             if move_scores[i] > best_score {
                 best_score = move_scores[i];
                 best_move = match i {
-                    1 => Direction::Down,
-                    2 => Direction::Left,
-                    3 => Direction::Right,
+                    1 => OriginalDirection::Down,
+                    2 => OriginalDirection::Left,
+                    3 => OriginalDirection::Right,
                     _ => unreachable!(),
                 }
             }
@@ -286,16 +286,22 @@ impl Brain for SimpleTreeSearchSnake {
     }
 }
 
-fn step(board: &Board, id: &String) -> (Vec<Board>, [i32; 4]) {
+fn step(board: &OriginalBoard, id: &String) -> (Vec<OriginalBoard>, [i32; 4]) {
     let mut new_boards = simulate_snakes_step(board);
 
     let mut move_scores: [i32; 4] = [0; 4];
     for board in new_boards.iter_mut() {
         match evaluate_snakes_step(board, id) {
-            (Direction::Up, score) => move_scores[0] = move_scores[0].saturating_add(score),
-            (Direction::Down, score) => move_scores[1] = move_scores[1].saturating_add(score),
-            (Direction::Left, score) => move_scores[2] = move_scores[2].saturating_add(score),
-            (Direction::Right, score) => move_scores[3] = move_scores[3].saturating_add(score),
+            (OriginalDirection::Up, score) => move_scores[0] = move_scores[0].saturating_add(score),
+            (OriginalDirection::Down, score) => {
+                move_scores[1] = move_scores[1].saturating_add(score)
+            }
+            (OriginalDirection::Left, score) => {
+                move_scores[2] = move_scores[2].saturating_add(score)
+            }
+            (OriginalDirection::Right, score) => {
+                move_scores[3] = move_scores[3].saturating_add(score)
+            }
         };
     }
     (new_boards, move_scores)
@@ -307,20 +313,36 @@ mod tests {
 
     #[test]
     fn test_directions_iterator() {
-        let directions = vec![Direction::Up, Direction::Right, Direction::Right];
+        let directions = vec![
+            OriginalDirection::Up,
+            OriginalDirection::Right,
+            OriginalDirection::Right,
+        ];
         let mut directions_iter = Directions { v: directions };
 
         assert_eq!(
             directions_iter.next(),
-            Some(&vec![Direction::Down, Direction::Right, Direction::Right])
+            Some(&vec![
+                OriginalDirection::Down,
+                OriginalDirection::Right,
+                OriginalDirection::Right
+            ])
         );
         assert_eq!(
             directions_iter.next(),
-            Some(&vec![Direction::Left, Direction::Right, Direction::Right])
+            Some(&vec![
+                OriginalDirection::Left,
+                OriginalDirection::Right,
+                OriginalDirection::Right
+            ])
         );
         assert_eq!(
             directions_iter.next(),
-            Some(&vec![Direction::Right, Direction::Right, Direction::Right])
+            Some(&vec![
+                OriginalDirection::Right,
+                OriginalDirection::Right,
+                OriginalDirection::Right
+            ])
         );
 
         assert_eq!(directions_iter.next(), None);

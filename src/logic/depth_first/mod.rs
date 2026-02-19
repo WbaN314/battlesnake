@@ -8,7 +8,7 @@ use log::warn;
 use simulation::DSimulation;
 
 use crate::logic::legacy::shared::brain::Brain;
-use crate::{Direction, GameState};
+use crate::{OriginalDirection, OriginalGameState};
 
 pub mod game;
 mod intuition;
@@ -29,7 +29,7 @@ impl DepthFirstSnake {
 }
 
 impl Brain for DepthFirstSnake {
-    fn logic(&self, gamestate: &GameState) -> Direction {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
         let d_state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -51,10 +51,10 @@ impl Brain for DepthFirstSnake {
             intuition_result, simulation_result
         );
         match intuition_result {
-            DDirection::Up => Direction::Up,
-            DDirection::Down => Direction::Down,
-            DDirection::Left => Direction::Left,
-            DDirection::Right => Direction::Right,
+            DDirection::Up => OriginalDirection::Up,
+            DDirection::Down => OriginalDirection::Down,
+            DDirection::Left => OriginalDirection::Left,
+            DDirection::Right => OriginalDirection::Right,
         }
     }
 }

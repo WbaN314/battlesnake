@@ -4,7 +4,7 @@ use super::{
     e_direction::{EDirection, EDIRECTION_VECTORS},
     e_snakes::{ESimulationError, ESnake, ESnakes, Result, SNAKES},
 };
-use crate::{Battlesnake, Board};
+use crate::{OriginalBattlesnake, OriginalBoard};
 use core::{fmt, panic};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
@@ -54,7 +54,7 @@ impl EGameState {
         }
     }
 
-    pub fn from(old: &Board, you: &Battlesnake) -> Self {
+    pub fn from(old: &OriginalBoard, you: &OriginalBattlesnake) -> Self {
         let gamestate = Self::new();
 
         for food in old.food.iter() {

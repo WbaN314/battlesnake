@@ -1,5 +1,5 @@
 use super::{d_coord::DCoord, d_field::DField, d_snake::DSnake};
-use crate::{Battlesnake, Board};
+use crate::{OriginalBattlesnake, OriginalBoard};
 use std::cell::Cell;
 
 pub const HEIGHT: i8 = 11;
@@ -12,7 +12,7 @@ pub struct DBoard<T: DField> {
 }
 
 impl<T: DField> DBoard<T> {
-    pub fn from_request(board: &Board, you: &Battlesnake) -> Self {
+    pub fn from_request(board: &OriginalBoard, you: &OriginalBattlesnake) -> Self {
         let d_board = DBoard::default();
         for food in board.food.iter() {
             d_board

@@ -4,9 +4,9 @@ use crate::{
             e_board::EField, e_coord::ECoord, e_direction::EDIRECTION_VECTORS,
             e_game_state::EGameState, e_snakes::SNAKES,
         },
-        Brain, Direction,
+        Brain, OriginalDirection,
     },
-    Board, GameState,
+    OriginalBoard, OriginalGameState,
 };
 use e_score_board::EScoreBoard;
 use e_state_tree::EStateTree;
@@ -105,7 +105,7 @@ impl BreadthFirstSnake {
         (result, "Area".to_string())
     }
 
-    fn food(&self, board: &Board, game_state: &EGameState) -> ([i64; 4], String) {
+    fn food(&self, board: &OriginalBoard, game_state: &EGameState) -> ([i64; 4], String) {
         let mut result = [0; 4];
         let my_snake = game_state.snakes.get(0).as_ref().unwrap().clone();
         // Closest food distance that can be reached first
@@ -221,7 +221,7 @@ impl BreadthFirstSnake {
 }
 
 impl Brain for BreadthFirstSnake {
-    fn logic(&self, gamestate: &GameState) -> Direction {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
         let distance = 10;
         let simulate_duration = 200;
 

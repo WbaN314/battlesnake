@@ -15,7 +15,7 @@ use log::info;
 use serde_json::{json, Value};
 use std::env;
 
-use crate::{Battlesnake, Board, Direction, Game, GameState};
+use crate::{OriginalDirection, OriginalGameState, OriginalBattlesnake, OriginalBoard, OriginalGame};
 
 pub mod depth_first;
 pub mod legacy;
@@ -40,19 +40,24 @@ pub fn info() -> Value {
 }
 
 // start is called when your Battlesnake begins a game
-pub fn start(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
+pub fn start(
+    _game: &OriginalGame,
+    _turn: &i32,
+    _board: &OriginalBoard,
+    _you: &OriginalBattlesnake,
+) {
     info!("GAME START");
 }
 
 // end is called when your Battlesnake finishes a game
-pub fn end(_game: &Game, _turn: &i32, _board: &Board, _you: &Battlesnake) {
+pub fn end(_game: &OriginalGame, _turn: &i32, _board: &OriginalBoard, _you: &OriginalBattlesnake) {
     info!("GAME OVER");
 }
 
 // move is called on every turn and returns your next move
 // Valid moves are Move::Up, Move::Down, Move::Left, or Move::Right
 // See https://docs.battlesnake.com/api/example-move for available data
-pub fn get_move(gamestate: &GameState, variant: String) -> Direction {
+pub fn get_move(gamestate: &OriginalGameState, variant: String) -> OriginalDirection {
     let brain: Box<dyn Brain> = match variant.as_str() {
         "simple_hungry" => Box::new(legacy::simple_hungry::SimpleHungrySnake::new()),
         "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),

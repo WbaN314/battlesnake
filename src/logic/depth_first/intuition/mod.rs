@@ -1,4 +1,4 @@
-use crate::GameState;
+use crate::OriginalGameState;
 
 use super::game::{
     d_board::{HEIGHT, WIDTH},
@@ -14,12 +14,12 @@ mod d_scores;
 
 pub struct DIntuition<'a> {
     d_state: DGameState<DSlowField>,
-    state: &'a GameState,
+    state: &'a OriginalGameState,
     allowed_directions: ArrayVec<DDirection, 4>,
 }
 
 impl<'a> DIntuition<'a> {
-    pub fn new(d_state: DGameState<DSlowField>, state: &'a GameState) -> Self {
+    pub fn new(d_state: DGameState<DSlowField>, state: &'a OriginalGameState) -> Self {
         Self {
             d_state,
             state,

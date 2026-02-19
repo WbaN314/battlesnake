@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::logic::Direction;
+use crate::logic::OriginalDirection;
 
 use super::e_coord::ECoord;
 
@@ -38,12 +38,12 @@ impl EDirection {
         }
     }
 
-    pub fn to_direction(self) -> Direction {
+    pub fn to_direction(self) -> OriginalDirection {
         match self {
-            EDirection::Up => Direction::Up,
-            EDirection::Down => Direction::Down,
-            EDirection::Left => Direction::Left,
-            EDirection::Right => Direction::Right,
+            EDirection::Up => OriginalDirection::Up,
+            EDirection::Down => OriginalDirection::Down,
+            EDirection::Left => OriginalDirection::Left,
+            EDirection::Right => OriginalDirection::Right,
         }
     }
 

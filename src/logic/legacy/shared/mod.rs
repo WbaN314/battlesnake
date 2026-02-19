@@ -13,10 +13,10 @@ mod tests {
         e_board::EField, e_coord::ECoord, e_direction::EDirection, e_game_state::EGameState,
     };
 
-    fn read_game_state(path: &str) -> crate::GameState {
+    fn read_game_state(path: &str) -> crate::OriginalGameState {
         let file = std::fs::File::open(path).unwrap();
         let reader = std::io::BufReader::new(file);
-        let game_state: crate::GameState = serde_json::from_reader(reader).unwrap();
+        let game_state: crate::OriginalGameState = serde_json::from_reader(reader).unwrap();
         game_state
     }
 

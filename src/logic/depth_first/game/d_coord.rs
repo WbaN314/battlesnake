@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use crate::Coord;
+use crate::OriginalCoord;
 
 use super::d_direction::DDirection;
 
@@ -20,8 +20,8 @@ impl DCoord {
     }
 }
 
-impl From<&Coord> for DCoord {
-    fn from(coord: &Coord) -> Self {
+impl From<&OriginalCoord> for DCoord {
+    fn from(coord: &OriginalCoord) -> Self {
         DCoord {
             x: coord.x as i8,
             y: coord.y as i8,
@@ -29,8 +29,8 @@ impl From<&Coord> for DCoord {
     }
 }
 
-impl From<Coord> for DCoord {
-    fn from(coord: Coord) -> Self {
+impl From<OriginalCoord> for DCoord {
+    fn from(coord: OriginalCoord) -> Self {
         DCoord {
             x: coord.x as i8,
             y: coord.y as i8,

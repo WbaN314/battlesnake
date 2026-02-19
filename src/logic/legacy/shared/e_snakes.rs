@@ -4,7 +4,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::Battlesnake;
+use crate::OriginalBattlesnake;
 
 use super::e_coord::ECoord;
 
@@ -21,7 +21,7 @@ pub struct ESnake {
 }
 
 impl ESnake {
-    pub fn from(snake: &Battlesnake) -> Self {
+    pub fn from(snake: &OriginalBattlesnake) -> Self {
         Self {
             head: ECoord::from(snake.head.x as i8, snake.head.y as i8),
             tail: ECoord::from(
@@ -61,11 +61,11 @@ impl ESnakes {
         self.0[i as usize].replace(snake);
     }
 
-    pub fn get(&self, i: u8) -> Ref<Option<ESnake>> {
+    pub fn get(&self, i: u8) -> Ref<'_, Option<ESnake>> {
         self.0[i as usize].borrow()
     }
 
-    pub fn get_mut(&self, i: u8) -> RefMut<Option<ESnake>> {
+    pub fn get_mut(&self, i: u8) -> RefMut<'_, Option<ESnake>> {
         self.0[i as usize].borrow_mut()
     }
 

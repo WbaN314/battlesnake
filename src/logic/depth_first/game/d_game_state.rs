@@ -10,7 +10,7 @@ use super::{
     d_snake::DSnake,
     d_snakes::DSnakes,
 };
-use crate::{logic::legacy::shared::e_snakes::SNAKES, Battlesnake, Board};
+use crate::{logic::legacy::shared::e_snakes::SNAKES, OriginalBattlesnake, OriginalBoard};
 use std::{
     fmt::{Display, Formatter},
     hash::{DefaultHasher, Hash, Hasher},
@@ -46,7 +46,7 @@ impl<T: DField> DGameState<T> {
         self
     }
 
-    pub fn from_request(board: &Board, you: &Battlesnake, turn: &i32) -> Self {
+    pub fn from_request(board: &OriginalBoard, you: &OriginalBattlesnake, turn: &i32) -> Self {
         let snakes = DSnakes::from_request(board, you);
         let d_board = DBoard::from_request(board, you);
         DGameState {

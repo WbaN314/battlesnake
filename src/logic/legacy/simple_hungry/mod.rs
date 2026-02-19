@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Coord, Direction, GameState};
+use crate::{OriginalCoord, OriginalDirection, OriginalGameState};
 
 use super::shared::brain::Brain;
 
@@ -19,12 +19,12 @@ impl SimpleHungrySnake {
 }
 
 impl Brain for SimpleHungrySnake {
-    fn logic(&self, gamestate: &GameState) -> Direction {
-        let mut is_move_safe: HashMap<Direction, _> = vec![
-            (Direction::Up, true),
-            (Direction::Down, true),
-            (Direction::Left, true),
-            (Direction::Right, true),
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
+        let mut is_move_safe: HashMap<OriginalDirection, _> = vec![
+            (OriginalDirection::Up, true),
+            (OriginalDirection::Down, true),
+            (OriginalDirection::Left, true),
+            (OriginalDirection::Right, true),
         ]
         .into_iter()
         .collect();
@@ -32,40 +32,40 @@ impl Brain for SimpleHungrySnake {
         let board_width = gamestate.board.width;
         let board_height = gamestate.board.height as i32;
         if my_head.x + 1 == board_width {
-            is_move_safe.insert(Direction::Right, false);
+            is_move_safe.insert(OriginalDirection::Right, false);
         }
         if my_head.x == 0 {
-            is_move_safe.insert(Direction::Left, false);
+            is_move_safe.insert(OriginalDirection::Left, false);
         }
         if my_head.y + 1 == board_height {
-            is_move_safe.insert(Direction::Up, false);
+            is_move_safe.insert(OriginalDirection::Up, false);
         }
         if my_head.y == 0 {
-            is_move_safe.insert(Direction::Down, false);
+            is_move_safe.insert(OriginalDirection::Down, false);
         }
         let snakes = &gamestate.board.snakes;
         for s in snakes {
             for i in 0..s.body.len() {
                 if s.body[i].y == my_head.y {
                     if s.body[i].x == my_head.x + 1 {
-                        is_move_safe.insert(Direction::Right, false);
+                        is_move_safe.insert(OriginalDirection::Right, false);
                     }
                     if s.body[i].x + 1 == my_head.x {
-                        is_move_safe.insert(Direction::Left, false);
+                        is_move_safe.insert(OriginalDirection::Left, false);
                     }
                 }
                 if s.body[i].x == my_head.x {
                     if s.body[i].y == my_head.y + 1 {
-                        is_move_safe.insert(Direction::Up, false);
+                        is_move_safe.insert(OriginalDirection::Up, false);
                     }
                     if s.body[i].y + 1 == my_head.y {
-                        is_move_safe.insert(Direction::Down, false);
+                        is_move_safe.insert(OriginalDirection::Down, false);
                     }
                 }
             }
         }
         let foods = &gamestate.board.food;
-        let middle = Coord {
+        let middle = OriginalCoord {
             x: board_width / 2,
             y: board_height / 2,
         };
@@ -83,25 +83,27 @@ impl Brain for SimpleHungrySnake {
             }
             tmp
         };
-        
-        if closest_food.x > my_head.x && *is_move_safe.get(&Direction::Right).unwrap() {
-                Direction::Right
-            } else if closest_food.x < my_head.x && *is_move_safe.get(&Direction::Left).unwrap() {
-                Direction::Left
-            } else if closest_food.y > my_head.y && *is_move_safe.get(&Direction::Up).unwrap() {
-                Direction::Up
-            } else if closest_food.y < my_head.y && *is_move_safe.get(&Direction::Down).unwrap() {
-                Direction::Down
-            } else if *is_move_safe.get(&Direction::Right).unwrap() {
-                Direction::Right
-            } else if *is_move_safe.get(&Direction::Left).unwrap() {
-                Direction::Left
-            } else if *is_move_safe.get(&Direction::Up).unwrap() {
-                Direction::Up
-            } else if *is_move_safe.get(&Direction::Down).unwrap() {
-                Direction::Down
-            } else {
-                Direction::Down
-            }
+
+        if closest_food.x > my_head.x && *is_move_safe.get(&OriginalDirection::Right).unwrap() {
+            OriginalDirection::Right
+        } else if closest_food.x < my_head.x && *is_move_safe.get(&OriginalDirection::Left).unwrap()
+        {
+            OriginalDirection::Left
+        } else if closest_food.y > my_head.y && *is_move_safe.get(&OriginalDirection::Up).unwrap() {
+            OriginalDirection::Up
+        } else if closest_food.y < my_head.y && *is_move_safe.get(&OriginalDirection::Down).unwrap()
+        {
+            OriginalDirection::Down
+        } else if *is_move_safe.get(&OriginalDirection::Right).unwrap() {
+            OriginalDirection::Right
+        } else if *is_move_safe.get(&OriginalDirection::Left).unwrap() {
+            OriginalDirection::Left
+        } else if *is_move_safe.get(&OriginalDirection::Up).unwrap() {
+            OriginalDirection::Up
+        } else if *is_move_safe.get(&OriginalDirection::Down).unwrap() {
+            OriginalDirection::Down
+        } else {
+            OriginalDirection::Down
+        }
     }
 }

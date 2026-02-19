@@ -3,7 +3,7 @@ use std::{env, fmt::Display};
 
 use log::info;
 
-use crate::Game;
+use crate::OriginalGame;
 
 use super::e_direction::EDirection;
 
@@ -50,7 +50,7 @@ impl Scores {
         panic!("No viable direction found");
     }
 
-    pub fn print_log(&self, game: &Game, turn: &i32, result: EDirection) {
+    pub fn print_log(&self, game: &OriginalGame, turn: &i32, result: EDirection) {
         let mut s = String::new();
         s.push_str(&format!(
             "Game {} Turn {} Result {} Scores ",
