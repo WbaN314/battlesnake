@@ -352,14 +352,9 @@ mod benchmarks {
     };
 
     #[bench]
-    // Should be < 45ns
-    fn bench_generate(b: &mut test::Bencher) {
+    fn bench_possible_moves_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
+        let state = GameState::<BasicField>::from(gamestate);
         println!("{:#?}", state.possible_moves([true, true, true, true]));
         b.iter(|| {
             state.possible_moves([true, true, true, true]).generate();

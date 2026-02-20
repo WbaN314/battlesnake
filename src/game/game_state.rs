@@ -960,7 +960,6 @@ mod benchmarks {
     use crate::read_game_state;
 
     #[bench]
-    // Should be < 50ns
     fn bench_next_state(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -978,7 +977,6 @@ mod benchmarks {
     }
 
     #[bench]
-    // Should be < 10ns
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);

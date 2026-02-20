@@ -559,30 +559,6 @@ mod tests {
         read_game_state,
     };
 
-    #[bench]
-    fn bench_tree_simulate(b: &mut bench::Bencher) {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = DGameState::<DFastField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
-
-        b.iter(|| {
-            let root = DFullSimulationNode::new(
-                DNodeId::default(),
-                vec![state.clone()],
-                DTreeTime::default(),
-                DNodeStatus::default(),
-                None,
-                None,
-                None,
-            );
-            let mut tree = DTree::default().root(root).max_depth(4);
-            tree.simulate()
-        });
-    }
-
     #[test]
     fn test_simulate_with_pessimistic_capture_node() {
         let gamestate = read_game_state("requests/test_move_request.json");

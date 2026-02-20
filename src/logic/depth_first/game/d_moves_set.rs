@@ -241,8 +241,7 @@ mod tests {
     use super::*;
 
     #[bench]
-    // Should be < 45ns
-    fn bench_generate(b: &mut test::Bencher) {
+    fn bench_possible_moves_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
