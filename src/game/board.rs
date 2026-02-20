@@ -222,3 +222,28 @@ mod tests {
         assert_eq!(board.cell(1, 0).unwrap().get(), BasicField::empty());
     }
 }
+
+#[cfg(test)]
+mod benchmarks {
+    use crate::read_game_state;
+    use super::*;
+
+    #[bench]
+    fn bench_remove_snake(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/failure_34_follow_own_tail.json");
+        let board = Board::<BasicField>::from(gamestate);
+        let snake = Snake::Alive {
+            id: 1,
+            tail: Coord::new(1, 6),
+            head: Coord::new(0, 6),
+            health: 54,
+            length: 44,
+            stack: 0,
+        };
+        b.iter(|| {
+            let board_clone = board.clone();
+            let snake_clone = snake.clone();
+            let _ = board_clone.remove_snake(snake_clone);
+        });
+    }
+}

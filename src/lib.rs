@@ -106,9 +106,9 @@ pub fn read_game_state(path: &str) -> OriginalGameState {
         .try_init();
     let file = std::fs::File::open(path).unwrap();
     let reader = std::io::BufReader::new(file);
-    let game_state: OriginalGameState = serde_json::from_reader(reader).unwrap();
-    check_game_state(&game_state);
-    game_state
+    let gamestate: OriginalGameState = serde_json::from_reader(reader).unwrap();
+    check_game_state(&gamestate);
+    gamestate
 }
 
 fn check_game_state(state: &OriginalGameState) {
