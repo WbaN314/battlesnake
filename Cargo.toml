@@ -14,7 +14,7 @@ name = "battlesnake_game_of_chicken_lib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "battlesnake_game_of_chicken_bin"
+name = "battlesnake_game_of_chicken"
 path = "src/main.rs"
 
 [profile.bench]
