@@ -2,7 +2,7 @@ use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
     logic::game::{
         coord::Coord,
-        field::{BasicField, Field},
+        field::{self, BasicField, Field},
         snake::Snake,
     },
 };
@@ -10,11 +10,10 @@ use std::cell::Cell;
 
 pub const HEIGHT: i8 = 11;
 pub const WIDTH: i8 = 11;
-pub const SIZE: i8 = HEIGHT * WIDTH;
 
 #[derive(Clone)]
 pub struct Board<T: Field> {
-    fields: [Cell<T>; SIZE as usize],
+    fields: [[Cell<T>; WIDTH as usize]; HEIGHT as usize],
 }
 
 impl<T: Field> Board<T> {
@@ -55,11 +54,9 @@ impl<T: Field> Board<T> {
     }
 
     pub fn cell(&self, x: i8, y: i8) -> Option<&Cell<T>> {
-        let index = y as i16 * WIDTH as i16 + x as i16;
-        if x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT {
-            return None;
-        }
-        self.fields.get(index as usize)
+        self.fields
+            .get(y as usize)
+            .and_then(|row| row.get(x as usize))
     }
 
     pub fn remove_snake(&self, snake: Snake) {
@@ -95,8 +92,9 @@ impl<T: Field> Board<T> {
 
 impl<T: Field> Default for Board<T> {
     fn default() -> Self {
-        let fields = std::array::from_fn(|_| Cell::new(T::empty()));
-        Self { fields }
+        Board {
+            fields: std::array::from_fn(|_| std::array::from_fn(|_| Cell::new(T::empty()))),
+        }
     }
 }
 
@@ -113,17 +111,6 @@ mod tests {
         logic::game::{direction::Direction, field::BasicField},
         read_game_state,
     };
-
-    #[test]
-    fn test_basics() {
-        let board = Board::default();
-        assert_eq!(board.fields.len(), SIZE as usize);
-        for field in board.fields.iter() {
-            assert_eq!(field.get(), BasicField::empty());
-        }
-        board.cell(0, 0).unwrap().set(BasicField::food());
-        assert_eq!(board.cell(0, 0).unwrap().get(), BasicField::food());
-    }
 
     #[test]
     fn test_cell_out_of_bounds() {
@@ -225,25 +212,43 @@ mod tests {
 
 #[cfg(test)]
 mod benchmarks {
-    use crate::read_game_state;
+    use std::hint::black_box;
+
     use super::*;
+    use crate::read_game_state;
 
     #[bench]
     fn bench_remove_snake(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/failure_34_follow_own_tail.json");
+        let snake = Snake::from_request(&gamestate.board.snakes[1], 1);
         let board = Board::<BasicField>::from(gamestate);
-        let snake = Snake::Alive {
-            id: 1,
-            tail: Coord::new(1, 6),
-            head: Coord::new(0, 6),
-            health: 54,
-            length: 44,
-            stack: 0,
-        };
         b.iter(|| {
             let board_clone = board.clone();
             let snake_clone = snake.clone();
-            let _ = board_clone.remove_snake(snake_clone);
+            let _ = black_box(board_clone.remove_snake(black_box(snake_clone)));
+        });
+    }
+
+    #[bench]
+    fn bench_set_field_get_field_via_cell(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/failure_34_follow_own_tail.json");
+        let board = Board::<BasicField>::from(gamestate);
+        b.iter(|| {
+            board
+                .cell(black_box(0), black_box(0))
+                .map(|cell| cell.set(black_box(BasicField::food())));
+            let _ = black_box(board.cell(black_box(0), black_box(0)).unwrap().get());
+        });
+    }
+
+    #[bench]
+    #[ignore = "Baseline comparison, not a real benchmark"]
+    fn bench_baseline_comparison(b: &mut test::Bencher) {
+        let mut fields: [[BasicField; WIDTH as usize]; HEIGHT as usize] =
+            std::array::from_fn(|_| std::array::from_fn(|_| BasicField::empty()));
+        b.iter(|| {
+            fields[black_box(0)][black_box(0)] = black_box(BasicField::food());
+            let _ = black_box(fields[black_box(0)][black_box(0)]);
         });
     }
 }

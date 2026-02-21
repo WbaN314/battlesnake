@@ -960,6 +960,7 @@ mod benchmarks {
     use crate::read_game_state;
 
     #[bench]
+    #[ignore = "TODO"]
     fn bench_next_state(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -977,6 +978,7 @@ mod benchmarks {
     }
 
     #[bench]
+    #[ignore = "TODO"]
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);

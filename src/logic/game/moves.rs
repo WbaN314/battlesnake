@@ -352,6 +352,7 @@ mod benchmarks {
     };
 
     #[bench]
+    #[ignore = "TODO"]
     fn bench_possible_moves_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);

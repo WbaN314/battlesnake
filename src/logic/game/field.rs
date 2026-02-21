@@ -126,42 +126,52 @@ mod tests {
 
 #[cfg(test)]
 mod benchmarks {
+    use std::hint::black_box;
+    use super::*;
     use crate::{
-        logic::game::{direction::Direction, field::{BasicField, BitField}, game_state::GameState},
-        read_game_state,
+        logic::game::direction::Direction,
     };
 
     #[bench]
-    fn bench_next_state_with_basic_field(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
-        println!("{}", state);
-        let moves = [
-            Some(Direction::Up),
-            Some(Direction::Left),
-            Some(Direction::Left),
-            Some(Direction::Down),
-        ];
+    fn bench_basic_field(b: &mut test::Bencher) {
         b.iter(|| {
-            let mut state = state.clone();
-            state.next_state(moves);
+            let field = black_box(BasicField::empty());
+            let _ = black_box(field.value());
+            let field = black_box(BasicField::food());
+            let _ = black_box(field.value());
+            let field = black_box(BasicField::snake(black_box(0), black_box(None)));
+            let _ = black_box(field.value());
+            let field = black_box(BasicField::snake(black_box(1), black_box(Some(Direction::Up))));
+            let _ = black_box(field.value());
         });
     }
 
     #[bench]
-    fn bench_next_state_with_bit_field(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BitField>::from(gamestate);
-        println!("{}", state);
-        let moves = [
-            Some(Direction::Up),
-            Some(Direction::Left),
-            Some(Direction::Left),
-            Some(Direction::Down),
-        ];
+    fn bench_bit_field(b: &mut test::Bencher) {
         b.iter(|| {
-            let mut state = state.clone();
-            state.next_state(moves);
+            let field = black_box(BitField::empty());
+            let _ = black_box(field.value());
+            let field = black_box(BitField::food());
+            let _ = black_box(field.value());
+            let field = black_box(BitField::snake(black_box(0), black_box(None)));
+            let _ = black_box(field.value());
+            let field = black_box(BitField::snake(black_box(1), black_box(Some(Direction::Up))));
+            let _ = black_box(field.value());
+        });
+    }
+
+    #[bench]
+    #[ignore = "Baseline comparison, not a real benchmark"]
+    fn bench_baseline_comparison(b: &mut test::Bencher) {
+        b.iter(|| {
+            let field = black_box(0_u16);
+            let _ = black_box(field);
+            let field = black_box(1_u16);
+            let _ = black_box(field);
+            let field = black_box(2_u16);
+            let _ = black_box(field);
+            let field = black_box(3_u16);
+            let _ = black_box(field);
         });
     }
 }
