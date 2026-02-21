@@ -1,18 +1,13 @@
-use crate::logic::game::{
-    coord::Coord,
-    direction::{DIRECTION_LIST, Direction},
-    snakes::SNAKES,
-};
+use crate::logic::game::{direction::Direction, snakes::SNAKES};
 
-pub type Move = Option<Direction>;
-pub type Moves = [Move; SNAKES as usize];
+pub type Moves = [Option<Direction>; SNAKES as usize];
 
 #[derive(Debug)]
-pub struct MovesSet {
+pub struct MoveMatrix {
     moves: [[bool; 4]; SNAKES as usize],
 }
 
-impl MovesSet {
+impl MoveMatrix {
     pub fn new(moves: [[bool; 4]; SNAKES as usize]) -> Self {
         Self { moves }
     }
@@ -21,177 +16,28 @@ impl MovesSet {
         self.moves[index]
     }
 
-    pub fn generate_sparse(
-        &self,
-        heads: [Option<Coord>; SNAKES as usize],
-        distance: u8,
-    ) -> Vec<Moves> {
-        let mut moves_list = Vec::new();
-        for d in 0..4 {
-            if self.moves[0][d] {
-                let prioritized_moves_matrix =
-                    self.prioritized_moves_matrix(heads, d.try_into().unwrap(), distance);
-                moves_list.append(&mut self.generate_from_moves(&prioritized_moves_matrix));
-            }
-        }
-        return moves_list;
-    }
-
-    pub fn generate(&self) -> Vec<Moves> {
-        self.generate_from_moves(&self.moves)
-    }
-
-    fn prioritized_moves_matrix(
-        &self,
-        heads: [Option<Coord>; SNAKES as usize],
-        direction: Direction,
-        distance: u8,
-    ) -> [[bool; 4]; SNAKES as usize] {
-        let old_head = heads[0].unwrap();
-        let moved_old_head = old_head + direction;
-        let mut prioritized_moves_matrix = self.moves;
-        prioritized_moves_matrix[0] = [false; 4];
-        prioritized_moves_matrix[0][direction as usize] = true;
-        for i in 1..4 {
-            if let Some(head) = heads[i] {
-                if head.distance_to(old_head) > distance {
-                    // Sparse matrix adaption
-                    let mut priorities = [2, 2, 2, 2];
-                    let difference = head - moved_old_head;
-                    if difference.x.abs() > difference.y.abs() {
-                        if difference.x > 0 {
-                            priorities[2] = 0;
-                            priorities[3] = 3;
-                        } else if difference.x < 0 {
-                            priorities[2] = 3;
-                            priorities[3] = 0;
-                        }
-                        if difference.y > 0 {
-                            priorities[0] = 2;
-                            priorities[1] = 1;
-                        } else if difference.y < 0 {
-                            priorities[0] = 1;
-                            priorities[1] = 2;
-                        } else if difference.y == 0 {
-                            if direction == Direction::Up {
-                                priorities[0] = 1;
-                                priorities[1] = 2;
-                            } else if direction == Direction::Down {
-                                priorities[0] = 2;
-                                priorities[1] = 1;
-                            } else {
-                                if rand::random::<bool>() {
-                                    priorities[0] = 1;
-                                    priorities[1] = 2;
-                                } else {
-                                    priorities[0] = 2;
-                                    priorities[1] = 1;
-                                }
-                            }
-                        }
-                    } else if difference.y.abs() > difference.x.abs() {
-                        if difference.y > 0 {
-                            priorities[0] = 3;
-                            priorities[1] = 0;
-                        } else if difference.y < 0 {
-                            priorities[0] = 0;
-                            priorities[1] = 3;
-                        }
-                        if difference.x > 0 {
-                            priorities[2] = 1;
-                            priorities[3] = 2;
-                        } else if difference.x < 0 {
-                            priorities[2] = 2;
-                            priorities[3] = 1;
-                        } else if difference.x == 0 {
-                            if direction == Direction::Left {
-                                priorities[2] = 1;
-                                priorities[3] = 2;
-                            } else if direction == Direction::Right {
-                                priorities[2] = 2;
-                                priorities[3] = 1;
-                            } else {
-                                if rand::random::<bool>() {
-                                    priorities[2] = 1;
-                                    priorities[3] = 2;
-                                } else {
-                                    priorities[2] = 2;
-                                    priorities[3] = 1;
-                                }
-                            }
-                        }
-                    } else if difference.x.abs() == difference.y.abs() {
-                        if direction == Direction::Up || direction == Direction::Down {
-                            if difference.x > 0 {
-                                priorities[0] = 3;
-                                priorities[1] = 0;
-                            } else {
-                                priorities[0] = 0;
-                                priorities[1] = 3;
-                            }
-                            if difference.y > 0 {
-                                priorities[2] = 1;
-                                priorities[3] = 2;
-                            } else {
-                                priorities[2] = 2;
-                                priorities[3] = 1;
-                            }
-                        } else {
-                            if difference.y > 0 {
-                                priorities[0] = 3;
-                                priorities[1] = 0;
-                            } else {
-                                priorities[0] = 0;
-                                priorities[1] = 3;
-                            }
-                            if difference.x > 0 {
-                                priorities[2] = 1;
-                                priorities[3] = 2;
-                            } else {
-                                priorities[2] = 2;
-                                priorities[3] = 1;
-                            }
-                        }
-                    }
-                    let mut priority_direction_order = [Direction::Up; 4];
-                    for i in 0..4 {
-                        priority_direction_order[priorities[i]] = DIRECTION_LIST[i];
-                    }
-                    let mut found = false;
-                    for d in priority_direction_order {
-                        if found {
-                            prioritized_moves_matrix[i][d as usize] = false;
-                        }
-                        if prioritized_moves_matrix[i][d as usize] {
-                            found = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        prioritized_moves_matrix
-    }
-
-    fn generate_from_moves(&self, moves: &[[bool; 4]; SNAKES as usize]) -> Vec<Moves> {
-        let prod = moves
+    fn len(&self) -> usize {
+        self.moves
             .iter()
-            .map(|x| x.iter().filter(|y| **y).count().max(1))
-            .product::<usize>();
+            .map(|x| x.iter().filter(|y| **y).count())
+            .product()
+    }
 
-        let mut list: Vec<Moves> = Vec::with_capacity(prod);
+    #[allow(dead_code, reason = "Accessed only via IntoIterator")]
+    fn pregenerate(&self) -> Vec<Moves> {
+        let mut list: Vec<Moves> = Vec::with_capacity(self.len());
 
         let mut b_end = 1;
         let mut c_end = 1;
         let mut d_end = 1;
         for i in 0..4 {
-            if moves[1][i] {
+            if self.moves[1][i] {
                 b_end = 4;
             }
-            if moves[2][i] {
+            if self.moves[2][i] {
                 c_end = 4;
             }
-            if moves[3][i] {
+            if self.moves[3][i] {
                 d_end = 4;
             }
         }
@@ -200,10 +46,10 @@ impl MovesSet {
             for b in 0..b_end {
                 for c in 0..c_end {
                     for d in 0..d_end {
-                        if moves[0][a as usize]
-                            && (moves[1][b as usize] || b_end == 1)
-                            && (moves[2][c as usize] || c_end == 1)
-                            && (moves[3][d as usize] || d_end == 1)
+                        if self.moves[0][a as usize]
+                            && (self.moves[1][b as usize] || b_end == 1)
+                            && (self.moves[2][c as usize] || c_end == 1)
+                            && (self.moves[3][d as usize] || d_end == 1)
                         {
                             let b_val = if b_end == 1 {
                                 None
@@ -228,6 +74,90 @@ impl MovesSet {
         }
         list
     }
+
+    #[allow(dead_code, reason = "Accessed only via IntoIterator")]
+    fn generate(&self) -> MoveMatrixIter {
+        MoveMatrixIter::new(self.moves)
+    }
+}
+
+pub struct MoveMatrixIter {
+    moves: [[bool; 4]; SNAKES as usize],
+    index: usize,
+    no_moves: [bool; SNAKES as usize],
+}
+
+impl MoveMatrixIter {
+    fn new(mut moves: [[bool; 4]; SNAKES as usize]) -> Self {
+        let no_moves = [
+            false,
+            !moves[1].iter().any(|x| *x),
+            !moves[2].iter().any(|x| *x),
+            !moves[3].iter().any(|x| *x),
+        ];
+
+        // if no_moves set first move to true to allow for easier generation
+        for i in 0..4 {
+            if no_moves[i] {
+                moves[i][0] = true;
+            }
+        }
+
+        Self {
+            moves,
+            index: 0,
+            no_moves,
+        }
+    }
+}
+
+impl Iterator for MoveMatrixIter {
+    type Item = Moves;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index <= u8::MAX as usize {
+            let a = (self.index >> 6) & 0b11;
+            let b = (self.index >> 4) & 0b11;
+            let c = (self.index >> 2) & 0b11;
+            let d = (self.index >> 0) & 0b11;
+            self.index += 1;
+
+            if (self.moves[0][a as usize])
+                && (self.moves[1][b as usize])
+                && (self.moves[2][c as usize])
+                && (self.moves[3][d as usize])
+            {
+                return Some([
+                    Some(a.try_into().unwrap()),
+                    if self.no_moves[1] {
+                        None
+                    } else {
+                        Some(b.try_into().unwrap())
+                    },
+                    if self.no_moves[2] {
+                        None
+                    } else {
+                        Some(c.try_into().unwrap())
+                    },
+                    if self.no_moves[3] {
+                        None
+                    } else {
+                        Some(d.try_into().unwrap())
+                    },
+                ]);
+            }
+        }
+        None
+    }
+}
+
+impl IntoIterator for MoveMatrix {
+    type Item = Moves;
+    type IntoIter = std::vec::IntoIter<Moves>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pregenerate().into_iter()
+    }
 }
 
 #[cfg(test)]
@@ -239,15 +169,15 @@ mod tests {
     };
 
     #[test]
-    fn test_generate() {
+    fn test_pregenerate() {
         let none = [[false; 4]; SNAKES as usize];
-        let no_moves_set = MovesSet::new(none);
-        let no_moves_list = no_moves_set.generate();
+        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_list = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 0);
 
         let all = [[true; 4]; SNAKES as usize];
-        let all_moves_set = MovesSet::new(all);
-        let all_moves_list = all_moves_set.generate();
+        let all_moves_set = MoveMatrix::new(all);
+        let all_moves_list = all_moves_set.pregenerate();
         assert_eq!(all_moves_list.len(), 256);
         assert_eq!(
             all_moves_list[0],
@@ -293,72 +223,126 @@ mod tests {
             &gamestate.turn,
         );
         let moves_set = state.possible_moves([true, true, true, true]);
-        let moves_list = moves_set.generate();
+        let moves_list = moves_set.pregenerate();
 
         assert_eq!(moves_list.len(), 36);
 
-        let one_with_no_moves = MovesSet::new([
+        let one_with_no_moves = MoveMatrix::new([
             [true, true, false, true],
             [false, false, false, false],
             [true, false, true, false],
             [true, true, false, true],
         ]);
-        let moves_list = one_with_no_moves.generate();
+        let moves_list = one_with_no_moves.pregenerate();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 
     #[test]
-    fn test_generate_sparse() {
-        let one_with_no_moves = MovesSet::new([
+    fn test_generate() {
+        let none = [[false; 4]; SNAKES as usize];
+        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
+        assert_eq!(no_moves_list.len(), 0);
+
+        let all = [[true; 4]; SNAKES as usize];
+        let all_moves_set = MoveMatrix::new(all);
+        let all_moves_list: Vec<Moves> = all_moves_set.generate().collect();
+        assert_eq!(all_moves_list.len(), 256);
+        assert_eq!(
+            all_moves_list[0],
+            [
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up)
+            ]
+        );
+        assert_eq!(
+            all_moves_list[1],
+            [
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Down)
+            ]
+        );
+        assert_eq!(
+            all_moves_list[4 * 4 + 2 * 4 + 4 - 1],
+            [
+                Some(Direction::Up),
+                Some(Direction::Down),
+                Some(Direction::Left),
+                Some(Direction::Right)
+            ]
+        );
+        assert_eq!(
+            all_moves_list[255],
+            [
+                Some(Direction::Right),
+                Some(Direction::Right),
+                Some(Direction::Right),
+                Some(Direction::Right)
+            ]
+        );
+
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = GameState::<BasicField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        let moves_set = state.possible_moves([true, true, true, true]);
+        let moves_list: Vec<Moves> = moves_set.generate().collect();
+
+        assert_eq!(moves_list.len(), 36);
+
+        let one_with_no_moves = MoveMatrix::new([
             [true, true, false, true],
             [false, false, false, false],
             [true, false, true, false],
             [true, true, false, true],
         ]);
-
-        let move_sparse = one_with_no_moves.generate_sparse(
-            [
-                Some(Coord::new(2, 2)),
-                Some(Coord::new(8, 2)),
-                Some(Coord::new(2, 8)),
-                Some(Coord::new(8, 8)),
-            ],
-            4,
-        );
-        let moves = one_with_no_moves.generate();
-
-        assert_eq!(moves.len(), 3 * 2 * 3);
-        assert_eq!(move_sparse.len(), 3);
-
-        let move_sparse = one_with_no_moves.generate_sparse(
-            [
-                Some(Coord::new(2, 2)),
-                Some(Coord::new(8, 2)),
-                Some(Coord::new(3, 6)),
-                Some(Coord::new(5, 3)),
-            ],
-            4,
-        );
-
-        assert_eq!(move_sparse.len(), 3 * 3);
+        let moves_list: Vec<Moves> = one_with_no_moves.generate().collect();
+        assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 }
 
 #[cfg(test)]
 mod benchmarks {
+    use std::hint::black_box;
+
     use crate::{
         logic::game::{field::BasicField, game_state::GameState},
         read_game_state,
     };
 
     #[bench]
-    #[ignore = "TODO"]
-    fn bench_possible_moves_generate(b: &mut test::Bencher) {
+    fn bench_pregenerate_and_iterate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{:#?}", state.possible_moves([true, true, true, true]));
         b.iter(|| {
-            state.possible_moves([true, true, true, true]).generate();
+            let moves = state
+                .possible_moves(black_box([true, true, true, true]))
+                .pregenerate();
+            for m in moves {
+                black_box(m);
+            }
+        });
+    }
+
+    #[bench]
+    fn bench_generate_and_iterate(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = GameState::<BasicField>::from(gamestate);
+        println!("{:#?}", state.possible_moves([true, true, true, true]));
+        b.iter(|| {
+            let moves = state
+                .possible_moves(black_box([true, true, true, true]))
+                .generate();
+            for m in moves {
+                black_box(m);
+            }
         });
     }
 }

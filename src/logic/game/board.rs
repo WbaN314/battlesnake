@@ -225,7 +225,7 @@ mod benchmarks {
         b.iter(|| {
             let board_clone = board.clone();
             let snake_clone = snake.clone();
-            let _ = black_box(board_clone.remove_snake(black_box(snake_clone)));
+            let _ = black_box(black_box(board_clone).remove_snake(black_box(snake_clone)));
         });
     }
 

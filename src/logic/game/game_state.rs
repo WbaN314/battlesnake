@@ -1,7 +1,5 @@
-use arrayvec::ArrayVec;
-
 use super::{
-    moves::{Moves, MovesSet},
+    moves::{MoveMatrix, Moves},
     snake::Snake,
     snakes::Snakes,
 };
@@ -15,6 +13,7 @@ use crate::{
     },
     logic::legacy::shared::e_snakes::SNAKES,
 };
+use arrayvec::ArrayVec;
 use std::{
     fmt::{Display, Formatter},
     hash::{DefaultHasher, Hash, Hasher},
@@ -247,7 +246,7 @@ impl<T: Field> GameState<T> {
         self
     }
 
-    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MovesSet {
+    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
         let mut possible_moves = [[false; 4]; SNAKES as usize];
         let mut moved_tails = self.clone();
         moved_tails.move_tails();
@@ -256,7 +255,7 @@ impl<T: Field> GameState<T> {
                 possible_moves[id as usize] = moved_tails.possible_moves_for(id);
             }
         }
-        MovesSet::new(possible_moves)
+        MoveMatrix::new(possible_moves)
     }
 
     pub fn possible_moves_for(&self, id: u8) -> [bool; 4] {
@@ -500,7 +499,7 @@ mod tests {
         println!("{}", state);
         let moves = state.possible_moves([true, true, true, true]);
         println!("{:#?}", moves);
-        assert_eq!(moves.generate().len(), 36);
+        assert_eq!(moves.into_iter().len(), 36);
 
         let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -510,7 +509,7 @@ mod tests {
         assert_eq!(moves.get(1), [true, false, false, false]);
         assert_eq!(moves.get(2), [false, false, false, false]);
         assert_eq!(moves.get(3), [false, false, false, false]);
-        let generated = moves.generate();
+        let generated = moves.into_iter();
         assert_eq!(generated.len(), 3);
         for m in generated {
             assert_eq!(m[1], Some(Direction::Up));
@@ -518,7 +517,7 @@ mod tests {
 
         let state = state.play(["RR", "UU", "", ""]);
         println!("{}", state);
-        let moves = state.possible_moves([true, true, true, true]).generate();
+        let moves = state.possible_moves([true, true, true, true]).into_iter();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
@@ -958,6 +957,36 @@ mod tests {
 mod benchmarks {
     use super::*;
     use crate::read_game_state;
+    use std::hint::black_box;
+
+    #[bench]
+    #[ignore = "TODO"]
+    fn bench_move_tails(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = GameState::<BasicField>::from(gamestate);
+        println!("{}", state);
+        b.iter(|| {
+            let state = state.clone();
+            black_box(state).move_tails();
+        });
+    }
+
+    #[bench]
+    #[ignore = "TODO"]
+    fn bench_move_heads(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/test_move_request.json");
+        let state = GameState::<BasicField>::from(gamestate);
+        println!("{}", state);
+        b.iter(|| {
+            let state = state.clone();
+            black_box(state).move_heads(black_box([
+                Some(Direction::Up),
+                Some(Direction::Left),
+                Some(Direction::Down),
+                Some(Direction::Down),
+            ]));
+        });
+    }
 
     #[bench]
     #[ignore = "TODO"]
@@ -965,15 +994,14 @@ mod benchmarks {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
-        let moves = [
-            Some(Direction::Up),
-            Some(Direction::Left),
-            Some(Direction::Left),
-            Some(Direction::Down),
-        ];
         b.iter(|| {
-            let mut state = state.clone();
-            state.next_state(moves);
+            let state = state.clone();
+            black_box(state).next_state(black_box([
+                Some(Direction::Up),
+                Some(Direction::Left),
+                Some(Direction::Down),
+                Some(Direction::Down),
+            ]));
         });
     }
 
