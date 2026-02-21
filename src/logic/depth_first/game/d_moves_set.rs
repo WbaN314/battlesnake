@@ -241,6 +241,7 @@ mod tests {
     use super::*;
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_possible_moves_generate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::<DSlowField>::from_request(

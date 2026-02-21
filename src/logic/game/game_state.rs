@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
-    game::{
+    logic::game::{
         board::{Board, HEIGHT, WIDTH},
         coord::Coord,
         direction::{DIRECTION_LIST, Direction},

@@ -843,6 +843,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_next_state_slow(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::<DSlowField>::from_request(
@@ -864,6 +865,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_next_state_fast(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::<DFastField>::from_request(
@@ -885,6 +887,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_possible_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::<DFastField>::from_request(
@@ -899,6 +902,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_move_reachable(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
@@ -911,6 +915,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_scope_moves(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let mut state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);

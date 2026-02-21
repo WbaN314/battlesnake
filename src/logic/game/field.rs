@@ -1,5 +1,5 @@
 use super::direction::Direction;
-use crate::game::snakes::SNAKES;
+use crate::logic::game::snakes::SNAKES;
 
 pub trait Field: Copy {
     fn empty() -> Self;
@@ -84,7 +84,7 @@ impl Field for BitField {
 
 #[cfg(test)]
 mod tests {
-    use crate::game::{direction::DIRECTION_LIST};
+    use crate::logic::game::{direction::DIRECTION_LIST};
 
     use super::*;
 
@@ -127,7 +127,7 @@ mod tests {
 #[cfg(test)]
 mod benchmarks {
     use crate::{
-        game::{direction::Direction, field::{BasicField, BitField}, game_state::GameState},
+        logic::game::{direction::Direction, field::{BasicField, BitField}, game_state::GameState},
         read_game_state,
     };
 

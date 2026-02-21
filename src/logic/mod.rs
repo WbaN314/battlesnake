@@ -20,6 +20,7 @@ use crate::{OriginalDirection, OriginalGameState, OriginalBattlesnake, OriginalB
 pub mod depth_first;
 pub mod legacy;
 pub mod new_year_new_snake;
+pub mod game;
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance

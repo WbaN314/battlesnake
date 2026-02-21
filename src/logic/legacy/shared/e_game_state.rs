@@ -1009,12 +1009,11 @@ struct CaptureCount {
 
 #[cfg(test)]
 mod tests {
-
     use crate::read_game_state;
-
     use super::*;
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_next_state(b: &mut test::Bencher) {
         let game_state = read_game_state("requests/test_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
@@ -1031,6 +1030,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore = "Not actively maintained anymore"]
     fn bench_possible_moves(b: &mut test::Bencher) {
         let game_state = read_game_state("requests/test_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);

@@ -1,4 +1,4 @@
-use crate::game::coord::Coord;
+use crate::logic::game::coord::Coord;
 use std::fmt::Display;
 
 pub static DIRECTION_LIST: [Direction; 4] = [

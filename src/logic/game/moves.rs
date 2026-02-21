@@ -1,4 +1,4 @@
-use crate::game::{
+use crate::logic::game::{
     coord::Coord,
     direction::{DIRECTION_LIST, Direction},
     snakes::SNAKES,
@@ -234,7 +234,7 @@ impl MovesSet {
 mod tests {
     use super::*;
     use crate::{
-        game::{field::BasicField, game_state::GameState},
+        logic::game::{field::BasicField, game_state::GameState},
         read_game_state,
     };
 
@@ -347,7 +347,7 @@ mod tests {
 #[cfg(test)]
 mod benchmarks {
     use crate::{
-        game::{field::BasicField, game_state::GameState},
+        logic::game::{field::BasicField, game_state::GameState},
         read_game_state,
     };
 

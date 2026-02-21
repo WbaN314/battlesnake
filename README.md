@@ -31,6 +31,6 @@ https://wban314.github.io/battlesnake/dev/bench
 Use to find hot spots with the benchmarks. For example:
 
 ```
-cargo flamegraph --unit-bench battlesnake_game_of_chicken_lib --open -- game::field::benchmarks::bench_next_state_with_basic_field
+CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --unit-bench battlesnake_game_of_chicken_lib --open -- game::field::benchmarks::bench_next_state_with_basic_field
 ```
 
