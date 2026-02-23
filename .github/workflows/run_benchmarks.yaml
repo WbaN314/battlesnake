@@ -3,7 +3,8 @@ on:
   push:
     branches:
       - main
-
+      - 2026
+      
 permissions:
   contents: write
   deployments: write
