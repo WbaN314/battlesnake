@@ -4,22 +4,22 @@ pub type Moves = [Option<Direction>; SNAKES as usize];
 
 #[derive(Debug)]
 pub struct MoveMatrix {
-    moves: [[bool; 4]; SNAKES as usize],
+    moves: [Option<[bool; 4]>; SNAKES as usize],
 }
 
 impl MoveMatrix {
-    pub fn new(moves: [[bool; 4]; SNAKES as usize]) -> Self {
+    pub fn new(moves: [Option<[bool; 4]>; SNAKES as usize]) -> Self {
         Self { moves }
     }
 
-    pub fn get(&self, index: usize) -> [bool; 4] {
+    pub fn get(&self, index: usize) -> Option<[bool; 4]> {
         self.moves[index]
     }
 
     fn len(&self) -> usize {
         self.moves
             .iter()
-            .map(|x| x.iter().filter(|y| **y).count())
+            .map(|&opt| opt.map_or(1, |arr| arr.iter().filter(|&&b| b).count()))
             .product()
     }
 
@@ -27,46 +27,40 @@ impl MoveMatrix {
     fn pregenerate(&self) -> Vec<Moves> {
         let mut list: Vec<Moves> = Vec::with_capacity(self.len());
 
-        let mut b_end = 1;
-        let mut c_end = 1;
-        let mut d_end = 1;
-        for i in 0..4 {
-            if self.moves[1][i] {
-                b_end = 4;
-            }
-            if self.moves[2][i] {
-                c_end = 4;
-            }
-            if self.moves[3][i] {
-                d_end = 4;
-            }
-        }
+        let iterations = [
+            self.moves.get(0).unwrap().map_or(1, |_| 4),
+            self.moves.get(1).unwrap().map_or(1, |_| 4),
+            self.moves.get(2).unwrap().map_or(1, |_| 4),
+            self.moves.get(3).unwrap().map_or(1, |_| 4),
+        ];
 
-        for a in 0..4 {
-            for b in 0..b_end {
-                for c in 0..c_end {
-                    for d in 0..d_end {
-                        if self.moves[0][a as usize]
-                            && (self.moves[1][b as usize] || b_end == 1)
-                            && (self.moves[2][c as usize] || c_end == 1)
-                            && (self.moves[3][d as usize] || d_end == 1)
+        for a in 0..iterations[0] {
+            for b in 0..iterations[1] {
+                for c in 0..iterations[2] {
+                    for d in 0..iterations[3] {
+                        if (self.moves[0].map_or(true, |row| row[a]))
+                            && (self.moves[1].map_or(true, |row| row[b]))
+                            && (self.moves[2].map_or(true, |row| row[c]))
+                            && (self.moves[3].map_or(true, |row| row[d]))
                         {
-                            let b_val = if b_end == 1 {
-                                None
-                            } else {
-                                Some(b.try_into().unwrap())
-                            };
-                            let c_val = if c_end == 1 {
-                                None
-                            } else {
-                                Some(c.try_into().unwrap())
-                            };
-                            let d_val = if d_end == 1 {
-                                None
-                            } else {
-                                Some(d.try_into().unwrap())
-                            };
-                            list.push([Some(a.try_into().unwrap()), b_val, c_val, d_val]);
+                            list.push([
+                                self.moves
+                                    .get(0)
+                                    .unwrap()
+                                    .map_or(None, |row| row[a].then(|| a.try_into().unwrap())),
+                                self.moves
+                                    .get(1)
+                                    .unwrap()
+                                    .map_or(None, |row| row[b].then(|| b.try_into().unwrap())),
+                                self.moves
+                                    .get(2)
+                                    .unwrap()
+                                    .map_or(None, |row| row[c].then(|| c.try_into().unwrap())),
+                                self.moves
+                                    .get(3)
+                                    .unwrap()
+                                    .map_or(None, |row| row[d].then(|| d.try_into().unwrap())),
+                            ]);
                         }
                     }
                 }
@@ -84,29 +78,24 @@ impl MoveMatrix {
 pub struct MoveMatrixIter {
     moves: [[bool; 4]; SNAKES as usize],
     index: usize,
-    no_moves: [bool; SNAKES as usize],
+    was_none: [bool; SNAKES as usize],
 }
 
 impl MoveMatrixIter {
-    fn new(mut moves: [[bool; 4]; SNAKES as usize]) -> Self {
-        let no_moves = [
-            false,
-            !moves[1].iter().any(|x| *x),
-            !moves[2].iter().any(|x| *x),
-            !moves[3].iter().any(|x| *x),
-        ];
-
-        // if no_moves set first move to true to allow for easier generation
-        for i in 0..4 {
-            if no_moves[i] {
-                moves[i][0] = true;
+    fn new(moves: [Option<[bool; 4]>; SNAKES as usize]) -> Self {
+        let mut was_none = [false; SNAKES as usize];
+        let mut moves_array = [[true, false, false, false]; SNAKES as usize];
+        for (i, opt) in moves.iter().enumerate() {
+            if let &Some(row) = opt {
+                moves_array[i] = row;
+            } else {
+                was_none[i] = true;
             }
         }
-
         Self {
-            moves,
+            moves: moves_array,
             index: 0,
-            no_moves,
+            was_none,
         }
     }
 }
@@ -122,24 +111,28 @@ impl Iterator for MoveMatrixIter {
             let d = (self.index >> 0) & 0b11;
             self.index += 1;
 
-            if (self.moves[0][a as usize])
-                && (self.moves[1][b as usize])
-                && (self.moves[2][c as usize])
-                && (self.moves[3][d as usize])
+            if self.moves[0][a as usize]
+                && self.moves[1][b as usize]
+                && self.moves[2][c as usize]
+                && self.moves[3][d as usize]
             {
                 return Some([
-                    Some(a.try_into().unwrap()),
-                    if self.no_moves[1] {
+                    if self.was_none[0] {
+                        None
+                    } else {
+                        Some(a.try_into().unwrap())
+                    },
+                    if self.was_none[1] {
                         None
                     } else {
                         Some(b.try_into().unwrap())
                     },
-                    if self.no_moves[2] {
+                    if self.was_none[2] {
                         None
                     } else {
                         Some(c.try_into().unwrap())
                     },
-                    if self.no_moves[3] {
+                    if self.was_none[3] {
                         None
                     } else {
                         Some(d.try_into().unwrap())
@@ -170,12 +163,18 @@ mod tests {
 
     #[test]
     fn test_pregenerate() {
-        let none = [[false; 4]; SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(none);
+        let no_moves = [Some([false; 4]); SNAKES as usize];
+        let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 0);
 
-        let all = [[true; 4]; SNAKES as usize];
+        let none = [None; SNAKES as usize];
+        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_list: Vec<Moves> = no_moves_set.pregenerate();
+        assert_eq!(no_moves_list.len(), 1);
+        assert_eq!(no_moves_list[0], [None, None, None, None]);
+
+        let all = [Some([true; 4]); SNAKES as usize];
         let all_moves_set = MoveMatrix::new(all);
         let all_moves_list = all_moves_set.pregenerate();
         assert_eq!(all_moves_list.len(), 256);
@@ -224,27 +223,41 @@ mod tests {
         );
         let moves_set = state.possible_moves([true, true, true, true]);
         let moves_list = moves_set.pregenerate();
-
         assert_eq!(moves_list.len(), 36);
 
         let one_with_no_moves = MoveMatrix::new([
-            [true, true, false, true],
-            [false, false, false, false],
-            [true, false, true, false],
-            [true, true, false, true],
+            Some([true, true, false, true]),
+            Some([false, false, false, false]),
+            Some([true, false, true, false]),
+            Some([true, true, false, true]),
         ]);
         let moves_list = one_with_no_moves.pregenerate();
+        assert_eq!(moves_list.len(), 0);
+
+        let one_with_none = MoveMatrix::new([
+            Some([true, true, false, true]),
+            None,
+            Some([true, false, true, false]),
+            Some([true, true, false, true]),
+        ]);
+        let moves_list = one_with_none.pregenerate();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 
     #[test]
     fn test_generate() {
-        let none = [[false; 4]; SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(none);
+        let no_moves = [Some([false; 4]); SNAKES as usize];
+        let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
         assert_eq!(no_moves_list.len(), 0);
 
-        let all = [[true; 4]; SNAKES as usize];
+        let none = [None; SNAKES as usize];
+        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
+        assert_eq!(no_moves_list.len(), 1);
+        assert_eq!(no_moves_list[0], [None, None, None, None]);
+
+        let all = [Some([true; 4]); SNAKES as usize];
         let all_moves_set = MoveMatrix::new(all);
         let all_moves_list: Vec<Moves> = all_moves_set.generate().collect();
         assert_eq!(all_moves_list.len(), 256);
@@ -293,16 +306,24 @@ mod tests {
         );
         let moves_set = state.possible_moves([true, true, true, true]);
         let moves_list: Vec<Moves> = moves_set.generate().collect();
-
         assert_eq!(moves_list.len(), 36);
 
         let one_with_no_moves = MoveMatrix::new([
-            [true, true, false, true],
-            [false, false, false, false],
-            [true, false, true, false],
-            [true, true, false, true],
+            Some([true, true, false, true]),
+            Some([false, false, false, false]),
+            Some([true, false, true, false]),
+            Some([true, true, false, true]),
         ]);
         let moves_list: Vec<Moves> = one_with_no_moves.generate().collect();
+        assert_eq!(moves_list.len(), 0);
+
+        let one_with_none = MoveMatrix::new([
+            Some([true, true, false, true]),
+            None,
+            Some([true, false, true, false]),
+            Some([true, true, false, true]),
+        ]);
+        let moves_list: Vec<Moves> = one_with_none.generate().collect();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 }

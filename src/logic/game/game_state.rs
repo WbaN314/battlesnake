@@ -8,7 +8,7 @@ use crate::{
     logic::game::{
         board::{Board, HEIGHT, WIDTH},
         coord::Coord,
-        direction::{DIRECTION_LIST, Direction},
+        direction::{DIRECTIONS, Direction},
         field::{BasicField, Field},
     },
     logic::legacy::shared::e_snakes::SNAKES,
@@ -23,7 +23,6 @@ use std::{
 pub struct GameState<T: Field> {
     board: Board<T>,
     snakes: Snakes,
-    turn: i32,
 }
 
 impl<T: Field> GameState<T> {
@@ -55,7 +54,6 @@ impl<T: Field> GameState<T> {
         GameState {
             board: d_board,
             snakes,
-            turn: *turn,
         }
     }
 
@@ -246,62 +244,6 @@ impl<T: Field> GameState<T> {
         self
     }
 
-    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
-        let mut possible_moves = [[false; 4]; SNAKES as usize];
-        let mut moved_tails = self.clone();
-        moved_tails.move_tails();
-        for id in 0..SNAKES {
-            if consider[id as usize] {
-                possible_moves[id as usize] = moved_tails.possible_moves_for(id);
-            }
-        }
-        MoveMatrix::new(possible_moves)
-    }
-
-    pub fn possible_moves_for(&self, id: u8) -> [bool; 4] {
-        let snake = self.snakes.cell(id).get();
-        let mut possible_moves = [false; 4];
-        let head = match snake {
-            Snake::Alive { head, .. } => head,
-            _ => return possible_moves,
-        };
-        for direction in DIRECTION_LIST {
-            let new_head = head + direction;
-            if let Some(field) = self.board.cell(new_head.x, new_head.y) {
-                if let BasicField::Empty | BasicField::Food = field.get().value() {
-                    possible_moves[direction as usize] = true;
-                }
-            }
-        }
-        // At least one move must be possible
-        // If no move is possible, set the first one to true
-        if possible_moves.iter().all(|&x| !x) {
-            possible_moves[0] = true;
-        }
-        possible_moves
-    }
-
-    pub fn get_alive(&self) -> [bool; SNAKES as usize] {
-        let mut alive = [false; SNAKES as usize];
-        for i in 0..SNAKES {
-            alive[i as usize] = match self.snakes.cell(i).get() {
-                Snake::Alive { .. } => true,
-                Snake::Headless { .. } => true,
-                Snake::Vanished { .. } => true,
-                _ => false,
-            }
-        }
-        alive
-    }
-
-    pub fn get_length(&self) -> Option<usize> {
-        let snake = self.snakes.cell(0).get();
-        match snake {
-            Snake::Alive { length, .. } => Some(length as usize),
-            _ => None,
-        }
-    }
-
     pub fn quick_hash(&self, distance: u8) -> u64 {
         let distance = distance as i8;
         let snake = self.snakes.cell(0).get();
@@ -325,6 +267,62 @@ impl<T: Field> GameState<T> {
         }
         self.get_alive().hash(&mut hasher);
         return hasher.finish();
+    }
+
+    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
+        let mut possible_moves = [Some([false; 4]); SNAKES as usize];
+        let mut moved_tails = self.clone();
+        moved_tails.move_tails();
+        for id in 0..SNAKES {
+            if consider[id as usize] {
+                possible_moves[id as usize] = moved_tails.possible_moves_for(id);
+            }
+        }
+        MoveMatrix::new(possible_moves)
+    }
+
+    pub fn possible_moves_for(&self, id: u8) -> Option<[bool; 4]> {
+        let snake = self.snakes.cell(id).get();
+        let mut possible_moves = [false; 4];
+        let head = match snake {
+            Snake::Alive { head, .. } => head,
+            _ => return Some(possible_moves),
+        };
+        for direction in DIRECTIONS {
+            let new_head = head + direction;
+            if let Some(field) = self.board.cell(new_head.x, new_head.y) {
+                if let BasicField::Empty | BasicField::Food = field.get().value() {
+                    possible_moves[direction as usize] = true;
+                }
+            }
+        }
+        // At least one move must be possible
+        // If no move is possible, set the first one to true
+        if possible_moves.iter().all(|&x| !x) {
+            possible_moves[0] = true;
+        }
+        Some(possible_moves)
+    }
+
+    pub fn get_alive(&self) -> [bool; SNAKES as usize] {
+        let mut alive = [false; SNAKES as usize];
+        for i in 0..SNAKES {
+            alive[i as usize] = match self.snakes.cell(i).get() {
+                Snake::Alive { .. } => true,
+                Snake::Headless { .. } => true,
+                Snake::Vanished { .. } => true,
+                _ => false,
+            }
+        }
+        alive
+    }
+
+    pub fn get_length(&self) -> Option<usize> {
+        let snake = self.snakes.cell(0).get();
+        match snake {
+            Snake::Alive { length, .. } => Some(length as usize),
+            _ => None,
+        }
     }
 
     pub fn get_heads(&self) -> [Option<Coord>; SNAKES as usize] {
@@ -505,10 +503,10 @@ mod tests {
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
         let moves = state.possible_moves([true, true, true, true]);
-        assert_eq!(moves.get(0), [true, false, true, true]);
-        assert_eq!(moves.get(1), [true, false, false, false]);
-        assert_eq!(moves.get(2), [false, false, false, false]);
-        assert_eq!(moves.get(3), [false, false, false, false]);
+        assert_eq!(moves.get(0), Some([true, false, true, true]));
+        assert_eq!(moves.get(1), Some([true, false, false, false]));
+        assert_eq!(moves.get(2), Some([false, false, false, false]));
+        assert_eq!(moves.get(3), Some([false, false, false, false]));
         let generated = moves.into_iter();
         assert_eq!(generated.len(), 3);
         for m in generated {
@@ -525,13 +523,13 @@ mod tests {
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
         let moves = state.possible_moves([true, true, true, true]);
-        assert_eq!(moves.get(0), [true, true, false, true]);
+        assert_eq!(moves.get(0), Some([true, true, false, true]));
 
         let gamestate = read_game_state("requests/failure_2.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
         let moves = state.possible_moves([true, false, true, false]);
-        assert_eq!(moves.get(1), [false, false, false, false]);
+        assert_eq!(moves.get(1), Some([false, false, false, false]));
     }
 
     #[test]

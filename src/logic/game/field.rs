@@ -84,7 +84,7 @@ impl Field for BitField {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::game::{direction::DIRECTION_LIST};
+    use crate::logic::game::direction::DIRECTIONS;
 
     use super::*;
 
@@ -110,15 +110,9 @@ mod tests {
             let field = BitField::snake(id, None);
             assert_eq!(field.value(), BasicField::snake(id, None));
 
-            for direction in DIRECTION_LIST {
+            for direction in DIRECTIONS {
                 let field = BitField::snake(id, Some(direction));
-                assert_eq!(
-                    field.value(),
-                    BasicField::snake(
-                        id,
-                        Some(direction)
-                    )
-                );
+                assert_eq!(field.value(), BasicField::snake(id, Some(direction)));
             }
         }
     }
@@ -126,11 +120,9 @@ mod tests {
 
 #[cfg(test)]
 mod benchmarks {
-    use std::hint::black_box;
     use super::*;
-    use crate::{
-        logic::game::direction::Direction,
-    };
+    use crate::logic::game::direction::Direction;
+    use std::hint::black_box;
 
     #[bench]
     fn bench_basic_field(b: &mut test::Bencher) {
@@ -141,7 +133,10 @@ mod benchmarks {
             let _ = black_box(field.value());
             let field = black_box(BasicField::snake(black_box(0), black_box(None)));
             let _ = black_box(field.value());
-            let field = black_box(BasicField::snake(black_box(1), black_box(Some(Direction::Up))));
+            let field = black_box(BasicField::snake(
+                black_box(1),
+                black_box(Some(Direction::Up)),
+            ));
             let _ = black_box(field.value());
         });
     }
@@ -155,7 +150,10 @@ mod benchmarks {
             let _ = black_box(field.value());
             let field = black_box(BitField::snake(black_box(0), black_box(None)));
             let _ = black_box(field.value());
-            let field = black_box(BitField::snake(black_box(1), black_box(Some(Direction::Up))));
+            let field = black_box(BitField::snake(
+                black_box(1),
+                black_box(Some(Direction::Up)),
+            ));
             let _ = black_box(field.value());
         });
     }

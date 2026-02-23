@@ -1,7 +1,7 @@
 use crate::logic::game::coord::Coord;
 use std::fmt::Display;
 
-pub static DIRECTION_LIST: [Direction; 4] = [
+pub static DIRECTIONS: [Direction; 4] = [
     Direction::Up,
     Direction::Down,
     Direction::Left,
