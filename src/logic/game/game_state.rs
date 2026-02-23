@@ -48,7 +48,7 @@ impl<T: Field> GameState<T> {
         self
     }
 
-    pub fn from_request(board: &OriginalBoard, you: &OriginalBattlesnake, turn: &i32) -> Self {
+    pub fn from_request(board: &OriginalBoard, you: &OriginalBattlesnake, _turn: &i32) -> Self {
         let snakes = Snakes::from_request(board, you);
         let d_board = Board::from_request(board, you);
         GameState {
@@ -270,7 +270,7 @@ impl<T: Field> GameState<T> {
     }
 
     pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
-        let mut possible_moves = [Some([false; 4]); SNAKES as usize];
+        let mut possible_moves = [None; SNAKES as usize];
         let mut moved_tails = self.clone();
         moved_tails.move_tails();
         for id in 0..SNAKES {

@@ -1,3 +1,5 @@
+use rocket::tokio::time::Instant;
+
 use crate::logic::game::{direction::Direction, snakes::SNAKES};
 
 pub type Moves = [Option<Direction>; SNAKES as usize];
@@ -25,43 +27,56 @@ impl MoveMatrix {
 
     #[allow(dead_code, reason = "Accessed only via IntoIterator")]
     fn pregenerate(&self) -> Vec<Moves> {
+        fn pregenerate_iterations_row(row: Option<[bool; 4]>) -> [Option<Option<Direction>>; 4] {
+            if let Some(row) = row {
+                let mut template = [None; 4];
+                let mut count = 0;
+                for (i, &b) in row.iter().enumerate() {
+                    if b {
+                        template[count] = Some(Some(i.try_into().unwrap()));
+                        count += 1;
+                    }
+                }
+                template
+            } else {
+                [Some(None), None, None, None]
+            }
+        }
         let mut list: Vec<Moves> = Vec::with_capacity(self.len());
 
         let iterations = [
-            self.moves.get(0).unwrap().map_or(1, |_| 4),
-            self.moves.get(1).unwrap().map_or(1, |_| 4),
-            self.moves.get(2).unwrap().map_or(1, |_| 4),
-            self.moves.get(3).unwrap().map_or(1, |_| 4),
+            pregenerate_iterations_row(self.moves[0]),
+            pregenerate_iterations_row(self.moves[1]),
+            pregenerate_iterations_row(self.moves[2]),
+            pregenerate_iterations_row(self.moves[3]),
         ];
 
-        for a in 0..iterations[0] {
-            for b in 0..iterations[1] {
-                for c in 0..iterations[2] {
-                    for d in 0..iterations[3] {
-                        if (self.moves[0].map_or(true, |row| row[a]))
-                            && (self.moves[1].map_or(true, |row| row[b]))
-                            && (self.moves[2].map_or(true, |row| row[c]))
-                            && (self.moves[3].map_or(true, |row| row[d]))
-                        {
-                            list.push([
-                                self.moves
-                                    .get(0)
-                                    .unwrap()
-                                    .map_or(None, |row| row[a].then(|| a.try_into().unwrap())),
-                                self.moves
-                                    .get(1)
-                                    .unwrap()
-                                    .map_or(None, |row| row[b].then(|| b.try_into().unwrap())),
-                                self.moves
-                                    .get(2)
-                                    .unwrap()
-                                    .map_or(None, |row| row[c].then(|| c.try_into().unwrap())),
-                                self.moves
-                                    .get(3)
-                                    .unwrap()
-                                    .map_or(None, |row| row[d].then(|| d.try_into().unwrap())),
-                            ]);
+        let mut template: [Option<Direction>; SNAKES as usize] = Default::default();
+        for a in iterations[0] {
+            if let Some(a) = a {
+                template[0] = a;
+            } else {
+                break;
+            }
+            for b in iterations[1] {
+                if let Some(b) = b {
+                    template[1] = b;
+                } else {
+                    break;
+                }
+                for c in iterations[2] {
+                    if let Some(c) = c {
+                        template[2] = c;
+                    } else {
+                        break;
+                    }
+                    for d in iterations[3] {
+                        if let Some(d) = d {
+                            template[3] = d;
+                        } else {
+                            break;
                         }
+                        list.push(template);
                     }
                 }
             }

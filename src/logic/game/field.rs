@@ -1,5 +1,4 @@
 use super::direction::Direction;
-use crate::logic::game::snakes::SNAKES;
 
 pub trait Field: Copy {
     fn empty() -> Self;

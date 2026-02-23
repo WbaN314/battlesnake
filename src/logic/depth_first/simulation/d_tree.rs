@@ -1,6 +1,6 @@
 use log::{debug, trace};
 
-use crate::logic::depth_first::game::d_direction::{DDirection, D_DIRECTION_LIST};
+use crate::logic::depth_first::game::d_direction::{D_DIRECTION_LIST, DDirection};
 
 use super::{
     d_node_id::DNodeId,
@@ -537,8 +537,6 @@ impl<Node: DNode> Display for DTree<Node> {
 mod tests {
     use std::time::Duration;
 
-    use test::bench;
-
     use crate::{
         logic::depth_first::{
             game::{
@@ -549,10 +547,10 @@ mod tests {
                 d_node_id::DNodeId,
                 d_tree::{DDirectionFinished, DTree, DTreeTime},
                 node::{
+                    DNode, DNodeAliveStatus, DNodeStatistics, DNodeStatus,
                     d_full_simulation_node::DFullSimulationNode,
                     d_optimistic_capture_node::DOptimisticCaptureNode,
-                    d_pessimistic_capture_node::DPessimisticCaptureNode, DNode, DNodeAliveStatus,
-                    DNodeStatistics, DNodeStatus,
+                    d_pessimistic_capture_node::DPessimisticCaptureNode,
                 },
             },
         },

@@ -2,7 +2,7 @@ use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
     logic::game::{
         coord::Coord,
-        field::{self, BasicField, Field},
+        field::{BasicField, Field},
         snake::Snake,
     },
 };
