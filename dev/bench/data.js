@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771687113185,
+  "lastUpdate": 1771844657329,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -107,6 +107,66 @@ window.BENCHMARK_DATA = {
             "name": "logic::game::moves::benchmarks::bench_pregenerate_and_iterate",
             "value": 215.94,
             "range": "± 3.75",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "2456dbf5c3e6d2b1969e38c63896570c0150143b",
+          "message": "Changed moves logic to be simpler and removed edge case handling",
+          "timestamp": "2026-02-23T12:02:36+01:00",
+          "tree_id": "b93c9f1eb01c74794150266dd29e1750fc0fbcf7",
+          "url": "https://github.com/WbaN314/battlesnake/commit/2456dbf5c3e6d2b1969e38c63896570c0150143b"
+        },
+        "date": 1771844656812,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "logic::game::board::benchmarks::bench_remove_snake",
+            "value": 391.5,
+            "range": "± 48.89",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::board::benchmarks::bench_set_field_get_field_via_cell",
+            "value": 10.25,
+            "range": "± 0.06",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_basic_field",
+            "value": 23.6,
+            "range": "± 0.08",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_bit_field",
+            "value": 6.07,
+            "range": "± 0.1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_generate_and_iterate",
+            "value": 437.61,
+            "range": "± 11.25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_pregenerate_and_iterate",
+            "value": 789.57,
+            "range": "± 18.37",
             "unit": "ns/iter"
           }
         ]
