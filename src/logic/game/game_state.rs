@@ -5,16 +5,19 @@ use super::{
 };
 use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
-    logic::game::{
-        board::{Board, HEIGHT, WIDTH},
-        coord::Coord,
-        direction::{DIRECTIONS, Direction},
-        field::{BasicField, Field},
+    logic::{
+        game::{
+            board::{Board, HEIGHT, WIDTH},
+            direction::{DIRECTIONS, Direction},
+            field::{BasicField, Field},
+            moves::MoveVector,
+        },
+        legacy::shared::e_snakes::SNAKES,
     },
-    logic::legacy::shared::e_snakes::SNAKES,
 };
 use arrayvec::ArrayVec;
 use std::{
+    cell::Cell,
     fmt::{Display, Formatter},
     hash::{DefaultHasher, Hash, Hasher},
 };
@@ -25,7 +28,7 @@ pub struct GameState<T: Field> {
     snakes: Snakes,
 }
 
-impl<T: Field> GameState<T> {
+impl<F: Field> GameState<F> {
     /// Convenience method to play a game with a list of moves
     /// Moves are given as a list of strings where each string represents the moves for a snake
     /// Example input: ["UDDL", "DUU", "", ""]
@@ -90,7 +93,7 @@ impl<T: Field> GameState<T> {
                             self.board
                                 .cell(head.x, head.y)
                                 .unwrap()
-                                .set(T::snake(id, Some(direction)));
+                                .set(F::snake(id, Some(direction)));
                             if let BasicField::Food = field.get().value() {
                                 self.snakes.cell(id).set(
                                     snake
@@ -212,7 +215,7 @@ impl<T: Field> GameState<T> {
                 self.board
                     .cell(head.x, head.y)
                     .unwrap()
-                    .set(T::snake(id, None));
+                    .set(F::snake(id, None));
             }
         }
 
@@ -232,10 +235,10 @@ impl<T: Field> GameState<T> {
                     } = self.board.cell(tail.x, tail.y).unwrap().get().value()
                     {
                         self.snakes.cell(id).set(snake.tail(tail + next));
-                        self.board.cell(tail.x, tail.y).unwrap().set(T::empty());
+                        self.board.cell(tail.x, tail.y).unwrap().set(F::empty());
                     } else {
                         self.snakes.cell(id).set(snake.to_vanished());
-                        self.board.cell(tail.x, tail.y).unwrap().set(T::empty());
+                        self.board.cell(tail.x, tail.y).unwrap().set(F::empty());
                     }
                 }
                 _ => (),
@@ -244,7 +247,7 @@ impl<T: Field> GameState<T> {
         self
     }
 
-    pub fn quick_hash(&self, distance: u8) -> u64 {
+    pub fn local_environment_hash(&self, distance: u8) -> u64 {
         let distance = distance as i8;
         let snake = self.snakes.cell(0).get();
         let mut hasher = DefaultHasher::new();
@@ -265,28 +268,27 @@ impl<T: Field> GameState<T> {
             }
             _ => (),
         }
-        self.get_alive().hash(&mut hasher);
         return hasher.finish();
     }
 
-    pub fn possible_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
-        let mut possible_moves = [None; SNAKES as usize];
+    pub fn valid_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
+        let mut possible_moves = [MoveVector::default(); SNAKES as usize];
         let mut moved_tails = self.clone();
         moved_tails.move_tails();
         for id in 0..SNAKES {
             if consider[id as usize] {
-                possible_moves[id as usize] = moved_tails.possible_moves_for(id);
+                possible_moves[id as usize] = moved_tails.valid_moves_for(id);
             }
         }
         MoveMatrix::new(possible_moves)
     }
 
-    pub fn possible_moves_for(&self, id: u8) -> Option<[bool; 4]> {
+    fn valid_moves_for(&self, id: u8) -> MoveVector {
         let snake = self.snakes.cell(id).get();
         let mut possible_moves = [false; 4];
         let head = match snake {
             Snake::Alive { head, .. } => head,
-            _ => return Some(possible_moves),
+            _ => return MoveVector::new(None),
         };
         for direction in DIRECTIONS {
             let new_head = head + direction;
@@ -296,45 +298,7 @@ impl<T: Field> GameState<T> {
                 }
             }
         }
-        // At least one move must be possible
-        // If no move is possible, set the first one to true
-        if possible_moves.iter().all(|&x| !x) {
-            possible_moves[0] = true;
-        }
-        Some(possible_moves)
-    }
-
-    pub fn get_alive(&self) -> [bool; SNAKES as usize] {
-        let mut alive = [false; SNAKES as usize];
-        for i in 0..SNAKES {
-            alive[i as usize] = match self.snakes.cell(i).get() {
-                Snake::Alive { .. } => true,
-                Snake::Headless { .. } => true,
-                Snake::Vanished { .. } => true,
-                _ => false,
-            }
-        }
-        alive
-    }
-
-    pub fn get_length(&self) -> Option<usize> {
-        let snake = self.snakes.cell(0).get();
-        match snake {
-            Snake::Alive { length, .. } => Some(length as usize),
-            _ => None,
-        }
-    }
-
-    pub fn get_heads(&self) -> [Option<Coord>; SNAKES as usize] {
-        let mut heads = [None; SNAKES as usize];
-        for i in 0..SNAKES {
-            let snake = self.snakes.cell(i).get();
-            match snake {
-                Snake::Alive { head, .. } => heads[i as usize] = Some(head),
-                _ => (),
-            }
-        }
-        heads
+        MoveVector::new(Some(possible_moves))
     }
 }
 
@@ -476,11 +440,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::read_game_state;
+    use crate::{logic::game::coord::Coord, read_game_state};
 
     #[test]
     fn test_memory_size() {
-        assert_eq!(std::mem::size_of::<GameState<BasicField>>(), 284);
+        assert_eq!(std::mem::size_of::<GameState<BasicField>>(), 278);
     }
 
     #[test]
@@ -495,18 +459,24 @@ mod tests {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
-        let moves = state.possible_moves([true, true, true, true]);
+        let moves = state.valid_moves([true, true, true, true]);
         println!("{:#?}", moves);
         assert_eq!(moves.into_iter().len(), 36);
 
         let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
-        let moves = state.possible_moves([true, true, true, true]);
-        assert_eq!(moves.get(0), Some([true, false, true, true]));
-        assert_eq!(moves.get(1), Some([true, false, false, false]));
-        assert_eq!(moves.get(2), Some([false, false, false, false]));
-        assert_eq!(moves.get(3), Some([false, false, false, false]));
+        let moves = state.valid_moves([true, true, true, true]);
+        assert_eq!(
+            moves.get(0),
+            MoveVector::new(Some([true, false, true, true]))
+        );
+        assert_eq!(
+            moves.get(1),
+            MoveVector::new(Some([true, false, false, false]))
+        );
+        assert_eq!(moves.get(2), MoveVector::new(None));
+        assert_eq!(moves.get(3), MoveVector::new(None));
         let generated = moves.into_iter();
         assert_eq!(generated.len(), 3);
         for m in generated {
@@ -515,21 +485,33 @@ mod tests {
 
         let state = state.play(["RR", "UU", "", ""]);
         println!("{}", state);
-        let moves = state.possible_moves([true, true, true, true]).into_iter();
+        let moves = state.valid_moves([true, true, true, true]).into_iter();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
         let gamestate = read_game_state("requests/failure_9.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
-        let moves = state.possible_moves([true, true, true, true]);
-        assert_eq!(moves.get(0), Some([true, true, false, true]));
+        let moves = state.valid_moves([true, true, true, true]);
+        assert_eq!(
+            moves.get(0),
+            MoveVector::new(Some([true, true, false, true]))
+        );
 
         let gamestate = read_game_state("requests/failure_2.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
-        let moves = state.possible_moves([true, false, true, false]);
-        assert_eq!(moves.get(1), Some([false, false, false, false]));
+        let moves = state.valid_moves([true, false, true, false]);
+        assert_eq!(moves.get(1), MoveVector::new(None));
+
+        let gamestate = read_game_state("requests/example_move_request_all_blocked.json");
+        let state = GameState::<BasicField>::from(gamestate);
+        println!("{}", state);
+        let moves = state.valid_moves([true, true, false, false]);
+        assert_eq!(
+            moves.get(0),
+            MoveVector::new(Some([false, false, false, false]))
+        );
     }
 
     #[test]
@@ -612,7 +594,7 @@ mod tests {
         ];
         state.next_state(moves);
         println!("{}", state);
-        assert!(!state.get_alive()[0]);
+        assert_eq!(state.snakes.cell(0).get(), Snake::Dead { id: 0 });
     }
 
     #[test]
@@ -875,7 +857,11 @@ mod tests {
             &gamestate.turn,
         );
         println!("{}", d_gamestate);
-        assert!(d_gamestate.get_alive()[0]);
+
+        assert!(matches!(
+            d_gamestate.snakes.cell(0).get(),
+            Snake::Alive { .. }
+        ));
         d_gamestate.next_state([
             Some(Direction::Left),
             Some(Direction::Left),
@@ -883,7 +869,10 @@ mod tests {
             Some(Direction::Down),
         ]);
         println!("{}", d_gamestate);
-        assert!(!d_gamestate.get_alive()[0]);
+        assert!(matches!(
+            d_gamestate.snakes.cell(0).get(),
+            Snake::Dead { .. }
+        ));
     }
 
     #[test]
@@ -903,13 +892,19 @@ mod tests {
             Some(Direction::Right),
         ];
 
-        assert_eq!(state.get_alive(), [true, true, true, true]);
+        assert!(matches!(state.snakes.cell(0).get(), Snake::Alive { .. }));
+        assert!(matches!(state.snakes.cell(1).get(), Snake::Alive { .. }));
+        assert!(matches!(state.snakes.cell(2).get(), Snake::Alive { .. }));
+        assert!(matches!(state.snakes.cell(3).get(), Snake::Alive { .. }));
 
         state.next_state(moves);
 
         println!("{}", state);
 
-        assert_eq!(state.get_alive(), [true, false, true, false]);
+        assert!(matches!(state.snakes.cell(0).get(), Snake::Alive { .. }));
+        assert!(matches!(state.snakes.cell(1).get(), Snake::Dead { .. }));
+        assert!(matches!(state.snakes.cell(2).get(), Snake::Headless { .. }));
+        assert!(matches!(state.snakes.cell(3).get(), Snake::Dead { .. }));
     }
 
     #[test]
@@ -924,14 +919,14 @@ mod tests {
             &gamestate_2.turn,
         );
         println!("{}", state_2);
-        let hash = state.quick_hash(9);
-        let hash_2 = state_2.quick_hash(9);
+        let hash = state.local_environment_hash(9);
+        let hash_2 = state_2.local_environment_hash(9);
         println!("Hash: {}", hash);
         println!("Hash: {}", hash_2);
         assert_eq!(hash, hash_2);
 
-        let hash_3 = state.quick_hash(10);
-        let hash_4 = state_2.quick_hash(10);
+        let hash_3 = state.local_environment_hash(10);
+        let hash_4 = state_2.local_environment_hash(10);
         println!("Hash: {}", hash_3);
         println!("Hash: {}", hash_4);
         assert_ne!(hash_3, hash_4);
@@ -958,7 +953,6 @@ mod benchmarks {
     use std::hint::black_box;
 
     #[bench]
-    #[ignore = "TODO"]
     fn bench_move_tails(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -970,7 +964,6 @@ mod benchmarks {
     }
 
     #[bench]
-    #[ignore = "TODO"]
     fn bench_move_heads(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -987,7 +980,6 @@ mod benchmarks {
     }
 
     #[bench]
-    #[ignore = "TODO"]
     fn bench_next_state(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
@@ -1004,13 +996,12 @@ mod benchmarks {
     }
 
     #[bench]
-    #[ignore = "TODO"]
-    fn bench_possible_moves(b: &mut test::Bencher) {
+    fn bench_local_environment_hash(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
         println!("{}", state);
         b.iter(|| {
-            let _ = state.possible_moves([true, true, true, true]);
+            let _ = state.local_environment_hash(black_box(5));
         });
     }
 }

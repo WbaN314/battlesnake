@@ -1,34 +1,59 @@
-use rocket::tokio::time::Instant;
+use std::ops::Deref;
 
 use crate::logic::game::{direction::Direction, snakes::SNAKES};
 
 pub type Moves = [Option<Direction>; SNAKES as usize];
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MoveVector(Option<[bool; 4]>);
+
+impl MoveVector {
+    pub fn new(moves: Option<[bool; 4]>) -> Self {
+        MoveVector(moves)
+    }
+
+    pub fn count_true(&self, if_none: usize) -> usize {
+        self.0
+            .map_or(if_none, |arr| arr.iter().filter(|&&b| b).count())
+    }
+}
+
+impl Deref for MoveVector {
+    type Target = Option<[bool; 4]>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Default for MoveVector {
+    fn default() -> Self {
+        MoveVector(None)
+    }
+}
+
 #[derive(Debug)]
 pub struct MoveMatrix {
-    moves: [Option<[bool; 4]>; SNAKES as usize],
+    moves: [MoveVector; SNAKES as usize],
 }
 
 impl MoveMatrix {
-    pub fn new(moves: [Option<[bool; 4]>; SNAKES as usize]) -> Self {
+    pub fn new(moves: [MoveVector; SNAKES as usize]) -> Self {
         Self { moves }
     }
 
-    pub fn get(&self, index: usize) -> Option<[bool; 4]> {
+    pub fn get(&self, index: usize) -> MoveVector {
         self.moves[index]
     }
 
     fn len(&self) -> usize {
-        self.moves
-            .iter()
-            .map(|&opt| opt.map_or(1, |arr| arr.iter().filter(|&&b| b).count()))
-            .product()
+        self.moves.iter().map(|&mv| mv.count_true(1)).product()
     }
 
     #[allow(dead_code, reason = "Accessed only via IntoIterator")]
     fn pregenerate(&self) -> Vec<Moves> {
-        fn pregenerate_iterations_row(row: Option<[bool; 4]>) -> [Option<Option<Direction>>; 4] {
-            if let Some(row) = row {
+        fn pregenerate_iterations_row(row: MoveVector) -> [Option<Option<Direction>>; 4] {
+            if let Some(row) = *row {
                 let mut template = [None; 4];
                 let mut count = 0;
                 for (i, &b) in row.iter().enumerate() {
@@ -97,11 +122,11 @@ pub struct MoveMatrixIter {
 }
 
 impl MoveMatrixIter {
-    fn new(moves: [Option<[bool; 4]>; SNAKES as usize]) -> Self {
+    fn new(moves: [MoveVector; SNAKES as usize]) -> Self {
         let mut was_none = [false; SNAKES as usize];
         let mut moves_array = [[true, false, false, false]; SNAKES as usize];
         for (i, opt) in moves.iter().enumerate() {
-            if let &Some(row) = opt {
+            if let Some(row) = **opt {
                 moves_array[i] = row;
             } else {
                 was_none[i] = true;
@@ -178,18 +203,18 @@ mod tests {
 
     #[test]
     fn test_pregenerate() {
-        let no_moves = [Some([false; 4]); SNAKES as usize];
+        let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 0);
 
-        let none = [None; SNAKES as usize];
+        let none = [MoveVector::new(None); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(none);
         let no_moves_list: Vec<Moves> = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 1);
         assert_eq!(no_moves_list[0], [None, None, None, None]);
 
-        let all = [Some([true; 4]); SNAKES as usize];
+        let all = [MoveVector::new(Some([true; 4])); SNAKES as usize];
         let all_moves_set = MoveMatrix::new(all);
         let all_moves_list = all_moves_set.pregenerate();
         assert_eq!(all_moves_list.len(), 256);
@@ -236,24 +261,24 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        let moves_set = state.possible_moves([true, true, true, true]);
+        let moves_set = state.valid_moves([true, true, true, true]);
         let moves_list = moves_set.pregenerate();
         assert_eq!(moves_list.len(), 36);
 
         let one_with_no_moves = MoveMatrix::new([
-            Some([true, true, false, true]),
-            Some([false, false, false, false]),
-            Some([true, false, true, false]),
-            Some([true, true, false, true]),
+            MoveVector::new(Some([true, true, false, true])),
+            MoveVector::new(Some([false, false, false, false])),
+            MoveVector::new(Some([true, false, true, false])),
+            MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list = one_with_no_moves.pregenerate();
         assert_eq!(moves_list.len(), 0);
 
         let one_with_none = MoveMatrix::new([
-            Some([true, true, false, true]),
-            None,
-            Some([true, false, true, false]),
-            Some([true, true, false, true]),
+            MoveVector::new(Some([true, true, false, true])),
+            MoveVector::new(None),
+            MoveVector::new(Some([true, false, true, false])),
+            MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list = one_with_none.pregenerate();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
@@ -261,18 +286,18 @@ mod tests {
 
     #[test]
     fn test_generate() {
-        let no_moves = [Some([false; 4]); SNAKES as usize];
+        let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
         assert_eq!(no_moves_list.len(), 0);
 
-        let none = [None; SNAKES as usize];
+        let none = [MoveVector::new(None); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(none);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
         assert_eq!(no_moves_list.len(), 1);
         assert_eq!(no_moves_list[0], [None, None, None, None]);
 
-        let all = [Some([true; 4]); SNAKES as usize];
+        let all = [MoveVector::new(Some([true; 4])); SNAKES as usize];
         let all_moves_set = MoveMatrix::new(all);
         let all_moves_list: Vec<Moves> = all_moves_set.generate().collect();
         assert_eq!(all_moves_list.len(), 256);
@@ -319,24 +344,24 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        let moves_set = state.possible_moves([true, true, true, true]);
+        let moves_set = state.valid_moves([true, true, true, true]);
         let moves_list: Vec<Moves> = moves_set.generate().collect();
         assert_eq!(moves_list.len(), 36);
 
         let one_with_no_moves = MoveMatrix::new([
-            Some([true, true, false, true]),
-            Some([false, false, false, false]),
-            Some([true, false, true, false]),
-            Some([true, true, false, true]),
+            MoveVector::new(Some([true, true, false, true])),
+            MoveVector::new(Some([false, false, false, false])),
+            MoveVector::new(Some([true, false, true, false])),
+            MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list: Vec<Moves> = one_with_no_moves.generate().collect();
         assert_eq!(moves_list.len(), 0);
 
         let one_with_none = MoveMatrix::new([
-            Some([true, true, false, true]),
-            None,
-            Some([true, false, true, false]),
-            Some([true, true, false, true]),
+            MoveVector::new(Some([true, true, false, true])),
+            MoveVector::new(None),
+            MoveVector::new(Some([true, false, true, false])),
+            MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list: Vec<Moves> = one_with_none.generate().collect();
         assert_eq!(moves_list.len(), 3 * 2 * 3);
@@ -356,10 +381,10 @@ mod benchmarks {
     fn bench_pregenerate_and_iterate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
-        println!("{:#?}", state.possible_moves([true, true, true, true]));
+        println!("{:#?}", state.valid_moves([true, true, true, true]));
         b.iter(|| {
             let moves = state
-                .possible_moves(black_box([true, true, true, true]))
+                .valid_moves(black_box([true, true, true, true]))
                 .pregenerate();
             for m in moves {
                 black_box(m);
@@ -371,10 +396,10 @@ mod benchmarks {
     fn bench_generate_and_iterate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
         let state = GameState::<BasicField>::from(gamestate);
-        println!("{:#?}", state.possible_moves([true, true, true, true]));
+        println!("{:#?}", state.valid_moves([true, true, true, true]));
         b.iter(|| {
             let moves = state
-                .possible_moves(black_box([true, true, true, true]))
+                .valid_moves(black_box([true, true, true, true]))
                 .generate();
             for m in moves {
                 black_box(m);
