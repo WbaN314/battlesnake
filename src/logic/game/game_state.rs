@@ -16,10 +16,10 @@ use crate::{
     },
 };
 use arrayvec::ArrayVec;
+use rustc_hash::FxHasher;
 use std::{
-    cell::Cell,
     fmt::{Display, Formatter},
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
 };
 
 #[derive(Clone)]
@@ -250,7 +250,7 @@ impl<F: Field> GameState<F> {
     pub fn local_environment_hash(&self, distance: u8) -> u64 {
         let distance = distance as i8;
         let snake = self.snakes.cell(0).get();
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = FxHasher::default();
         match snake {
             Snake::Alive { head, length, .. } => {
                 // loop over all cells that are at most distance away from head
