@@ -271,18 +271,17 @@ impl<F: Field> GameState<F> {
         return hasher.finish();
     }
 
-    pub fn valid_moves(&self, consider: [bool; SNAKES as usize]) -> MoveMatrix {
+    pub fn valid_moves(&self) -> MoveMatrix {
         let mut possible_moves = [MoveVector::default(); SNAKES as usize];
         let mut moved_tails = self.clone();
         moved_tails.move_tails();
         for id in 0..SNAKES {
-            if consider[id as usize] {
-                possible_moves[id as usize] = moved_tails.valid_moves_for(id);
-            }
+            possible_moves[id as usize] = moved_tails.valid_moves_for(id);
         }
         MoveMatrix::new(possible_moves)
     }
 
+    // This expects the tails to be already moved
     fn valid_moves_for(&self, id: u8) -> MoveVector {
         let snake = self.snakes.cell(id).get();
         let mut possible_moves = [false; 4];
@@ -302,8 +301,8 @@ impl<F: Field> GameState<F> {
     }
 }
 
-impl<T: Field> From<OriginalGameState> for GameState<T> {
-    fn from(original_game_state: OriginalGameState) -> Self {
+impl<T: Field> From<&OriginalGameState> for GameState<T> {
+    fn from(original_game_state: &OriginalGameState) -> Self {
         GameState::from_request(
             &original_game_state.board,
             &original_game_state.you,
@@ -450,23 +449,23 @@ mod tests {
     #[test]
     fn test_display() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
     }
 
     #[test]
     fn test_possible_moves() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
-        let moves = state.valid_moves([true, true, true, true]);
+        let moves = state.valid_moves();
         println!("{:#?}", moves);
         assert_eq!(moves.into_iter().len(), 36);
 
         let gamestate = read_game_state("requests/test_move_request_2.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
-        let moves = state.valid_moves([true, true, true, true]);
+        let moves = state.valid_moves();
         assert_eq!(
             moves.get(0),
             MoveVector::new(Some([true, false, true, true]))
@@ -485,39 +484,24 @@ mod tests {
 
         let state = state.play(["RR", "UU", "", ""]);
         println!("{}", state);
-        let moves = state.valid_moves([true, true, true, true]).into_iter();
+        let moves = state.valid_moves().into_iter();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
         let gamestate = read_game_state("requests/failure_9.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
-        let moves = state.valid_moves([true, true, true, true]);
+        let moves = state.valid_moves();
         assert_eq!(
             moves.get(0),
             MoveVector::new(Some([true, true, false, true]))
-        );
-
-        let gamestate = read_game_state("requests/failure_2.json");
-        let state = GameState::<BasicField>::from(gamestate);
-        println!("{}", state);
-        let moves = state.valid_moves([true, false, true, false]);
-        assert_eq!(moves.get(1), MoveVector::new(None));
-
-        let gamestate = read_game_state("requests/example_move_request_all_blocked.json");
-        let state = GameState::<BasicField>::from(gamestate);
-        println!("{}", state);
-        let moves = state.valid_moves([true, true, false, false]);
-        assert_eq!(
-            moves.get(0),
-            MoveVector::new(Some([false, false, false, false]))
         );
     }
 
     #[test]
     fn test_next_state() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = GameState::<BasicField>::from(gamestate);
+        let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let mut moves = [
             Some(Direction::Up),
@@ -584,7 +568,7 @@ mod tests {
     fn test_next_state_2() {
         let gamestate =
             read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
-        let mut state = GameState::<BasicField>::from(gamestate);
+        let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let moves = [
             Some(Direction::Right),
@@ -600,7 +584,7 @@ mod tests {
     #[test]
     fn test_move_heads_headless() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = GameState::<BasicField>::from(gamestate);
+        let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         state.move_heads([
             Some(Direction::Up),
@@ -618,7 +602,7 @@ mod tests {
     #[test]
     fn test_move_heads_food() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = GameState::<BasicField>::from(gamestate);
+        let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         state.move_heads([
             Some(Direction::Up),
@@ -677,7 +661,7 @@ mod tests {
     #[test]
     fn test_move_heads() {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let mut state = GameState::from(gamestate);
+        let mut state = GameState::from(&gamestate);
         println!("{}", state);
         state.move_heads([
             Some(Direction::Up),
@@ -910,7 +894,7 @@ mod tests {
     #[test]
     fn test_quick_hash() {
         let gamestate = read_game_state("requests/test_move_request_2c.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let gamestate_2 = read_game_state("requests/test_move_request_2b.json");
         let state_2 = GameState::<BasicField>::from_request(
@@ -955,7 +939,7 @@ mod benchmarks {
     #[bench]
     fn bench_move_tails(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         b.iter(|| {
             let state = state.clone();
@@ -966,7 +950,7 @@ mod benchmarks {
     #[bench]
     fn bench_move_heads(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         b.iter(|| {
             let state = state.clone();
@@ -982,7 +966,7 @@ mod benchmarks {
     #[bench]
     fn bench_next_state(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         b.iter(|| {
             let state = state.clone();
@@ -998,7 +982,7 @@ mod benchmarks {
     #[bench]
     fn bench_local_environment_hash(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
+        let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         b.iter(|| {
             let _ = state.local_environment_hash(black_box(5));

@@ -12,7 +12,11 @@ impl MoveVector {
         MoveVector(moves)
     }
 
-    pub fn count_true(&self, if_none: usize) -> usize {
+    pub fn is_valid(&self, direction: Direction) -> bool {
+        self.0.map_or(false, |arr| arr[direction as usize])
+    }
+
+    pub fn count_valid(&self, if_none: usize) -> usize {
         self.0
             .map_or(if_none, |arr| arr.iter().filter(|&&b| b).count())
     }
@@ -32,6 +36,14 @@ impl Default for MoveVector {
     }
 }
 
+impl From<Direction> for MoveVector {
+    fn from(direction: Direction) -> Self {
+        let mut arr = [false; 4];
+        arr[direction as usize] = true;
+        MoveVector(Some(arr))
+    }
+}
+
 #[derive(Debug)]
 pub struct MoveMatrix {
     moves: [MoveVector; SNAKES as usize],
@@ -46,8 +58,12 @@ impl MoveMatrix {
         self.moves[index]
     }
 
-    fn len(&self) -> usize {
-        self.moves.iter().map(|&mv| mv.count_true(1)).product()
+    pub fn set(&mut self, index: usize, moves: MoveVector) {
+        self.moves[index] = moves;
+    }
+
+    pub fn len(&self) -> usize {
+        self.moves.iter().map(|&mv| mv.count_valid(1)).product()
     }
 
     #[allow(dead_code, reason = "Accessed only via IntoIterator")]
@@ -261,7 +277,7 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        let moves_set = state.valid_moves([true, true, true, true]);
+        let moves_set = state.valid_moves();
         let moves_list = moves_set.pregenerate();
         assert_eq!(moves_list.len(), 36);
 
@@ -344,7 +360,7 @@ mod tests {
             &gamestate.you,
             &gamestate.turn,
         );
-        let moves_set = state.valid_moves([true, true, true, true]);
+        let moves_set = state.valid_moves();
         let moves_list: Vec<Moves> = moves_set.generate().collect();
         assert_eq!(moves_list.len(), 36);
 
@@ -380,12 +396,10 @@ mod benchmarks {
     #[bench]
     fn bench_pregenerate_and_iterate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
-        println!("{:#?}", state.valid_moves([true, true, true, true]));
+        let state = GameState::<BasicField>::from(&gamestate);
+        println!("{:#?}", state.valid_moves());
         b.iter(|| {
-            let moves = state
-                .valid_moves(black_box([true, true, true, true]))
-                .pregenerate();
+            let moves = state.valid_moves().pregenerate();
             for m in moves {
                 black_box(m);
             }
@@ -395,12 +409,10 @@ mod benchmarks {
     #[bench]
     fn bench_generate_and_iterate(b: &mut test::Bencher) {
         let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(gamestate);
-        println!("{:#?}", state.valid_moves([true, true, true, true]));
+        let state = GameState::<BasicField>::from(&gamestate);
+        println!("{:#?}", state.valid_moves());
         b.iter(|| {
-            let moves = state
-                .valid_moves(black_box([true, true, true, true]))
-                .generate();
+            let moves = state.valid_moves().generate();
             for m in moves {
                 black_box(m);
             }
