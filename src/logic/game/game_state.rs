@@ -281,6 +281,10 @@ impl<F: Field> GameState<F> {
         MoveMatrix::new(possible_moves)
     }
 
+    pub fn is_alive(&self, id: u8) -> bool {
+        matches!(self.snakes.cell(id).get(), Snake::Alive { .. })
+    }
+
     // This expects the tails to be already moved
     fn valid_moves_for(&self, id: u8) -> MoveVector {
         let snake = self.snakes.cell(id).get();

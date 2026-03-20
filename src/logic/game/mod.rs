@@ -4,5 +4,5 @@ pub mod direction;
 pub mod field;
 pub mod game_state;
 pub mod moves;
-mod snake;
-mod snakes;
+pub mod snake;
+pub mod snakes;
