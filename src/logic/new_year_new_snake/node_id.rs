@@ -1,18 +1,391 @@
-use crate::logic::game::moves::Moves;
+use std::fmt::Display;
+use std::str::FromStr;
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
-pub struct NodeId {}
+use crate::logic::game::{direction::Direction, moves::Moves, snakes::SNAKES};
+
+/// Bits reserved for storing the depth (max 15, fits in 4 bits).
+const DEPTH_BITS: u32 = 4;
+/// Bits per snake move (2 bits: U=0, D=1, L=2, R=3). `None` maps to `Up`.
+const BITS_PER_SNAKE: u32 = 2;
+/// Bits consumed per tree level (4 snakes × 2 bits).
+const BITS_PER_LEVEL: u32 = BITS_PER_SNAKE * SNAKES as u32; // 8
+/// Maximum supported tree depth: (128 − 4) / 8 = 15.
+const MAX_DEPTH: u8 = ((128 - DEPTH_BITS) / BITS_PER_LEVEL) as u8;
+/// Number of flag bits stored at the top of the u128.
+const FLAGS_BITS: u32 = 128 - DEPTH_BITS - MAX_DEPTH as u32 * BITS_PER_LEVEL; // 4
+
+const DEPTH_MASK: u128 = (1u128 << DEPTH_BITS) - 1;
+const LEVEL_MASK: u128 = (1u128 << BITS_PER_LEVEL) - 1;
+const FLAGS_SHIFT: u32 = 128 - FLAGS_BITS;
+const FLAGS_MASK: u128 = ((1u128 << FLAGS_BITS) - 1) << FLAGS_SHIFT;
+
+/// Compact node identifier for the game tree, packed into a single `u128`.
+///
+/// Layout (LSB first):
+/// ```text
+/// [depth: 4 bits][level 0: 8 bits]...[level 14: 8 bits][flags: 4 bits (MSB)]
+/// ```
+/// Each level encodes 4 snake moves (2 bits each):
+/// ```text
+/// [snake 0: 2 bits][snake 1: 2 bits][snake 2: 2 bits][snake 3: 2 bits]
+/// ```
+/// Direction encoding: Up=0, Down=1, Left=2, Right=3. `None` maps to `Up`.
+/// Flags are stored in the top 4 bits, addressable by index 0..3.
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+pub struct NodeId {
+    data: u128,
+}
+
+/// Decodes 2 bits from a shifted u128 value into a Direction.
+/// Only the lowest 2 bits of `val` are considered.
+#[inline(always)]
+fn decode(val: u128) -> Direction {
+    match val & 0b11 {
+        0 => Direction::Up,
+        1 => Direction::Down,
+        2 => Direction::Left,
+        3 => Direction::Right,
+        _ => unreachable!(),
+    }
+}
 
 impl NodeId {
     pub fn new() -> Self {
-        todo!()
+        NodeId { data: 0 }
+    }
+
+    pub fn depth(&self) -> u8 {
+        (self.data & DEPTH_MASK) as u8
     }
 
     pub fn child(&self, moves: Moves) -> Self {
-        todo!()
+        let mut child = *self;
+        child.push(moves);
+        child
+    }
+
+    pub fn push(&mut self, moves: Moves) {
+        let depth = self.depth();
+        debug_assert!(
+            depth < MAX_DEPTH,
+            "Maximum tree depth ({MAX_DEPTH}) exceeded"
+        );
+
+        let mut encoded: u128 = 0;
+        for (i, &dir) in moves.iter().enumerate() {
+            let bits = dir.unwrap_or(Direction::Up) as u128;
+            encoded |= bits << (i as u32 * BITS_PER_SNAKE);
+        }
+
+        let shift = DEPTH_BITS + depth as u32 * BITS_PER_LEVEL;
+        self.data = (self.data & !DEPTH_MASK) | (depth as u128 + 1) | (encoded << shift);
     }
 
     pub fn parent(&self) -> Option<Self> {
-        todo!()
+        let depth = self.depth();
+        if depth == 0 {
+            return None;
+        }
+
+        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
+        let new_data = (self.data & !(LEVEL_MASK << shift)) - 1;
+
+        Some(NodeId { data: new_data })
+    }
+
+    pub fn last_decision(&self) -> Option<Direction> {
+        let depth = self.depth();
+        if depth == 0 {
+            return None;
+        }
+
+        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
+        Some(decode(self.data >> shift))
+    }
+
+    /// Returns the move of a specific snake at a specific level.
+    fn move_at(&self, level: u8, snake: u8) -> Direction {
+        debug_assert!(level < self.depth());
+        let shift = DEPTH_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
+        decode(self.data >> shift)
+    }
+
+    /// Returns the value of a flag bit (0-indexed from MSB, max index: FLAGS_BITS-1).
+    #[inline(always)]
+    pub fn read_flag(&self, index: u8) -> bool {
+        debug_assert!((index as u32) < FLAGS_BITS);
+        self.data & (1u128 << (FLAGS_SHIFT + index as u32)) != 0
+    }
+
+    /// Sets or clears a flag bit (0-indexed from MSB, max index: FLAGS_BITS-1).
+    #[inline(always)]
+    pub fn set_flag(&mut self, index: u8, value: bool) {
+        debug_assert!((index as u32) < FLAGS_BITS);
+        let bit = 1u128 << (FLAGS_SHIFT + index as u32);
+        if value {
+            self.data |= bit;
+        } else {
+            self.data &= !bit;
+        }
+    }
+
+    /// Returns all flag bits as a u8 (lower FLAGS_BITS bits used).
+    #[inline(always)]
+    pub fn read_flags(&self) -> u8 {
+        ((self.data & FLAGS_MASK) >> FLAGS_SHIFT) as u8
+    }
+
+    /// Sets all flag bits from a u8 (lower FLAGS_BITS bits used).
+    #[inline(always)]
+    pub fn set_flags(&mut self, flags: u8) {
+        self.data = (self.data & !FLAGS_MASK) | ((flags as u128) << FLAGS_SHIFT);
+    }
+}
+
+/// Displays the node path grouped by snake:
+/// `snake0moves-snake1moves-snake2moves-snake3moves`
+///
+/// e.g. `DDUR-RUUD-DDDD-LUDR` (depth 4, all snakes alive)
+///
+/// Dead/absent snakes default to `U` (Up) per level.
+impl Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let depth = self.depth();
+        if depth == 0 {
+            return write!(f, "ROOT");
+        }
+
+        for snake in 0..SNAKES as u8 {
+            if snake > 0 {
+                write!(f, "-")?;
+            }
+            for level in 0..depth {
+                write!(f, "{}", self.move_at(level, snake))?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl FromStr for NodeId {
+    type Err = String;
+
+    /// Parses a string like `"DDUR-RUUD-DDDD-LUDR"` or `"ROOT"` into a `NodeId`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "ROOT" {
+            return Ok(NodeId::new());
+        }
+
+        let groups: Vec<&str> = s.split('-').collect();
+        if groups.len() != SNAKES {
+            return Err(format!(
+                "Expected {} snake groups, got {}",
+                SNAKES,
+                groups.len()
+            ));
+        }
+
+        let depth = groups[0].len();
+        if depth == 0 || depth > MAX_DEPTH as usize {
+            return Err(format!("Invalid depth: {depth}"));
+        }
+        if !groups.iter().all(|g| g.len() == depth) {
+            return Err("All snake groups must have equal length".into());
+        }
+
+        let mut node = NodeId::new();
+        for level in 0..depth {
+            let mut moves: Moves = [None; SNAKES];
+            for (snake, group) in groups.iter().enumerate() {
+                let ch = group.as_bytes()[level];
+                let dir = Direction::try_from(ch as char)
+                    .map_err(|_| format!("Invalid direction char: '{}'", ch as char))?;
+                moves[snake] = Some(dir);
+            }
+            node.push(moves);
+        }
+
+        Ok(node)
+    }
+}
+
+impl From<&str> for NodeId {
+    fn from(s: &str) -> Self {
+        s.parse().expect("Invalid NodeId string")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::logic::game::direction::Direction::*;
+
+    #[test]
+    fn new_node_is_root() {
+        let root = NodeId::new();
+        assert_eq!(root.depth(), 0);
+        assert_eq!(root.parent(), None);
+        assert_eq!(root.last_decision(), None);
+        assert_eq!(root.to_string(), "ROOT");
+    }
+
+    #[test]
+    fn single_child() {
+        let root = NodeId::new();
+        let child = root.child([Some(Down), Some(Right), Some(Up), Some(Left)]);
+
+        assert_eq!(child.depth(), 1);
+        assert_eq!(child.last_decision(), Some(Down)); // snake 0
+        assert_eq!(child.to_string(), "D-R-U-L");
+    }
+
+    #[test]
+    fn two_levels_display() {
+        let root = NodeId::new();
+        let lvl1 = root.child([Some(Down), Some(Right), Some(Down), Some(Left)]);
+        let lvl2 = lvl1.child([Some(Up), Some(Up), Some(Down), Some(Right)]);
+
+        assert_eq!(lvl2.depth(), 2);
+        assert_eq!(lvl2.to_string(), "DU-RU-DD-LR");
+    }
+
+    #[test]
+    fn parent_round_trip() {
+        let root = NodeId::new();
+        let c1 = root.child([Some(Down), Some(Right), Some(Up), Some(Left)]);
+        let c2 = c1.child([Some(Up), Some(Up), Some(Down), Some(Down)]);
+
+        assert_eq!(c2.parent(), Some(c1));
+        assert_eq!(c1.parent(), Some(root));
+    }
+
+    #[test]
+    fn none_moves_default_to_up() {
+        let root = NodeId::new();
+        let child = root.child([Some(Down), None, Some(Up), None]);
+
+        // None maps to Up
+        assert_eq!(child.to_string(), "D-U-U-U");
+    }
+
+    #[test]
+    fn max_depth_reachable() {
+        let mut node = NodeId::new();
+        for _ in 0..MAX_DEPTH {
+            node = node.child([Some(Up), Some(Down), Some(Left), Some(Right)]);
+        }
+        assert_eq!(node.depth(), MAX_DEPTH);
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum tree depth")]
+    fn exceeding_max_depth_panics() {
+        let mut node = NodeId::new();
+        for _ in 0..=MAX_DEPTH {
+            node = node.child([Some(Up), Some(Down), Some(Left), Some(Right)]);
+        }
+    }
+
+    #[test]
+    fn four_level_display() {
+        let node = NodeId::new()
+            .child([Some(Down), Some(Right), Some(Down), Some(Left)])
+            .child([Some(Down), Some(Up), Some(Down), Some(Up)])
+            .child([Some(Up), Some(Up), Some(Down), Some(Down)])
+            .child([Some(Right), Some(Down), Some(Down), Some(Right)]);
+
+        assert_eq!(node.to_string(), "DDUR-RUUD-DDDD-LUDR");
+    }
+
+    #[test]
+    fn flags_default_to_zero() {
+        let node = NodeId::new();
+        assert_eq!(node.read_flags(), 0);
+        for i in 0..4 {
+            assert!(!node.read_flag(i));
+        }
+    }
+
+    #[test]
+    fn set_and_read_individual_flags() {
+        let mut node = NodeId::new();
+        node.set_flag(0, true);
+        assert!(node.read_flag(0));
+        assert!(!node.read_flag(1));
+
+        node.set_flag(2, true);
+        assert!(node.read_flag(0));
+        assert!(node.read_flag(2));
+        assert_eq!(node.read_flags(), 0b0101);
+
+        node.set_flag(0, false);
+        assert!(!node.read_flag(0));
+        assert!(node.read_flag(2));
+    }
+
+    #[test]
+    fn set_and_read_all_flags() {
+        let mut node = NodeId::new();
+        node.set_flags(0b1010);
+        assert!(!node.read_flag(0));
+        assert!(node.read_flag(1));
+        assert!(!node.read_flag(2));
+        assert!(node.read_flag(3));
+        assert_eq!(node.read_flags(), 0b1010);
+    }
+
+    #[test]
+    fn flags_independent_of_depth_and_moves() {
+        let mut node = NodeId::new().child([Some(Down), Some(Right), Some(Down), Some(Left)]);
+        node.set_flags(0b1111);
+
+        assert_eq!(node.depth(), 1);
+        assert_eq!(node.to_string(), "D-R-D-L");
+        assert_eq!(node.read_flags(), 0b1111);
+    }
+
+    #[test]
+    fn flags_not_inherited_by_child() {
+        let mut parent = NodeId::new();
+        parent.set_flag(0, true);
+        let child = parent.child([Some(Up), Some(Up), Some(Up), Some(Up)]);
+        // child copies parent data, so flags are inherited
+        assert!(child.read_flag(0));
+    }
+
+    #[test]
+    fn parse_root() {
+        assert_eq!("ROOT".parse::<NodeId>().unwrap(), NodeId::new());
+        assert_eq!(NodeId::from("ROOT"), NodeId::new());
+    }
+
+    #[test]
+    fn parse_round_trip() {
+        let original = "DDUR-RUUD-DDDD-LUDR";
+        let node: NodeId = original.parse().unwrap();
+        assert_eq!(node.to_string(), original);
+        assert_eq!(node.depth(), 4);
+    }
+
+    #[test]
+    fn parse_single_level() {
+        let node: NodeId = "D-R-U-L".parse().unwrap();
+        assert_eq!(node.depth(), 1);
+        assert_eq!(node.to_string(), "D-R-U-L");
+    }
+
+    #[test]
+    fn parse_invalid_char() {
+        assert!("DDXR-RUUD-DDDD-LUDR".parse::<NodeId>().is_err());
+    }
+
+    #[test]
+    fn parse_wrong_group_count() {
+        assert!("DDU-RUU-DDD".parse::<NodeId>().is_err());
+    }
+
+    #[test]
+    fn parse_unequal_lengths() {
+        assert!("DD-RUU-DDDD-LUDR".parse::<NodeId>().is_err());
     }
 }

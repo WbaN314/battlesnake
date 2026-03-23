@@ -23,12 +23,43 @@ impl Tree {
 
     pub fn simulate(&mut self) {
         // Get next node to simulate
-        // Simulate the node and get its children
-        // If status is AliveFor(1), add all children to the tree and queue
-        //  call child_result on the parent node to update the status
-        // If status is DeadIn(n), all children or grandchildren of this node die, so the parent node should simulate again
-        //  call child_result on the parent node to update the status
-        //  Add parent to front of the queue
-        // If status is AliveFor(2+), something went wrong
+        while let Some(node_id) = self.queue.pop_front() {
+            let node = self.nodes.get_mut(&node_id).unwrap();
+            let children = node.simulate();
+            let node_id = node.id();
+            let node_status = node.status();
+            match node_status {
+                NodeStatus::AliveFor(1) => {
+                    self.propagate_status(node_id, node_status);
+                    for child in children {
+                        self.queue.push_back(child.id());
+                        self.nodes.insert(child.id(), child);
+                    }
+                }
+                NodeStatus::DeadIn(_) => {
+                    self.propagate_status(node_id, node_status);
+                    if let Some(parent_id) = node_id.parent() {
+                        self.queue.push_front(parent_id);
+                    }
+                }
+                _ => {
+                    panic!("Invalid node status");
+                }
+            }
+        }
+    }
+
+    fn propagate_status(&mut self, node_id: NodeId, node_status: NodeStatus) {
+        let mut node_id = node_id;
+        let mut node_status = node_status;
+        while let Some(parent_id) = node_id.parent() {
+            let parent = self.nodes.get_mut(&parent_id).unwrap();
+            if parent.update_from_child(node_id, node_status) {
+                node_id = parent_id;
+                node_status = parent.status();
+            } else {
+                break;
+            }
+        }
     }
 }

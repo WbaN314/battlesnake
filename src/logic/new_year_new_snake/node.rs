@@ -1,5 +1,12 @@
+use core::panic;
+
 use crate::logic::{
-    game::{field::BasicField, game_state::GameState},
+    game::{
+        direction::Direction,
+        field::BasicField,
+        game_state::GameState,
+        moves::{MoveMatrix, MoveMatrixIter, MoveVector, Moves},
+    },
     new_year_new_snake::node_id::NodeId,
 };
 
@@ -13,6 +20,10 @@ pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,
     status: NodeStatus,
+    directions: [bool; 4],
+    children: Vec<NodeId>,
+    children_updated: usize,
+    children_direction: Option<Direction>,
 }
 
 impl Node {
@@ -26,6 +37,10 @@ impl Node {
             id,
             gamestate,
             status,
+            directions: [false; 4],
+            children: Vec::new(),
+            children_updated: 0,
+            children_direction: None,
         }
     }
 
@@ -42,21 +57,77 @@ impl Node {
     }
 
     pub fn simulate(&mut self) -> Vec<Node> {
-        // Simulate the node by calculating children, for one self direction return all valid other snake move based children
-        // Only return the children for one direction where all children are alive
-        // Keep track of which directions have been simulated
-        // If called again, simulate the next valid direction, until all directions have been simulated
-        // If no directions are valid, the node is a leaf and should be marked as DeadIn(1)
-        // Update the status of the node based on child statuses
-        todo!()
+        while let Some(move_matrix) = self.next_moveset() {
+            let mut children = Vec::new();
+            for moves in move_matrix {
+                let mut child_gamestate = self.gamestate.clone();
+                child_gamestate.next_state(moves);
+                if child_gamestate.is_alive(0) {
+                    let child_id = self.id.child(moves);
+                    self.children.push(child_id);
+                    let node = Node::new(child_id, child_gamestate);
+                    children.push(node);
+                } else {
+                    self.children_direction = None;
+                    self.children = Vec::new();
+                    self.status = NodeStatus::DeadIn(1);
+                    break;
+                }
+            }
+            self.status = NodeStatus::AliveFor(1);
+            return children;
+        }
+        Vec::new()
     }
 
-    pub fn update_from_child(&mut self, child: &Node) -> bool {
-        // Update the status of the node based on the status of a child
-        // The node needs to keep track of all of its children and their statuses to do this correctly
-        // If all children for one self direction are AliveFor(n), then this node is AliveFor(n+1)
-        // If any child is DeadIn(0), then this node is DeadIn(1)
-        // If any child is DeadIn(n) and no child is DeadIn(0), then this node is DeadIn(n+1)
-        // Return true if the status of the node has changed, false otherwise
-        todo!()
+    pub fn update_from_child(&mut self, child_id: NodeId, child_status: NodeStatus) -> bool {
+        let last_decision = child_id.last_decision();
+        if last_decision != self.children_direction {
+            panic!(
+                "Invalid child ID: expected last decision {:?}, got {:?}",
+                self.children_direction, last_decision
+            );
+        }
+        match (self.status, child_status) {
+            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => {
+                if n + 1 == m {
+                    self.children_updated += 1;
+                    if self.children_updated == self.children.len() {
+                        self.status = NodeStatus::AliveFor(n + 1);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    panic!(
+                        "Invalid status update: parent is AliveFor({}), child is AliveFor({})",
+                        n, m
+                    );
+                }
+            }
+            (NodeStatus::AliveFor(_), NodeStatus::DeadIn(m)) => {
+                self.status = NodeStatus::DeadIn(m + 1);
+                return true;
+            }
+            _ => return false,
+        }
+    }
+
+    fn next_moveset(&mut self) -> Option<MoveMatrix> {
+        let mut move_matrix = self.gamestate.valid_moves();
+        let directions = move_matrix.get(0).unwrap();
+        for i in 0..4 {
+            if !self.directions[i] {
+                self.directions[i] = true;
+                if directions[i] {
+                    let direction = Direction::try_from(i).unwrap();
+                    self.children_direction = Some(direction);
+                    let new_move = MoveVector::from(direction);
+                    move_matrix.set(0, new_move);
+                    return Some(move_matrix);
+                }
+            }
+        }
+        None
+    }
 }
