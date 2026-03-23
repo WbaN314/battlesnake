@@ -1,4 +1,4 @@
-use crate::logic::game::coord::Coord;
+use crate::logic::game::{coord::Coord, moves::MoveVector};
 use std::fmt::Display;
 
 pub static DIRECTIONS: [Direction; 4] = [
@@ -103,6 +103,31 @@ impl TryFrom<i32> for Direction {
             1 => Ok(Direction::Down),
             2 => Ok(Direction::Left),
             3 => Ok(Direction::Right),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<MoveVector> for Direction {
+    type Error = ();
+
+    fn try_from(value: MoveVector) -> Result<Self, Self::Error> {
+        match *value {
+            Some(arr) => arr.try_into(),
+            None => Err(()),
+        }
+    }
+}
+
+impl TryFrom<[bool; 4]> for Direction {
+    type Error = ();
+
+    fn try_from(value: [bool; 4]) -> Result<Self, Self::Error> {
+        match value {
+            [true, false, false, false] => Ok(Direction::Up),
+            [false, true, false, false] => Ok(Direction::Down),
+            [false, false, true, false] => Ok(Direction::Left),
+            [false, false, false, true] => Ok(Direction::Right),
             _ => Err(()),
         }
     }

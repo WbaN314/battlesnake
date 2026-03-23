@@ -1,8 +1,9 @@
 use core::panic;
+use std::fmt::Display;
 
 use crate::logic::{
     game::{
-        direction::Direction,
+        direction::{self, Direction},
         field::BasicField,
         game_state::GameState,
         moves::{MoveMatrix, MoveMatrixIter, MoveVector, Moves},
@@ -10,20 +11,60 @@ use crate::logic::{
     new_year_new_snake::node_id::NodeId,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum NodeStatus {
     AliveFor(u8), // Number of steps where we have checked with guaranteed survival
     DeadIn(u8),   // Number of steps until inevitable death (if opponents play optimally)
+}
+
+impl NodeStatus {
+    pub fn improve(self) -> NodeStatus {
+        match self {
+            NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
+            NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
+        }
+    }
+}
+
+impl Eq for NodeStatus {}
+
+impl PartialEq for NodeStatus {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(std::cmp::Ordering::Equal)
+    }
+}
+
+impl Ord for NodeStatus {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl PartialOrd for NodeStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => n.partial_cmp(m),
+            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => m.partial_cmp(n),
+            (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
+            (NodeStatus::DeadIn(_), NodeStatus::AliveFor(_)) => Some(std::cmp::Ordering::Less),
+        }
+    }
+}
+
+impl Display for NodeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
+            NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
+        }
+    }
 }
 
 pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,
     status: NodeStatus,
-    directions: [bool; 4],
-    children: Vec<NodeId>,
-    children_updated: usize,
-    children_direction: Option<Direction>,
+    children: [Option<(NodeStatus, Vec<(NodeId, NodeStatus)>)>; 4],
 }
 
 impl Node {
@@ -37,10 +78,7 @@ impl Node {
             id,
             gamestate,
             status,
-            directions: [false; 4],
-            children: Vec::new(),
-            children_updated: 0,
-            children_direction: None,
+            children: [None, None, None, None],
         }
     }
 
@@ -56,22 +94,34 @@ impl Node {
         &self.gamestate
     }
 
+    /// Returns None if all directions have been simulated
     pub fn simulate(&mut self) -> Vec<Node> {
-        while let Some(move_matrix) = self.next_moveset() {
+        'outer: while let Some(move_matrix) = self.next_moveset() {
             let mut children = Vec::new();
+            let direction: Direction = move_matrix.get(0).try_into().unwrap();
             for moves in move_matrix {
                 let mut child_gamestate = self.gamestate.clone();
                 child_gamestate.next_state(moves);
-                if child_gamestate.is_alive(0) {
-                    let child_id = self.id.child(moves);
-                    self.children.push(child_id);
-                    let node = Node::new(child_id, child_gamestate);
-                    children.push(node);
-                } else {
-                    self.children_direction = None;
-                    self.children = Vec::new();
-                    self.status = NodeStatus::DeadIn(1);
-                    break;
+                let child = Node::new(self.id.child(moves), child_gamestate);
+                let child_id = child.id();
+                let child_status = child.status();
+                children.push(child);
+                self.children[direction as usize]
+                    .as_mut()
+                    .map(|(_, child_vec)| child_vec.push((child_id, child_status)));
+                match child_status {
+                    NodeStatus::AliveFor(0) => {}
+                    NodeStatus::DeadIn(0) => {
+                        self.children[direction as usize]
+                            .as_mut()
+                            .map(|(direction_status, _)| {
+                                *direction_status = NodeStatus::DeadIn(0);
+                            });
+                        continue 'outer;
+                    }
+                    _ => {
+                        panic!("Invalid child status: {}", child_status);
+                    }
                 }
             }
             self.status = NodeStatus::AliveFor(1);
@@ -81,35 +131,52 @@ impl Node {
     }
 
     pub fn update_from_child(&mut self, child_id: NodeId, child_status: NodeStatus) -> bool {
-        let last_decision = child_id.last_decision();
-        if last_decision != self.children_direction {
-            panic!(
-                "Invalid child ID: expected last decision {:?}, got {:?}",
-                self.children_direction, last_decision
-            );
-        }
-        match (self.status, child_status) {
-            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => {
-                if n + 1 == m {
-                    self.children_updated += 1;
-                    if self.children_updated == self.children.len() {
-                        self.status = NodeStatus::AliveFor(n + 1);
-                        return true;
-                    } else {
-                        return false;
-                    }
+        let last_move = child_id.last_move_for(0).unwrap();
+        let best_direction_status = self
+            .children
+            .iter()
+            .filter_map(|x| {
+                if let Some((status, _)) = x {
+                    Some(*status)
                 } else {
-                    panic!(
-                        "Invalid status update: parent is AliveFor({}), child is AliveFor({})",
-                        n, m
-                    );
+                    None
                 }
-            }
-            (NodeStatus::AliveFor(_), NodeStatus::DeadIn(m)) => {
-                self.status = NodeStatus::DeadIn(m + 1);
-                return true;
-            }
-            _ => return false,
+            })
+            .max()
+            .unwrap_or(NodeStatus::DeadIn(0));
+        self.children[last_move as usize]
+            .as_mut()
+            .map(|(direction_status, child_vec)| {
+                let mut worst_child_status = child_status;
+                for (id, status) in child_vec.iter_mut() {
+                    if *id == child_id {
+                        *status = child_status;
+                    }
+                    if *status < worst_child_status {
+                        worst_child_status = *status;
+                    }
+                }
+                if worst_child_status != *direction_status {
+                    *direction_status = worst_child_status;
+                }
+            });
+        let best_direction_status_again = self
+            .children
+            .iter()
+            .filter_map(|x| {
+                if let Some((status, _)) = x {
+                    Some(*status)
+                } else {
+                    None
+                }
+            })
+            .max()
+            .unwrap_or(NodeStatus::DeadIn(0));
+        if best_direction_status_again != best_direction_status {
+            self.status = best_direction_status_again.improve();
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -117,17 +184,80 @@ impl Node {
         let mut move_matrix = self.gamestate.valid_moves();
         let directions = move_matrix.get(0).unwrap();
         for i in 0..4 {
-            if !self.directions[i] {
-                self.directions[i] = true;
+            if self.children[i].is_none() {
                 if directions[i] {
                     let direction = Direction::try_from(i).unwrap();
-                    self.children_direction = Some(direction);
                     let new_move = MoveVector::from(direction);
                     move_matrix.set(0, new_move);
+                    self.children[i] = Some((NodeStatus::AliveFor(0), Vec::new()));
                     return Some(move_matrix);
+                } else {
+                    self.children[i] = Some((NodeStatus::DeadIn(0), Vec::new()));
                 }
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::read_game_state;
+
+    use super::*;
+
+    #[test]
+    fn node_status_ordering() {
+        // AliveFor: higher is better
+        assert!(NodeStatus::AliveFor(5) > NodeStatus::AliveFor(3));
+        // DeadIn: smaller n is better (reversed)
+        assert!(NodeStatus::DeadIn(1) > NodeStatus::DeadIn(5));
+        // Alive always beats Dead
+        assert!(NodeStatus::AliveFor(0) > NodeStatus::DeadIn(100));
+        // Cross-variant not equal
+        assert_ne!(NodeStatus::AliveFor(3), NodeStatus::DeadIn(3));
+        // max/min pick correctly
+        let statuses = vec![
+            NodeStatus::DeadIn(5),
+            NodeStatus::AliveFor(2),
+            NodeStatus::DeadIn(0),
+            NodeStatus::AliveFor(0),
+        ];
+        assert_eq!(statuses.iter().max().unwrap(), &NodeStatus::AliveFor(2));
+        assert_eq!(statuses.iter().min().unwrap(), &NodeStatus::DeadIn(5));
+    }
+
+    fn make_root_node(json_path: &str) -> Node {
+        let gamestate = read_game_state(json_path);
+        let state = GameState::<BasicField>::from(&gamestate);
+        Node::new(NodeId::new(), state)
+    }
+
+    #[test]
+    fn simulate_exhausts_all_directions() {
+        let mut node = make_root_node("requests/example_move_request.json");
+        loop {
+            let children = node.simulate();
+            if children.is_empty() {
+                break;
+            }
+        }
+        // After exhaustion, all children slots should be filled
+        assert!(
+            node.children.iter().all(|c| c.is_some()),
+            "all children slots should be populated after exhaustion"
+        );
+        // All direction statuses should be AliveFor(0) or DeadIn(0)
+        for (i, slot) in node.children.iter().enumerate() {
+            let (status, _) = slot.as_ref().unwrap();
+            assert!(
+                matches!(status, NodeStatus::AliveFor(0) | NodeStatus::DeadIn(0)),
+                "direction {} has unexpected status: {}",
+                i,
+                status
+            );
+        }
+        // Should return empty now
+        assert!(node.simulate().is_empty());
     }
 }

@@ -93,7 +93,7 @@ impl NodeId {
         Some(NodeId { data: new_data })
     }
 
-    pub fn last_decision(&self) -> Option<Direction> {
+    pub fn last_move_for(&self, snake: u8) -> Option<Direction> {
         let depth = self.depth();
         if depth == 0 {
             return None;
@@ -225,7 +225,7 @@ mod tests {
         let root = NodeId::new();
         assert_eq!(root.depth(), 0);
         assert_eq!(root.parent(), None);
-        assert_eq!(root.last_decision(), None);
+        assert_eq!(root.last_move_for(0), None);
         assert_eq!(root.to_string(), "ROOT");
     }
 
@@ -235,7 +235,7 @@ mod tests {
         let child = root.child([Some(Down), Some(Right), Some(Up), Some(Left)]);
 
         assert_eq!(child.depth(), 1);
-        assert_eq!(child.last_decision(), Some(Down)); // snake 0
+        assert_eq!(child.last_move_for(0), Some(Down)); // snake 0
         assert_eq!(child.to_string(), "D-R-U-L");
     }
 

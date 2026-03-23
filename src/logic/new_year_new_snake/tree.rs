@@ -28,18 +28,18 @@ impl Tree {
             let children = node.simulate();
             let node_id = node.id();
             let node_status = node.status();
+            self.propagate_status(node_id, node_status);
             match node_status {
                 NodeStatus::AliveFor(1) => {
-                    self.propagate_status(node_id, node_status);
                     for child in children {
                         self.queue.push_back(child.id());
                         self.nodes.insert(child.id(), child);
                     }
                 }
                 NodeStatus::DeadIn(_) => {
-                    self.propagate_status(node_id, node_status);
                     if let Some(parent_id) = node_id.parent() {
                         self.queue.push_front(parent_id);
+                        // TODO: Evict siblings of the node (and their children) from the queue
                     }
                 }
                 _ => {
