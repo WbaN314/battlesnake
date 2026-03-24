@@ -205,11 +205,11 @@ impl Node {
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} {}", self.id, self.status)?;
+        writeln!(f, "\n{} {}", self.id, self.status)?;
         for (i, slot) in self.children.iter().enumerate() {
             let dir = Direction::try_from(i).unwrap();
             match slot {
-                None => writeln!(f, "  {}: unexplored", dir)?,
+                None => writeln!(f, "  {} unexplored", dir)?,
                 Some((status, children)) => {
                     writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
                     for (child_id, child_status) in children {
@@ -218,7 +218,7 @@ impl Display for Node {
                 }
             }
         }
-        writeln!(f, "{}", self.gamestate)?;
+        writeln!(f, "\n{}", self.gamestate)?;
         Ok(())
     }
 }
@@ -283,9 +283,8 @@ mod tests {
 
     #[test]
     fn display_half_simulated_node() {
-        let mut node = make_root_node("requests/example_move_request_3.json");
+        let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate();
         node.simulate();
         println!("{}", node);
     }

@@ -19,6 +19,8 @@ const LEVEL_MASK: u128 = (1u128 << BITS_PER_LEVEL) - 1;
 const FLAGS_SHIFT: u32 = 128 - FLAGS_BITS;
 const FLAGS_MASK: u128 = ((1u128 << FLAGS_BITS) - 1) << FLAGS_SHIFT;
 
+pub type DirectionVector = [Direction; SNAKES as usize];
+
 /// Compact node identifier for the game tree, packed into a single `u128`.
 ///
 /// Layout (LSB first):
@@ -104,7 +106,7 @@ impl NodeId {
         Some(decode(self.data >> shift))
     }
 
-    pub fn last_directions(&self) -> Option<[Direction; SNAKES as usize]> {
+    pub fn last_directions(&self) -> Option<DirectionVector> {
         let depth = self.depth();
         if depth == 0 {
             return None;
