@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774379081280,
+  "lastUpdate": 1774379390627,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -719,6 +719,96 @@ window.BENCHMARK_DATA = {
             "name": "logic::new_year_new_snake::node_id::benchmarks::bench_node_id_tree_walk",
             "value": 33.36,
             "range": "± 0.29",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "8fbb1fb5ad8e90cde780d35f3fedcbf19488b4fa",
+          "message": "Some more tracing",
+          "timestamp": "2026-03-24T20:07:54+01:00",
+          "tree_id": "339ee5ea0888e9c2eb30f82bdce7f4fb4fd4e60a",
+          "url": "https://github.com/WbaN314/battlesnake/commit/8fbb1fb5ad8e90cde780d35f3fedcbf19488b4fa"
+        },
+        "date": 1774379389571,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "logic::game::board::benchmarks::bench_remove_snake",
+            "value": 399.77,
+            "range": "± 2.55",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::board::benchmarks::bench_set_field_get_field_via_cell",
+            "value": 10.26,
+            "range": "± 0.07",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_basic_field",
+            "value": 23.62,
+            "range": "± 0.12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_bit_field",
+            "value": 6.08,
+            "range": "± 0.13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_local_environment_hash",
+            "value": 44.98,
+            "range": "± 0.64",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_move_heads",
+            "value": 171.78,
+            "range": "± 3.41",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_move_tails",
+            "value": 126.81,
+            "range": "± 0.48",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_next_state",
+            "value": 198.17,
+            "range": "± 2.51",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_generate_and_iterate",
+            "value": 425.21,
+            "range": "± 12.18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_pregenerate_and_iterate",
+            "value": 235.71,
+            "range": "± 3.61",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::new_year_new_snake::node_id::benchmarks::bench_node_id_tree_walk",
+            "value": 33.41,
+            "range": "± 0.34",
             "unit": "ns/iter"
           }
         ]
