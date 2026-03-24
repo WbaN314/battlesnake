@@ -5,7 +5,7 @@ use crate::logic::game::{direction::Direction, moves::Moves, snakes::SNAKES};
 
 /// Bits reserved for storing the depth (max 15, fits in 4 bits).
 const DEPTH_BITS: u32 = 4;
-/// Bits per snake move (2 bits: U=0, D=1, L=2, R=3). `None` maps to `Up`.
+/// Bits per snake direction (2 bits: U=0, D=1, L=2, R=3). `None` maps to `Up`.
 const BITS_PER_SNAKE: u32 = 2;
 /// Bits consumed per tree level (4 snakes × 2 bits).
 const BITS_PER_LEVEL: u32 = BITS_PER_SNAKE * SNAKES as u32; // 8
@@ -25,7 +25,7 @@ const FLAGS_MASK: u128 = ((1u128 << FLAGS_BITS) - 1) << FLAGS_SHIFT;
 /// ```text
 /// [depth: 4 bits][level 0: 8 bits]...[level 14: 8 bits][flags: 4 bits (MSB)]
 /// ```
-/// Each level encodes 4 snake moves (2 bits each):
+/// Each level encodes 4 snake directions (2 bits each):
 /// ```text
 /// [snake 0: 2 bits][snake 1: 2 bits][snake 2: 2 bits][snake 3: 2 bits]
 /// ```
@@ -93,7 +93,7 @@ impl NodeId {
         Some(NodeId { data: new_data })
     }
 
-    pub fn last_move_for(&self, snake: u8) -> Option<Direction> {
+    pub fn last_direction_for(&self, snake: u8) -> Option<Direction> {
         let depth = self.depth();
         if depth == 0 {
             return None;
@@ -103,11 +103,28 @@ impl NodeId {
         Some(decode(self.data >> shift))
     }
 
-    /// Returns the move of a specific snake at a specific level.
-    fn move_at(&self, level: u8, snake: u8) -> Direction {
-        debug_assert!(level < self.depth());
+    pub fn last_directions(&self) -> Option<[Direction; SNAKES as usize]> {
+        let depth = self.depth();
+        if depth == 0 {
+            return None;
+        }
+
+        let mut directions = [Direction::Up; SNAKES];
+        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
+        let level_data = (self.data >> shift) & LEVEL_MASK;
+        for snake in 0..SNAKES as u8 {
+            directions[snake as usize] = decode(level_data >> (snake as u32 * BITS_PER_SNAKE));
+        }
+        Some(directions)
+    }
+
+    /// Returns the direction of a specific snake at a specific level.
+    fn direction_at(&self, level: u8, snake: u8) -> Option<Direction> {
+        if level >= self.depth() {
+            return None;
+        }
         let shift = DEPTH_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
-        decode(self.data >> shift)
+        Some(decode(self.data >> shift))
     }
 
     /// Returns the value of a flag bit (0-indexed from MSB, max index: FLAGS_BITS-1).
@@ -143,7 +160,7 @@ impl NodeId {
 }
 
 /// Displays the node path grouped by snake:
-/// `snake0moves-snake1moves-snake2moves-snake3moves`
+/// `snake0directions-snake1directions-snake2directions-snake3directions`
 ///
 /// e.g. `DDUR-RUUD-DDDD-LUDR` (depth 4, all snakes alive)
 ///
@@ -160,7 +177,7 @@ impl Display for NodeId {
                 write!(f, "-")?;
             }
             for level in 0..depth {
-                write!(f, "{}", self.move_at(level, snake))?;
+                write!(f, "{}", self.direction_at(level, snake).unwrap())?;
             }
         }
         Ok(())
@@ -225,7 +242,7 @@ mod tests {
         let root = NodeId::new();
         assert_eq!(root.depth(), 0);
         assert_eq!(root.parent(), None);
-        assert_eq!(root.last_move_for(0), None);
+        assert_eq!(root.last_direction_for(0), None);
         assert_eq!(root.to_string(), "ROOT");
     }
 
@@ -235,7 +252,7 @@ mod tests {
         let child = root.child([Some(Down), Some(Right), Some(Up), Some(Left)]);
 
         assert_eq!(child.depth(), 1);
-        assert_eq!(child.last_move_for(0), Some(Down)); // snake 0
+        assert_eq!(child.last_direction_for(0), Some(Down)); // snake 0
         assert_eq!(child.to_string(), "D-R-U-L");
     }
 
@@ -260,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn none_moves_default_to_up() {
+    fn none_directions_default_to_up() {
         let root = NodeId::new();
         let child = root.child([Some(Down), None, Some(Up), None]);
 
@@ -387,5 +404,18 @@ mod tests {
     #[test]
     fn parse_unequal_lengths() {
         assert!("DD-RUU-DDDD-LUDR".parse::<NodeId>().is_err());
+    }
+
+    #[test]
+    fn last_directions_root_is_none() {
+        assert_eq!(NodeId::new().last_directions(), None);
+    }
+
+    #[test]
+    fn last_directions_returns_final_level() {
+        let node = NodeId::new()
+            .child([Some(Down), Some(Right), Some(Down), Some(Left)])
+            .child([Some(Up), Some(Up), Some(Left), Some(Right)]);
+        assert_eq!(node.last_directions(), Some([Up, Up, Left, Right]));
     }
 }

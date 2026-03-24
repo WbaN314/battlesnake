@@ -134,7 +134,7 @@ impl Node {
     }
 
     pub fn update_from_child(&mut self, child_id: NodeId, child_status: NodeStatus) -> bool {
-        let last_move = child_id.last_move_for(0).unwrap();
+        let last_direction = child_id.last_direction_for(0).unwrap();
         let best_direction_status = self
             .children
             .iter()
@@ -147,7 +147,7 @@ impl Node {
             })
             .max()
             .unwrap_or(NodeStatus::DeadIn(0));
-        self.children[last_move as usize]
+        self.children[last_direction as usize]
             .as_mut()
             .map(|(direction_status, child_vec)| {
                 let mut worst_child_status = child_status;
