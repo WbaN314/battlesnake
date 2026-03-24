@@ -419,3 +419,38 @@ mod tests {
         assert_eq!(node.last_directions(), Some([Up, Up, Left, Right]));
     }
 }
+
+#[cfg(test)]
+mod benchmarks {
+    extern crate test;
+    use super::*;
+    use crate::logic::game::direction::Direction::*;
+    use std::hint::black_box;
+
+    #[bench]
+    fn bench_node_id_tree_walk(b: &mut test::Bencher) {
+        let moves_sequence = [
+            [Some(Down), Some(Right), Some(Down), Some(Left)],
+            [Some(Up), Some(Up), Some(Left), Some(Right)],
+            [Some(Down), Some(Down), Some(Down), Some(Up)],
+            [Some(Right), Some(Left), Some(Up), Some(Down)],
+            [Some(Up), Some(Down), Some(Right), Some(Left)],
+        ];
+        b.iter(|| {
+            let mut node = NodeId::new();
+            for moves in &moves_sequence {
+                node = black_box(node).child(black_box(*moves));
+            }
+            let _ = black_box(node.depth());
+            let _ = black_box(node.last_direction_for(0));
+            let _ = black_box(node.last_directions());
+            let _ = black_box(node.direction_at(2, 1));
+            let _ = black_box(node.read_flags());
+            // Walk back up
+            while let Some(parent) = black_box(node).parent() {
+                node = parent;
+            }
+            black_box(node)
+        });
+    }
+}
