@@ -65,6 +65,7 @@ impl Tree {
                 Some(children) if children.is_empty() => {
                     debug!("{} has spawned no children", node_id);
                     // No children for this direction, reque the node itself to simulate the next direction
+                    trace!("Adding {} to the front of queue", node_id);
                     self.queue.push_front(node_id);
                     // Status of node might have changed after simulation, so we need to propagate it up the tree
                     self.propagate_status(node_id, node_status);
@@ -73,7 +74,7 @@ impl Tree {
                     debug!("{} has spawned {} children", node_id, children.len());
                     for child in children {
                         let child_id = child.id();
-                        trace!("Adding child {} to the tree", child_id);
+                        trace!("Adding child {} to the back of queue", child_id);
                         self.nodes.insert(child_id, child);
                         self.queue.push_back(child_id);
                     }
@@ -85,6 +86,7 @@ impl Tree {
                     // All directions exhausted. Go one level up to simulate the next direction of the parent
                     debug!("{} has exhausted all directions", node_id);
                     if let Some(parent_id) = node_id.parent() {
+                        trace!("Adding parent {} to the front of queue", parent_id);
                         self.queue.push_front(parent_id);
                     }
                 }
@@ -182,10 +184,7 @@ mod tests {
             "{}",
             tree.nodes.get(&"ULUU-UUUU-UUUU".parse().unwrap()).unwrap()
         );
-        println!(
-            "{}",
-            tree.nodes.get(&"UUUU-UUUU".parse().unwrap()).unwrap()
-        );
+        println!("{}", tree.nodes.get(&"UUUU-UUUU".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"UUUU".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
     }
