@@ -162,12 +162,12 @@ impl NodeId {
     }
 }
 
-/// Displays the node path grouped by snake:
-/// `snake0directions-snake1directions-snake2directions-snake3directions`
+/// Displays the node path grouped by depth level:
+/// `level0moves-level1moves-level2moves-...`
 ///
-/// e.g. `DDUR-RUUD-DDDD-LUDR` (depth 4, all snakes alive)
+/// e.g. `DRDL-DUDU-UUDD-RDDR` (depth 4, 4 snakes per level)
 ///
-/// Dead/absent snakes default to `U` (Up) per level.
+/// Each group contains one direction per snake in order.
 impl Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let depth = self.depth();
@@ -175,11 +175,11 @@ impl Display for NodeId {
             return write!(f, "ROOT");
         }
 
-        for snake in 0..SNAKES as u8 {
-            if snake > 0 {
+        for level in 0..depth {
+            if level > 0 {
                 write!(f, "-")?;
             }
-            for level in 0..depth {
+            for snake in 0..SNAKES as u8 {
                 write!(f, "{}", self.direction_at(level, snake).unwrap())?;
             }
         }
@@ -190,34 +190,29 @@ impl Display for NodeId {
 impl FromStr for NodeId {
     type Err = String;
 
-    /// Parses a string like `"DDUR-RUUD-DDDD-LUDR"` or `"ROOT"` into a `NodeId`.
+    /// Parses a string like `"DRDL-DUDU-UUDD-RDDR"` or `"ROOT"` into a `NodeId`.
+    /// Each group is one depth level containing one direction per snake.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "ROOT" {
             return Ok(NodeId::new());
         }
 
         let groups: Vec<&str> = s.split('-').collect();
-        if groups.len() != SNAKES {
-            return Err(format!(
-                "Expected {} snake groups, got {}",
-                SNAKES,
-                groups.len()
-            ));
-        }
-
-        let depth = groups[0].len();
+        let depth = groups.len();
         if depth == 0 || depth > MAX_DEPTH as usize {
             return Err(format!("Invalid depth: {depth}"));
         }
-        if !groups.iter().all(|g| g.len() == depth) {
-            return Err("All snake groups must have equal length".into());
+        if !groups.iter().all(|g| g.len() == SNAKES) {
+            return Err(format!(
+                "Each level group must have {} characters (one per snake)",
+                SNAKES
+            ));
         }
 
         let mut node = NodeId::new();
-        for level in 0..depth {
+        for group in &groups {
             let mut moves: Moves = [None; SNAKES];
-            for (snake, group) in groups.iter().enumerate() {
-                let ch = group.as_bytes()[level];
+            for (snake, ch) in group.bytes().enumerate() {
                 let dir = Direction::try_from(ch as char)
                     .map_err(|_| format!("Invalid direction char: '{}'", ch as char))?;
                 moves[snake] = Some(dir);
@@ -262,7 +257,7 @@ mod tests {
         assert_eq!(child.last_direction_for(1), Some(Right));
         assert_eq!(child.last_direction_for(2), Some(Up));
         assert_eq!(child.last_direction_for(3), Some(Left));
-        assert_eq!(child.to_string(), "D-R-U-L");
+        assert_eq!(child.to_string(), "DRUL");
     }
 
     #[test]
@@ -272,7 +267,7 @@ mod tests {
         let lvl2 = lvl1.child([Some(Up), Some(Up), Some(Down), Some(Right)]);
 
         assert_eq!(lvl2.depth(), 2);
-        assert_eq!(lvl2.to_string(), "DU-RU-DD-LR");
+        assert_eq!(lvl2.to_string(), "DRDL-UUDR");
     }
 
     #[test]
@@ -291,7 +286,7 @@ mod tests {
         let child = root.child([Some(Down), None, Some(Up), None]);
 
         // None maps to Up
-        assert_eq!(child.to_string(), "D-U-U-U");
+        assert_eq!(child.to_string(), "DUUU");
     }
 
     #[test]
@@ -320,7 +315,7 @@ mod tests {
             .child([Some(Up), Some(Up), Some(Down), Some(Down)])
             .child([Some(Right), Some(Down), Some(Down), Some(Right)]);
 
-        assert_eq!(node.to_string(), "DDUR-RUUD-DDDD-LUDR");
+        assert_eq!(node.to_string(), "DRDL-DUDU-UUDD-RDDR");
     }
 
     #[test]
@@ -366,7 +361,7 @@ mod tests {
         node.set_flags(0b1111);
 
         assert_eq!(node.depth(), 1);
-        assert_eq!(node.to_string(), "D-R-D-L");
+        assert_eq!(node.to_string(), "DRDL");
         assert_eq!(node.read_flags(), 0b1111);
     }
 
@@ -387,7 +382,7 @@ mod tests {
 
     #[test]
     fn parse_round_trip() {
-        let original = "DDUR-RUUD-DDDD-LUDR";
+        let original = "DRDL-DUDU-UUDD-RDDR";
         let node: NodeId = original.parse().unwrap();
         assert_eq!(node.to_string(), original);
         assert_eq!(node.depth(), 4);
@@ -395,24 +390,24 @@ mod tests {
 
     #[test]
     fn parse_single_level() {
-        let node: NodeId = "D-R-U-L".parse().unwrap();
+        let node: NodeId = "DRUL".parse().unwrap();
         assert_eq!(node.depth(), 1);
-        assert_eq!(node.to_string(), "D-R-U-L");
+        assert_eq!(node.to_string(), "DRUL");
     }
 
     #[test]
     fn parse_invalid_char() {
-        assert!("DDXR-RUUD-DDDD-LUDR".parse::<NodeId>().is_err());
+        assert!("DXDL-DUDU-UUDD-RDDR".parse::<NodeId>().is_err());
     }
 
     #[test]
-    fn parse_wrong_group_count() {
-        assert!("DDU-RUU-DDD".parse::<NodeId>().is_err());
+    fn parse_wrong_group_length() {
+        assert!("DRD-DUDU".parse::<NodeId>().is_err());
     }
 
     #[test]
-    fn parse_unequal_lengths() {
-        assert!("DD-RUU-DDDD-LUDR".parse::<NodeId>().is_err());
+    fn parse_empty_group() {
+        assert!("".parse::<NodeId>().is_err());
     }
 
     #[test]

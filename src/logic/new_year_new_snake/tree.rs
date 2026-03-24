@@ -180,13 +180,13 @@ mod tests {
         tree.simulate();
         println!(
             "{}",
-            tree.nodes.get(&"UUU-LUU-UUU-UUU".parse().unwrap()).unwrap()
+            tree.nodes.get(&"ULUU-UUUU-UUUU".parse().unwrap()).unwrap()
         );
         println!(
             "{}",
-            tree.nodes.get(&"UU-UU-UU-UU".parse().unwrap()).unwrap()
+            tree.nodes.get(&"UUUU-UUUU".parse().unwrap()).unwrap()
         );
-        println!("{}", tree.nodes.get(&"U-U-U-U".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"UUUU".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
     }
 
