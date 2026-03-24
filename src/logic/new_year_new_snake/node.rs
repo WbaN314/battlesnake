@@ -18,7 +18,7 @@ pub enum NodeStatus {
 }
 
 impl NodeStatus {
-    pub fn improve(self) -> NodeStatus {
+    pub fn increment(self) -> NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
             NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
@@ -117,7 +117,13 @@ impl Node {
                             .map(|(direction_status, _)| {
                                 *direction_status = NodeStatus::DeadIn(0);
                             });
-                        self.status = self.status.max(NodeStatus::DeadIn(1));
+                        // If all explored directions are dead, mark node as dead with best+1
+                        if let Some(best) = self.children.iter().try_fold(0, |best, c| match c {
+                            &Some((NodeStatus::DeadIn(x), _)) => Some(best.max(x)),
+                            _ => None,
+                        }) {
+                            self.status = NodeStatus::DeadIn(best + 1);
+                        }
                         // Do not return children as this direction is already dead
                         return Some(Vec::new());
                     }
@@ -176,7 +182,7 @@ impl Node {
             .max()
             .unwrap_or(NodeStatus::DeadIn(0));
         if best_direction_status_again != best_direction_status {
-            self.status = best_direction_status_again.improve();
+            self.status = best_direction_status_again.increment();
             return true;
         } else {
             return false;

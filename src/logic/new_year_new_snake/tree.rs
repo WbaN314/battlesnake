@@ -49,9 +49,11 @@ impl Tree {
         // Get next node to simulate
         while let Some(node_id) = self.queue.pop_front() {
             if deadline.is_some_and(|d| Instant::now() >= d) {
+                debug!("Reached time limit, stopping simulation");
                 break;
             }
             if node_id.depth() >= self.max_depth {
+                debug!("Reached max depth for {}, skipping node", node_id);
                 continue;
             }
             debug!("Simulating {}", node_id);
@@ -171,11 +173,15 @@ mod tests {
 
     #[test]
     fn correct_tree_state_propagation() {
-        let gamestate = read_game_state("requests/failure_2.json");
+        let gamestate = read_game_state("requests/failure_3.json");
         let root = GameState::<BasicField>::from(&gamestate);
         println!("{}", root);
-        let mut tree = Tree::new(root).max_depth(3);
+        let mut tree = Tree::new(root).max_depth(4);
         tree.simulate();
+        println!(
+            "{}",
+            tree.nodes.get(&"UUU-LUU-UUU-UUU".parse().unwrap()).unwrap()
+        )
     }
 
     #[test]
