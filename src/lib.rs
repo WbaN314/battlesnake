@@ -111,10 +111,39 @@ pub fn read_game_state(path: &str) -> OriginalGameState {
 }
 
 fn check_game_state(state: &OriginalGameState) {
+    let height = state.board.height as i32;
     for snake in state.board.snakes.iter() {
         let snake_sum = snake.head.x + snake.head.y;
         assert!(snake_sum % 2 == state.turn % 2);
+        assert!(snake.body.len() as i32 == snake.length);
+        assert!(snake.body[0] == snake.head);
+        assert!(snake.health > 0);
+        assert!(snake.body.windows(2).all(|w| {
+            let dx = (w[0].x - w[1].x).abs();
+            let dy = (w[0].y - w[1].y).abs();
+            // Adjacent segments differ by 1 in one axis, or are stacked (eating/start)
+            (dx == 1 && dy == 0) || (dx == 0 && dy == 1) || (dx == 0 && dy == 0)
+        }));
+        assert!(snake.body.iter().all(|coord| {
+            coord.x >= 0 && coord.x < state.board.width && coord.y >= 0 && coord.y < height
+        }));
+        // Different snakes must not overlap
+        assert!(snake.body.iter().all(|coord| {
+            !state
+                .board
+                .snakes
+                .iter()
+                .filter(|other| other.id != snake.id)
+                .any(|other| other.body.contains(coord))
+        }));
+        assert!(snake.length >= 3);
     }
+    assert!(state.board.food.iter().all(|coord| {
+        coord.x >= 0 && coord.x < state.board.width && coord.y >= 0 && coord.y < height
+    }));
+    assert!(state.board.hazards.iter().all(|coord| {
+        coord.x >= 0 && coord.x < state.board.width && coord.y >= 0 && coord.y < height
+    }));
 }
 
 pub fn get_move_from_json_file(path: &str) -> OriginalDirection {

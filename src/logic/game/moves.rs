@@ -8,8 +8,13 @@ pub type Moves = [Option<Direction>; SNAKES as usize];
 pub struct MoveVector(Option<[bool; 4]>);
 
 impl MoveVector {
+    /// Creates a MoveVector. `None` means the snake is dead/absent.
+    /// `Some([...])` must have at least one `true` — a trapped snake defaults to Up.
     pub fn new(moves: Option<[bool; 4]>) -> Self {
-        MoveVector(moves)
+        match moves {
+            Some(arr) if arr.iter().all(|&b| !b) => MoveVector(Some([true, false, false, false])),
+            other => MoveVector(other),
+        }
     }
 
     pub fn is_valid(&self, direction: Direction) -> bool {
@@ -222,7 +227,17 @@ mod tests {
         let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list = no_moves_set.pregenerate();
-        assert_eq!(no_moves_list.len(), 0);
+        // All trapped snakes default to Up
+        assert_eq!(no_moves_list.len(), 1);
+        assert_eq!(
+            no_moves_list[0],
+            [
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up)
+            ]
+        );
 
         let none = [MoveVector::new(None); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(none);
@@ -288,7 +303,8 @@ mod tests {
             MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list = one_with_no_moves.pregenerate();
-        assert_eq!(moves_list.len(), 0);
+        // Trapped snake defaults to Up, so 3 * 1 * 2 * 3 = 18
+        assert_eq!(moves_list.len(), 3 * 1 * 2 * 3);
 
         let one_with_none = MoveMatrix::new([
             MoveVector::new(Some([true, true, false, true])),
@@ -305,7 +321,17 @@ mod tests {
         let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(no_moves);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
-        assert_eq!(no_moves_list.len(), 0);
+        // All trapped snakes default to Up
+        assert_eq!(no_moves_list.len(), 1);
+        assert_eq!(
+            no_moves_list[0],
+            [
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up),
+                Some(Direction::Up)
+            ]
+        );
 
         let none = [MoveVector::new(None); SNAKES as usize];
         let no_moves_set = MoveMatrix::new(none);
@@ -371,7 +397,8 @@ mod tests {
             MoveVector::new(Some([true, true, false, true])),
         ]);
         let moves_list: Vec<Moves> = one_with_no_moves.generate().collect();
-        assert_eq!(moves_list.len(), 0);
+        // Trapped snake defaults to Up, so 3 * 1 * 2 * 3 = 18
+        assert_eq!(moves_list.len(), 3 * 1 * 2 * 3);
 
         let one_with_none = MoveMatrix::new([
             MoveVector::new(Some([true, true, false, true])),
