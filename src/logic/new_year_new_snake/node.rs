@@ -95,8 +95,8 @@ impl Node {
     }
 
     /// Returns None if all directions have been simulated
-    pub fn simulate(&mut self) -> Vec<Node> {
-        'outer: while let Some(move_matrix) = self.next_moveset() {
+    pub fn simulate(&mut self) -> Option<Vec<Node>> {
+        if let Some(move_matrix) = self.next_moveset() {
             let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
             for moves in move_matrix {
@@ -117,17 +117,20 @@ impl Node {
                             .map(|(direction_status, _)| {
                                 *direction_status = NodeStatus::DeadIn(0);
                             });
-                        continue 'outer;
+                        self.status = self.status.max(NodeStatus::DeadIn(1));
+                        // Do not return children as this direction is already dead
+                        return Some(Vec::new());
                     }
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }
                 }
             }
-            self.status = NodeStatus::AliveFor(1);
-            return children;
+            debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
+            self.status = self.status.max(NodeStatus::AliveFor(1));
+            return Some(children);
         }
-        Vec::new()
+        None
     }
 
     pub fn update_from_child(&mut self, child_id: NodeId, child_status: NodeStatus) -> bool {
@@ -236,11 +239,8 @@ mod tests {
     #[test]
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
-        loop {
-            let children = node.simulate();
-            if children.is_empty() {
-                break;
-            }
+        while let Some(children) = node.simulate() {
+            node.simulate();
         }
         // After exhaustion, all children slots should be filled
         assert!(
@@ -258,6 +258,6 @@ mod tests {
             );
         }
         // Should return empty now
-        assert!(node.simulate().is_empty());
+        assert!(node.simulate().is_none());
     }
 }

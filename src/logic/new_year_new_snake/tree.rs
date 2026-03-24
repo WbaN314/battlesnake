@@ -28,22 +28,28 @@ impl Tree {
             let children = node.simulate();
             let node_id = node.id();
             let node_status = node.status();
-            self.propagate_status(node_id, node_status);
-            match node_status {
-                NodeStatus::AliveFor(1) => {
-                    for child in children {
-                        self.queue.push_back(child.id());
-                        self.nodes.insert(child.id(), child);
-                    }
+            match children {
+                Some(children) if children.is_empty() => {
+                    // No children for this direction, reque the node itself to simulate the next direction
+                    self.queue.push_front(node_id);
+                    // Status of node might have changed after simulation, so we need to propagate it up the tree
+                    self.propagate_status(node_id, node_status);
                 }
-                NodeStatus::DeadIn(_) => {
+                Some(children) => {
+                    for child in children {
+                        let child_id = child.id();
+                        self.nodes.insert(child_id, child);
+                        self.queue.push_back(child_id);
+                    }
+                    // Status of node might have changed after simulation, so we need to propagate it up the tree
+                    self.propagate_status(node_id, node_status);
+                }
+
+                None => {
+                    // All directions exhausted. Go one level up to simulate the next direction of the parent
                     if let Some(parent_id) = node_id.parent() {
                         self.queue.push_front(parent_id);
-                        // TODO: Evict siblings of the node (and their children) from the queue
                     }
-                }
-                _ => {
-                    panic!("Invalid node status");
                 }
             }
         }
