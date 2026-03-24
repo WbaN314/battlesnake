@@ -4,6 +4,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use log::{debug, trace};
+
 use crate::logic::{
     game::{field::BasicField, game_state::GameState},
     new_year_new_snake::{
@@ -52,20 +54,24 @@ impl Tree {
             if node_id.depth() >= self.max_depth {
                 continue;
             }
+            debug!("Simulating {}", node_id);
             let node = self.nodes.get_mut(&node_id).unwrap();
             let children = node.simulate();
             let node_id = node.id();
             let node_status = node.status();
             match children {
                 Some(children) if children.is_empty() => {
+                    debug!("{} has spawned no children", node_id);
                     // No children for this direction, reque the node itself to simulate the next direction
                     self.queue.push_front(node_id);
                     // Status of node might have changed after simulation, so we need to propagate it up the tree
                     self.propagate_status(node_id, node_status);
                 }
                 Some(children) => {
+                    debug!("{} has spawned {} children", node_id, children.len());
                     for child in children {
                         let child_id = child.id();
+                        trace!("Adding child {} to the tree", child_id);
                         self.nodes.insert(child_id, child);
                         self.queue.push_back(child_id);
                     }
@@ -75,6 +81,7 @@ impl Tree {
 
                 None => {
                     // All directions exhausted. Go one level up to simulate the next direction of the parent
+                    debug!("{} has exhausted all directions", node_id);
                     if let Some(parent_id) = node_id.parent() {
                         self.queue.push_front(parent_id);
                     }
@@ -87,11 +94,17 @@ impl Tree {
         let mut node_id = node_id;
         let mut node_status = node_status;
         while let Some(parent_id) = node_id.parent() {
+            trace!(
+                "Propagating child status {} to parent {}",
+                node_status, parent_id
+            );
             let parent = self.nodes.get_mut(&parent_id).unwrap();
             if parent.update_from_child(node_id, node_status) {
                 node_id = parent_id;
                 node_status = parent.status();
+                trace!("Status for {} updated to {}", parent_id, node_status);
             } else {
+                trace!("Status for {} unchanged {}", parent_id, parent.status());
                 break;
             }
         }
@@ -155,6 +168,15 @@ impl fmt::Display for Tree {
 mod tests {
     use super::*;
     use crate::read_game_state;
+
+    #[test]
+    fn correct_tree_state_propagation() {
+        let gamestate = read_game_state("requests/failure_2.json");
+        let root = GameState::<BasicField>::from(&gamestate);
+        println!("{}", root);
+        let mut tree = Tree::new(root).max_depth(3);
+        tree.simulate();
+    }
 
     #[test]
     fn display_tree() {
