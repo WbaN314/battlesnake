@@ -96,43 +96,56 @@ impl Tree {
             }
         }
     }
-
-    fn fmt_node(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        node_id: &NodeId,
-        children: &HashMap<NodeId, Vec<NodeId>>,
-        indent: usize,
-    ) -> fmt::Result {
-        let prefix = "  ".repeat(indent);
-        let node = &self.nodes[node_id];
-        writeln!(f, "{}{} {}", prefix, node_id, node.status())?;
-        if let Some(child_ids) = children.get(node_id) {
-            for child_id in child_ids {
-                self.fmt_node(f, child_id, children, indent + 1)?;
-            }
-        }
-        Ok(())
-    }
 }
 
 impl fmt::Display for Tree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Build parent -> children map
+        // Build parent -> children map and group nodes by depth
         let mut children: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
-        let mut root_id = None;
+        let mut by_depth: HashMap<u8, Vec<NodeId>> = HashMap::new();
         for &id in self.nodes.keys() {
-            match id.parent() {
-                Some(parent_id) => children.entry(parent_id).or_default().push(id),
-                None => root_id = Some(id),
+            if let Some(parent_id) = id.parent() {
+                children.entry(parent_id).or_default().push(id);
+            }
+            by_depth.entry(id.depth()).or_default().push(id);
+        }
+
+        // Count descendants bottom-up
+        let mut depths: Vec<u8> = by_depth.keys().copied().collect();
+        depths.sort();
+        let mut descendants: HashMap<NodeId, usize> = HashMap::new();
+        for &depth in depths.iter().rev() {
+            for id in &by_depth[&depth] {
+                let child_count: usize = children
+                    .get(id)
+                    .map(|c| {
+                        c.iter()
+                            .map(|cid| 1 + descendants.get(cid).copied().unwrap_or(0))
+                            .sum()
+                    })
+                    .unwrap_or(0);
+                descendants.insert(*id, child_count);
             }
         }
-        // Sort children for deterministic output
-        for ids in children.values_mut() {
-            ids.sort_by_cached_key(|id| id.to_string());
+
+        // Sort nodes within each depth: by status (best at bottom), then by id
+        for ids in by_depth.values_mut() {
+            ids.sort_by(|a, b| {
+                let status_a = self.nodes[a].status();
+                let status_b = self.nodes[b].status();
+                status_a
+                    .cmp(&status_b)
+                    .then_with(|| a.to_string().cmp(&b.to_string()))
+            });
         }
-        if let Some(root_id) = root_id {
-            self.fmt_node(f, &root_id, &children, 0)?;
+
+        // Print deepest first
+        for &depth in depths.iter().rev() {
+            for id in &by_depth[&depth] {
+                let node = &self.nodes[id];
+                let desc = descendants[id];
+                writeln!(f, "{} {} {}", id, node.status(), desc)?;
+            }
         }
         Ok(())
     }
@@ -147,7 +160,7 @@ mod tests {
     fn display_tree() {
         let gamestate = read_game_state("requests/test_game_start.json");
         let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_time(Duration::from_millis(200));
+        let mut tree = Tree::new(root).max_time(Duration::from_millis(20));
         tree.simulate();
         println!("{}", tree);
     }
