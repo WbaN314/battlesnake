@@ -203,6 +203,26 @@ impl Node {
     }
 }
 
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} {}", self.id, self.status)?;
+        writeln!(f, "{}", self.gamestate)?;
+        for (i, slot) in self.children.iter().enumerate() {
+            let dir = Direction::try_from(i).unwrap();
+            match slot {
+                None => writeln!(f, "  {}: unexplored", dir)?,
+                Some((status, children)) => {
+                    writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
+                    for (child_id, child_status) in children {
+                        writeln!(f, "    {} {}", child_id, child_status)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::read_game_state;
@@ -239,7 +259,7 @@ mod tests {
     #[test]
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
-        while let Some(children) = node.simulate() {
+        while node.simulate().is_some() {
             node.simulate();
         }
         // After exhaustion, all children slots should be filled
@@ -259,5 +279,14 @@ mod tests {
         }
         // Should return empty now
         assert!(node.simulate().is_none());
+    }
+
+    #[test]
+    fn display_half_simulated_node() {
+        let mut node = make_root_node("requests/example_move_request.json");
+        // Simulate only the first two directions
+        node.simulate();
+        node.simulate();
+        println!("{}", node);
     }
 }
