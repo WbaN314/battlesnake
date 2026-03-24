@@ -181,7 +181,13 @@ mod tests {
         println!(
             "{}",
             tree.nodes.get(&"UUU-LUU-UUU-UUU".parse().unwrap()).unwrap()
-        )
+        );
+        println!(
+            "{}",
+            tree.nodes.get(&"UU-UU-UU-UU".parse().unwrap()).unwrap()
+        );
+        println!("{}", tree.nodes.get(&"U-U-U-U".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
     }
 
     #[test]

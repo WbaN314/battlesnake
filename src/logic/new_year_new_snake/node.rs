@@ -44,7 +44,7 @@ impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {
             (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => n.partial_cmp(m),
-            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => m.partial_cmp(n),
+            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => n.partial_cmp(m),
             (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
             (NodeStatus::DeadIn(_), NodeStatus::AliveFor(_)) => Some(std::cmp::Ordering::Less),
         }
@@ -239,8 +239,8 @@ mod tests {
     fn node_status_ordering() {
         // AliveFor: higher is better
         assert!(NodeStatus::AliveFor(5) > NodeStatus::AliveFor(3));
-        // DeadIn: smaller n is better (reversed)
-        assert!(NodeStatus::DeadIn(1) > NodeStatus::DeadIn(5));
+        // DeadIn: higher n is better because it means we survive longer
+        assert!(NodeStatus::DeadIn(5) > NodeStatus::DeadIn(1));
         // Alive always beats Dead
         assert!(NodeStatus::AliveFor(0) > NodeStatus::DeadIn(100));
         // Cross-variant not equal
@@ -253,7 +253,7 @@ mod tests {
             NodeStatus::AliveFor(0),
         ];
         assert_eq!(statuses.iter().max().unwrap(), &NodeStatus::AliveFor(2));
-        assert_eq!(statuses.iter().min().unwrap(), &NodeStatus::DeadIn(5));
+        assert_eq!(statuses.iter().min().unwrap(), &NodeStatus::DeadIn(0));
     }
 
     fn make_root_node(json_path: &str) -> Node {
