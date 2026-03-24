@@ -99,7 +99,8 @@ impl NodeId {
             return None;
         }
 
-        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
+        let shift =
+            DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
         Some(decode(self.data >> shift))
     }
 
@@ -253,6 +254,12 @@ mod tests {
 
         assert_eq!(child.depth(), 1);
         assert_eq!(child.last_direction_for(0), Some(Down)); // snake 0
+        assert_eq!(child.last_direction_for(1), Some(Right)); // snake 1
+        assert_eq!(child.last_direction_for(2), Some(Up)); // snake 2
+        assert_eq!(child.last_direction_for(0), Some(Down));
+        assert_eq!(child.last_direction_for(1), Some(Right));
+        assert_eq!(child.last_direction_for(2), Some(Up));
+        assert_eq!(child.last_direction_for(3), Some(Left));
         assert_eq!(child.to_string(), "D-R-U-L");
     }
 
