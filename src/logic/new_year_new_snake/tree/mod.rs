@@ -6,22 +6,21 @@ use std::{
 
 use log::{debug, trace};
 
+mod tree_stats;
+
 use crate::logic::{
-    game::{direction::Direction, field::BasicField, game_state::GameState},
-    new_year_new_snake::{
-        node::{Node, NodeStatus},
-        node_id::NodeId,
-        tree_stats::{DirectionStats, TreeStats},
-    },
+    game::{field::BasicField, game_state::GameState},
+    new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
 };
 
 #[derive(Clone)]
-struct Tree {
-    nodes: HashMap<NodeId, Node>,
-    queue: DepthQueue,
+pub struct Tree {
+    pub(super) nodes: HashMap<NodeId, Node>,
+    pub(super) queue: DepthQueue,
     max_depth: u8,
     max_time: Option<Duration>,
     max_nodes: usize,
+    pub(super) elapsed: Duration,
 }
 
 impl Tree {
@@ -35,6 +34,7 @@ impl Tree {
             max_depth: u8::MAX,
             max_time: None,
             max_nodes: usize::MAX,
+            elapsed: Duration::ZERO,
         }
     }
 
@@ -62,6 +62,7 @@ impl Tree {
     }
 
     pub fn simulate(&mut self) {
+        let start = Instant::now();
         let deadline = self.max_time.map(|d| Instant::now() + d);
         // Get next node to simulate and check early termination conditions
         while let Some(node_id) = self.queue.pop() {
@@ -75,6 +76,7 @@ impl Tree {
             }
             self.simulate_node(node_id);
         }
+        self.elapsed = start.elapsed();
     }
 
     fn simulate_node(&mut self, node_id: NodeId) -> bool {
@@ -137,120 +139,6 @@ impl Tree {
     }
 }
 
-impl Tree {
-    pub fn stats(&self) -> TreeStats {
-        let root_id: NodeId = NodeId::new();
-        let root = &self.nodes[&root_id];
-
-        // Group nodes by depth
-        let mut by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut children_map: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
-        for &id in self.nodes.keys() {
-            *by_depth.entry(id.depth()).or_default() += 1;
-            if let Some(parent_id) = id.parent() {
-                children_map.entry(parent_id).or_default().push(id);
-            }
-        }
-
-        let max_depth_reached = by_depth.keys().last().copied().unwrap_or(0);
-        let nodes_per_depth: Vec<(u8, usize)> = by_depth.into_iter().collect();
-
-        // Leaf nodes = nodes with no children in the tree
-        let leaf_nodes = self
-            .nodes
-            .keys()
-            .filter(|id| !children_map.contains_key(id))
-            .count();
-
-        // Count nodes by exact status
-        let mut status_counts: BTreeMap<NodeStatus, usize> = BTreeMap::new();
-        for node in self.nodes.values() {
-            *status_counts.entry(node.status()).or_default() += 1;
-        }
-        let nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
-
-        // Total children tracked internally by nodes (includes pruned dead directions)
-        let total_tracked_children: usize = self
-            .nodes
-            .values()
-            .flat_map(|n| n.children().iter())
-            .filter_map(|slot| slot.as_ref())
-            .map(|v| v.len())
-            .sum();
-
-        // Alive leaves = leaf nodes that are alive
-        let alive_leaves = self
-            .nodes
-            .iter()
-            .filter(|(id, n)| {
-                !children_map.contains_key(id) && matches!(n.status(), NodeStatus::AliveFor(_))
-            })
-            .count();
-
-        // Average branching factor (among internal nodes only)
-        let internal_nodes: Vec<_> = children_map
-            .iter()
-            .filter(|(_, children)| !children.is_empty())
-            .collect();
-        let avg_branching_factor = if internal_nodes.is_empty() {
-            0.0
-        } else {
-            internal_nodes.iter().map(|(_, c)| c.len()).sum::<usize>() as f64
-                / internal_nodes.len() as f64
-        };
-
-        // Per-direction stats for root
-        let direction_stats = (0..4)
-            .map(|i| {
-                let direction = Direction::try_from(i).unwrap();
-                let status = root.direction_status(i);
-
-                // Count subtree size by counting nodes whose root direction matches
-                let (subtree_size, max_depth) = self.subtree_stats_for_direction(direction);
-
-                DirectionStats {
-                    direction,
-                    status,
-                    subtree_size,
-                    max_depth,
-                }
-            })
-            .collect();
-
-        let queue_remaining = self.queue.len();
-
-        TreeStats {
-            total_nodes: self.nodes.len(),
-            total_tracked_children,
-            max_depth_reached,
-            nodes_per_depth,
-            nodes_by_status,
-            leaf_nodes,
-            alive_leaves,
-            root_status: root.status(),
-            direction_stats,
-            queue_remaining,
-            avg_branching_factor,
-        }
-    }
-
-    fn subtree_stats_for_direction(&self, direction: Direction) -> (usize, u8) {
-        let mut count = 0usize;
-        let mut max_depth = 0u8;
-        for (&id, _) in &self.nodes {
-            if id.depth() > 0 {
-                if let Some(dir) = id.direction_at(0, 0) {
-                    if dir == direction {
-                        count += 1;
-                        max_depth = max_depth.max(id.depth());
-                    }
-                }
-            }
-        }
-        (count, max_depth)
-    }
-}
-
 impl fmt::Display for Tree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Build parent -> children map and group nodes by depth
@@ -305,7 +193,7 @@ impl fmt::Display for Tree {
 }
 
 #[derive(Clone)]
-struct DepthQueue {
+pub(super) struct DepthQueue {
     buckets: BTreeMap<u8, VecDeque<NodeId>>,
 }
 
@@ -339,17 +227,15 @@ impl DepthQueue {
         self.buckets.is_empty()
     }
 
-    fn len(&self) -> usize {
+    pub(super) fn len(&self) -> usize {
         self.buckets.values().map(|q| q.len()).sum()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::result;
-
     use super::*;
-    use crate::{logic::new_year_new_snake::tree, read_game_state};
+    use crate::read_game_state;
 
     fn create_tree_from_gamestate(filename: &str) -> Tree {
         let gamestate = read_game_state(filename);

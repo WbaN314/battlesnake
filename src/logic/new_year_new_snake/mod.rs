@@ -3,9 +3,7 @@ use crate::{OriginalDirection, OriginalGameState, logic::legacy::shared::brain::
 pub struct NewYearNewSnake;
 
 mod node;
-mod node_id;
 mod tree;
-mod tree_stats;
 
 impl NewYearNewSnake {
     pub fn new() -> Self {

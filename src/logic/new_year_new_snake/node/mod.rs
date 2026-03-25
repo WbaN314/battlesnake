@@ -1,15 +1,15 @@
 use core::panic;
 use std::fmt::Display;
 
-use crate::logic::{
-    game::{
-        direction::{self, Direction},
-        field::BasicField,
-        game_state::GameState,
-        moves::{MoveMatrix, MoveMatrixIter, MoveVector, Moves},
-    },
-    new_year_new_snake::node_id::NodeId,
+use crate::logic::game::{
+    direction::Direction,
+    field::BasicField,
+    game_state::GameState,
+    moves::{MoveMatrix, MoveVector},
 };
+
+pub mod node_id;
+use node_id::NodeId;
 
 #[derive(Copy, Clone, Debug)]
 pub enum NodeStatus {
