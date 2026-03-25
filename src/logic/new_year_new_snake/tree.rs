@@ -175,26 +175,69 @@ mod tests {
 
     #[test]
     fn correct_tree_state_propagation() {
-        let gamestate = read_game_state("requests/failure_3.json");
+        let gamestate = read_game_state("requests/failure_1.json");
         let root = GameState::<BasicField>::from(&gamestate);
-        println!("{}", root);
         let mut tree = Tree::new(root).max_depth(4);
         tree.simulate();
-        println!(
-            "{}",
-            tree.nodes.get(&"ULUU-UUUU-UUUU".parse().unwrap()).unwrap()
-        );
-        println!("{}", tree.nodes.get(&"UUUU-UUUU".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"UUUU".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::AliveFor(4));
+        let children = root.children();
+        assert!(matches!(children[0], Some((NodeStatus::DeadIn(0), _))));
+        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
+        assert!(matches!(children[2], Some((NodeStatus::AliveFor(3), _))));
+        assert!(matches!(children[3], Some((NodeStatus::AliveFor(3), _))));
+
+        let gamestate = read_game_state("requests/failure_3.json");
+        let root = GameState::<BasicField>::from(&gamestate);
+        let mut tree = Tree::new(root).max_depth(4);
+        tree.simulate();
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::AliveFor(4));
+        let children = root.children();
+        assert!(matches!(children[0], Some((NodeStatus::DeadIn(3), _))));
+        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
+        assert!(matches!(children[2], Some((NodeStatus::DeadIn(0), _))));
+        assert!(matches!(children[3], Some((NodeStatus::DeadIn(0), _))));
+
+        let gamestate = read_game_state("requests/failure_4.json");
+        let root = GameState::<BasicField>::from(&gamestate);
+        let mut tree = Tree::new(root).max_depth(4);
+        tree.simulate();
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::AliveFor(4));
+        let children = root.children();
+        assert!(matches!(
+            tree.nodes
+                .get(&"UURU-UUUU-LURU".parse().unwrap())
+                .unwrap()
+                .status(),
+            NodeStatus::DeadIn(1)
+        ));
+        assert!(matches!(children[0], Some((NodeStatus::DeadIn(3), _))));
+        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
+        assert!(matches!(children[2], Some((NodeStatus::DeadIn(0), _))));
+        assert!(matches!(children[3], Some((NodeStatus::DeadIn(0), _))));
     }
 
     #[test]
     fn display_tree() {
-        let gamestate = read_game_state("requests/test_game_start.json");
+        let gamestate = read_game_state("requests/failure_4.json");
         let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_time(Duration::from_millis(20));
+        let mut tree = Tree::new(root).max_depth(4);
         tree.simulate();
-        println!("{}", tree);
+        // println!("{}", tree);
+
+        println!("{}", tree.nodes.get(&"UURU".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"UURU-UUUU".parse().unwrap()).unwrap());
+        println!(
+            "{}",
+            tree.nodes.get(&"UURU-UUUU-LURU".parse().unwrap()).unwrap()
+        );
     }
 }

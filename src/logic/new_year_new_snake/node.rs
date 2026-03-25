@@ -94,6 +94,10 @@ impl Node {
         &self.gamestate
     }
 
+    pub fn children(&self) -> &[Option<(NodeStatus, Vec<(NodeId, NodeStatus)>)>; 4] {
+        &self.children
+    }
+
     /// Returns None if all directions have been simulated
     pub fn simulate(&mut self) -> Option<Vec<Node>> {
         if let Some(move_matrix) = self.next_moveset() {
@@ -265,6 +269,7 @@ mod tests {
     #[test]
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
+        println!("{}", node);
         while node.simulate().is_some() {
             node.simulate();
         }
@@ -284,6 +289,7 @@ mod tests {
             );
         }
         // Should return empty now
+        println!("{}", node);
         assert!(node.simulate().is_none());
     }
 
