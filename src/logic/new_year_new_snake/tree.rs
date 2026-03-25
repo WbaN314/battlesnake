@@ -7,10 +7,11 @@ use std::{
 use log::{debug, trace};
 
 use crate::logic::{
-    game::{field::BasicField, game_state::GameState},
+    game::{direction::Direction, field::BasicField, game_state::GameState},
     new_year_new_snake::{
         node::{Node, NodeStatus},
         node_id::NodeId,
+        tree_stats::{DirectionStats, TreeStats},
     },
 };
 
@@ -136,6 +137,120 @@ impl Tree {
     }
 }
 
+impl Tree {
+    pub fn stats(&self) -> TreeStats {
+        let root_id: NodeId = NodeId::new();
+        let root = &self.nodes[&root_id];
+
+        // Group nodes by depth
+        let mut by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut children_map: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
+        for &id in self.nodes.keys() {
+            *by_depth.entry(id.depth()).or_default() += 1;
+            if let Some(parent_id) = id.parent() {
+                children_map.entry(parent_id).or_default().push(id);
+            }
+        }
+
+        let max_depth_reached = by_depth.keys().last().copied().unwrap_or(0);
+        let nodes_per_depth: Vec<(u8, usize)> = by_depth.into_iter().collect();
+
+        // Leaf nodes = nodes with no children in the tree
+        let leaf_nodes = self
+            .nodes
+            .keys()
+            .filter(|id| !children_map.contains_key(id))
+            .count();
+
+        // Count nodes by exact status
+        let mut status_counts: BTreeMap<NodeStatus, usize> = BTreeMap::new();
+        for node in self.nodes.values() {
+            *status_counts.entry(node.status()).or_default() += 1;
+        }
+        let nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
+
+        // Total children tracked internally by nodes (includes pruned dead directions)
+        let total_tracked_children: usize = self
+            .nodes
+            .values()
+            .flat_map(|n| n.children().iter())
+            .filter_map(|slot| slot.as_ref())
+            .map(|v| v.len())
+            .sum();
+
+        // Alive leaves = leaf nodes that are alive
+        let alive_leaves = self
+            .nodes
+            .iter()
+            .filter(|(id, n)| {
+                !children_map.contains_key(id) && matches!(n.status(), NodeStatus::AliveFor(_))
+            })
+            .count();
+
+        // Average branching factor (among internal nodes only)
+        let internal_nodes: Vec<_> = children_map
+            .iter()
+            .filter(|(_, children)| !children.is_empty())
+            .collect();
+        let avg_branching_factor = if internal_nodes.is_empty() {
+            0.0
+        } else {
+            internal_nodes.iter().map(|(_, c)| c.len()).sum::<usize>() as f64
+                / internal_nodes.len() as f64
+        };
+
+        // Per-direction stats for root
+        let direction_stats = (0..4)
+            .map(|i| {
+                let direction = Direction::try_from(i).unwrap();
+                let status = root.direction_status(i);
+
+                // Count subtree size by counting nodes whose root direction matches
+                let (subtree_size, max_depth) = self.subtree_stats_for_direction(direction);
+
+                DirectionStats {
+                    direction,
+                    status,
+                    subtree_size,
+                    max_depth,
+                }
+            })
+            .collect();
+
+        let queue_remaining = self.queue.len();
+
+        TreeStats {
+            total_nodes: self.nodes.len(),
+            total_tracked_children,
+            max_depth_reached,
+            nodes_per_depth,
+            nodes_by_status,
+            leaf_nodes,
+            alive_leaves,
+            root_status: root.status(),
+            direction_stats,
+            queue_remaining,
+            avg_branching_factor,
+        }
+    }
+
+    fn subtree_stats_for_direction(&self, direction: Direction) -> (usize, u8) {
+        let mut count = 0usize;
+        let mut max_depth = 0u8;
+        for (&id, _) in &self.nodes {
+            if id.depth() > 0 {
+                if let Some(dir) = id.direction_at(0, 0) {
+                    if dir == direction {
+                        count += 1;
+                        max_depth = max_depth.max(id.depth());
+                    }
+                }
+            }
+        }
+        (count, max_depth)
+    }
+}
+
 impl fmt::Display for Tree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Build parent -> children map and group nodes by depth
@@ -222,6 +337,10 @@ impl DepthQueue {
 
     fn is_empty(&self) -> bool {
         self.buckets.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.buckets.values().map(|q| q.len()).sum()
     }
 }
 
@@ -352,5 +471,6 @@ mod tests {
             .max_nodes(50_000);
         tree.simulate();
         println!("{}", tree);
+        println!("{}", tree.stats());
     }
 }

@@ -122,7 +122,7 @@ impl NodeId {
     }
 
     /// Returns the direction of a specific snake at a specific level.
-    fn direction_at(&self, level: u8, snake: u8) -> Option<Direction> {
+    pub fn direction_at(&self, level: u8, snake: u8) -> Option<Direction> {
         if level >= self.depth() {
             return None;
         }
