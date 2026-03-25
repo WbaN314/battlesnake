@@ -63,21 +63,14 @@ impl Display for NodeStatus {
 pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,
-    status: NodeStatus,
-    children: [Option<(NodeStatus, Vec<(NodeId, NodeStatus)>)>; 4],
+    children: [Option<Vec<(NodeId, NodeStatus)>>; 4],
 }
 
 impl Node {
     pub fn new(id: NodeId, gamestate: GameState<BasicField>) -> Self {
-        let status = if gamestate.is_alive(0) {
-            NodeStatus::AliveFor(0)
-        } else {
-            NodeStatus::DeadIn(0)
-        };
         Self {
             id,
             gamestate,
-            status,
             children: [None, None, None, None],
         }
     }
@@ -87,14 +80,34 @@ impl Node {
     }
 
     pub fn status(&self) -> NodeStatus {
-        self.status
+        if !self.gamestate.is_alive(0) {
+            return NodeStatus::DeadIn(0);
+        }
+        let best = (0..4).filter_map(|i| self.direction_status(i)).max();
+        match best {
+            Some(s @ NodeStatus::AliveFor(_)) => s.increment(),
+            Some(s @ NodeStatus::DeadIn(_)) if self.children.iter().all(|c| c.is_some()) => {
+                s.increment()
+            }
+            _ => NodeStatus::AliveFor(0),
+        }
+    }
+
+    pub fn direction_status(&self, dir: usize) -> Option<NodeStatus> {
+        self.children[dir].as_ref().map(|children| {
+            children
+                .iter()
+                .map(|(_, s)| *s)
+                .min()
+                .unwrap_or(NodeStatus::DeadIn(0))
+        })
     }
 
     pub fn gamestate(&self) -> &GameState<BasicField> {
         &self.gamestate
     }
 
-    pub fn children(&self) -> &[Option<(NodeStatus, Vec<(NodeId, NodeStatus)>)>; 4] {
+    pub fn children(&self) -> &[Option<Vec<(NodeId, NodeStatus)>>; 4] {
         &self.children
     }
 
@@ -112,85 +125,38 @@ impl Node {
                 children.push(child);
                 self.children[direction as usize]
                     .as_mut()
-                    .map(|(_, child_vec)| child_vec.push((child_id, child_status)));
+                    .map(|child_vec| child_vec.push((child_id, child_status)));
                 match child_status {
-                    NodeStatus::AliveFor(0) => {}
                     NodeStatus::DeadIn(0) => {
-                        self.children[direction as usize]
-                            .as_mut()
-                            .map(|(direction_status, _)| {
-                                *direction_status = NodeStatus::DeadIn(0);
-                            });
-                        // If all explored directions are dead, mark node as dead with best+1
-                        if let Some(best) = self.children.iter().try_fold(0, |best, c| match c {
-                            &Some((NodeStatus::DeadIn(x), _)) => Some(best.max(x)),
-                            _ => None,
-                        }) {
-                            self.status = NodeStatus::DeadIn(best + 1);
-                        }
                         // Do not return children as this direction is already dead
                         return Some(Vec::new());
                     }
+                    NodeStatus::AliveFor(0) => {}
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }
                 }
             }
             debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
-            self.status = self.status.max(NodeStatus::AliveFor(1));
             return Some(children);
         }
         None
     }
 
-    pub fn update_from_child(&mut self, child_id: NodeId, child_status: NodeStatus) -> bool {
-        let last_direction = child_id.last_direction_for(0).unwrap();
-        let best_direction_status = self
-            .children
-            .iter()
-            .filter_map(|x| {
-                if let Some((status, _)) = x {
-                    Some(*status)
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or(NodeStatus::DeadIn(0));
-        self.children[last_direction as usize]
+    pub fn propagate_update_from_child(
+        &mut self,
+        child_id: NodeId,
+        child_status: NodeStatus,
+    ) -> bool {
+        let old_status = self.status();
+        let dir = child_id.last_direction_for(0).unwrap() as usize;
+        if let Some(entry) = self.children[dir]
             .as_mut()
-            .map(|(direction_status, child_vec)| {
-                let mut worst_child_status = child_status;
-                for (id, status) in child_vec.iter_mut() {
-                    if *id == child_id {
-                        *status = child_status;
-                    }
-                    if *status < worst_child_status {
-                        worst_child_status = *status;
-                    }
-                }
-                if worst_child_status != *direction_status {
-                    *direction_status = worst_child_status;
-                }
-            });
-        let best_direction_status_again = self
-            .children
-            .iter()
-            .filter_map(|x| {
-                if let Some((status, _)) = x {
-                    Some(*status)
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or(NodeStatus::DeadIn(0));
-        if best_direction_status_again != best_direction_status {
-            self.status = best_direction_status_again.increment();
-            return true;
-        } else {
-            return false;
+            .and_then(|v| v.iter_mut().find(|(id, _)| *id == child_id))
+        {
+            entry.1 = child_status;
         }
+        self.status() != old_status
     }
 
     fn next_moveset(&mut self) -> Option<MoveMatrix> {
@@ -202,10 +168,10 @@ impl Node {
                     let direction = Direction::try_from(i).unwrap();
                     let new_move = MoveVector::from(direction);
                     move_matrix.set(0, new_move);
-                    self.children[i] = Some((NodeStatus::AliveFor(0), Vec::new()));
+                    self.children[i] = Some(Vec::new());
                     return Some(move_matrix);
                 } else {
-                    self.children[i] = Some((NodeStatus::DeadIn(0), Vec::new()));
+                    self.children[i] = Some(Vec::new());
                 }
             }
         }
@@ -215,12 +181,13 @@ impl Node {
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\n{} {}", self.id, self.status)?;
+        writeln!(f, "\n{} {}", self.id, self.status())?;
         for (i, slot) in self.children.iter().enumerate() {
             let dir = Direction::try_from(i).unwrap();
             match slot {
                 None => writeln!(f, "  {} unexplored", dir)?,
-                Some((status, children)) => {
+                Some(children) => {
+                    let status = self.direction_status(i).unwrap();
                     writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
                     for (child_id, child_status) in children {
                         writeln!(f, "    {} {}", child_id, child_status)?;
@@ -279,8 +246,8 @@ mod tests {
             "all children slots should be populated after exhaustion"
         );
         // All direction statuses should be AliveFor(0) or DeadIn(0)
-        for (i, slot) in node.children.iter().enumerate() {
-            let (status, _) = slot.as_ref().unwrap();
+        for i in 0..4 {
+            let status = node.direction_status(i).unwrap();
             assert!(
                 matches!(status, NodeStatus::AliveFor(0) | NodeStatus::DeadIn(0)),
                 "direction {} has unexpected status: {}",

@@ -61,14 +61,13 @@ impl Tree {
             let children = node.simulate();
             let node_id = node.id();
             let node_status = node.status();
+            self.propagate_status(node_id, node_status);
             match children {
                 Some(children) if children.is_empty() => {
                     debug!("{} has spawned no children", node_id);
                     // No children for this direction, reque the node itself to simulate the next direction
                     trace!("Adding {} to the front of queue", node_id);
                     self.queue.push_front(node_id);
-                    // Status of node might have changed after simulation, so we need to propagate it up the tree
-                    self.propagate_status(node_id, node_status);
                 }
                 Some(children) => {
                     debug!("{} has spawned {} children", node_id, children.len());
@@ -78,10 +77,7 @@ impl Tree {
                         self.nodes.insert(child_id, child);
                         self.queue.push_back(child_id);
                     }
-                    // Status of node might have changed after simulation, so we need to propagate it up the tree
-                    self.propagate_status(node_id, node_status);
                 }
-
                 None => {
                     // All directions exhausted. Go one level up to simulate the next direction of the parent
                     debug!("{} has exhausted all directions", node_id);
@@ -103,7 +99,7 @@ impl Tree {
                 node_status, parent_id
             );
             let parent = self.nodes.get_mut(&parent_id).unwrap();
-            if parent.update_from_child(node_id, node_status) {
+            if parent.propagate_update_from_child(node_id, node_status) {
                 node_id = parent_id;
                 node_status = parent.status();
                 trace!("Status for {} updated to {}", parent_id, node_status);
@@ -183,11 +179,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        let children = root.children();
-        assert!(matches!(children[0], Some((NodeStatus::DeadIn(0), _))));
-        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
-        assert!(matches!(children[2], Some((NodeStatus::AliveFor(3), _))));
-        assert!(matches!(children[3], Some((NodeStatus::AliveFor(3), _))));
+        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(1), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(3), Some(NodeStatus::AliveFor(3)));
 
         let gamestate = read_game_state("requests/failure_3.json");
         let root = GameState::<BasicField>::from(&gamestate);
@@ -197,11 +192,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        let children = root.children();
-        assert!(matches!(children[0], Some((NodeStatus::DeadIn(3), _))));
-        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
-        assert!(matches!(children[2], Some((NodeStatus::DeadIn(0), _))));
-        assert!(matches!(children[3], Some((NodeStatus::DeadIn(0), _))));
+        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
+        assert_eq!(root.direction_status(1), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(2), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
 
         let gamestate = read_game_state("requests/failure_4.json");
         let root = GameState::<BasicField>::from(&gamestate);
@@ -211,18 +205,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        let children = root.children();
-        assert!(matches!(
-            tree.nodes
-                .get(&"UURU-UUUU-LURU".parse().unwrap())
-                .unwrap()
-                .status(),
-            NodeStatus::DeadIn(1)
-        ));
-        assert!(matches!(children[0], Some((NodeStatus::DeadIn(3), _))));
-        assert!(matches!(children[1], Some((NodeStatus::AliveFor(3), _))));
-        assert!(matches!(children[2], Some((NodeStatus::DeadIn(0), _))));
-        assert!(matches!(children[3], Some((NodeStatus::DeadIn(0), _))));
+        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
+        assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
     }
 
     #[test]
