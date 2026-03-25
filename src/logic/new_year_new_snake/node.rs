@@ -60,6 +60,7 @@ impl Display for NodeStatus {
     }
 }
 
+#[derive(Clone)]
 pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,

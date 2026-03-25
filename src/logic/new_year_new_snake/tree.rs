@@ -14,6 +14,7 @@ use crate::logic::{
     },
 };
 
+#[derive(Clone)]
 struct Tree {
     nodes: HashMap<NodeId, Node>,
     queue: VecDeque<NodeId>,
@@ -44,9 +45,17 @@ impl Tree {
         self
     }
 
+    pub fn all_root_directions(mut self) -> Self {
+        let root_id = self.queue.pop_front().unwrap();
+        while self.simulate_node(root_id) {
+            // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
+        }
+        self
+    }
+
     pub fn simulate(&mut self) {
         let deadline = self.max_time.map(|d| Instant::now() + d);
-        // Get next node to simulate
+        // Get next node to simulate and check early termination conditions
         while let Some(node_id) = self.queue.pop_front() {
             if deadline.is_some_and(|d| Instant::now() >= d) {
                 debug!("Reached time limit, stopping simulation");
@@ -56,38 +65,45 @@ impl Tree {
                 debug!("Reached max depth for {}, skipping node", node_id);
                 continue;
             }
-            debug!("Simulating {}", node_id);
-            let node = self.nodes.get_mut(&node_id).unwrap();
-            let children = node.simulate();
-            let node_id = node.id();
-            let node_status = node.status();
-            self.propagate_status(node_id, node_status);
-            match children {
-                Some(children) if children.is_empty() => {
-                    debug!("{} has spawned no children", node_id);
-                    // No children for this direction, reque the node itself to simulate the next direction
-                    trace!("Adding {} to the front of queue", node_id);
-                    self.queue.push_front(node_id);
+            self.simulate_node(node_id);
+        }
+    }
+
+    fn simulate_node(&mut self, node_id: NodeId) -> bool {
+        debug!("Simulating {}", node_id);
+        let node = self.nodes.get_mut(&node_id).unwrap();
+        let children = node.simulate();
+        let node_id = node.id();
+        let node_status = node.status();
+        self.propagate_status(node_id, node_status);
+        match children {
+            Some(children) if children.is_empty() => {
+                debug!("{} has spawned no children", node_id);
+                // No children for this direction, reque the node itself to simulate the next direction
+                trace!("Adding {} to the front of queue", node_id);
+                self.queue.push_front(node_id);
+                true
+            }
+            Some(children) => {
+                debug!("{} has spawned {} children", node_id, children.len());
+                for child in children {
+                    let child_id = child.id();
+                    trace!("Adding child {} to the back of queue", child_id);
+                    self.nodes.insert(child_id, child);
+                    self.queue.push_back(child_id);
                 }
-                Some(children) => {
-                    debug!("{} has spawned {} children", node_id, children.len());
-                    for child in children {
-                        let child_id = child.id();
-                        trace!("Adding child {} to the back of queue", child_id);
-                        self.nodes.insert(child_id, child);
-                        self.queue.push_back(child_id);
-                    }
+                true
+            }
+            None => {
+                // All directions exhausted. Go one level up to simulate the next direction of the parent
+                debug!("{} has exhausted all directions", node_id);
+                if let Some(parent_id) = node_id.parent()
+                    && matches!(node_status, NodeStatus::DeadIn(_))
+                {
+                    trace!("Adding parent {} to the front of queue", parent_id);
+                    self.queue.push_front(parent_id);
                 }
-                None => {
-                    // All directions exhausted. Go one level up to simulate the next direction of the parent
-                    debug!("{} has exhausted all directions", node_id);
-                    if let Some(parent_id) = node_id.parent()
-                        && matches!(node_status, NodeStatus::DeadIn(_))
-                    {
-                        trace!("Adding parent {} to the front of queue", parent_id);
-                        self.queue.push_front(parent_id);
-                    }
-                }
+                false
             }
         }
     }
@@ -168,14 +184,40 @@ impl fmt::Display for Tree {
 
 #[cfg(test)]
 mod tests {
+    use std::result;
+
     use super::*;
-    use crate::read_game_state;
+    use crate::{logic::new_year_new_snake::tree, read_game_state};
+
+    fn create_tree_from_gamestate(filename: &str) -> Tree {
+        let gamestate = read_game_state(filename);
+        let root = GameState::<BasicField>::from(&gamestate);
+        Tree::new(root)
+    }
+
+    fn test_against_base_simulation(
+        tree_configurator: impl Fn(Tree) -> Tree,
+        tree_comparator: impl Fn(&Tree, &Tree) -> (),
+    ) {
+        let test_gamestates = vec![
+            "requests/failure_1.json",
+            "requests/failure_2.json",
+            "requests/failure_3.json",
+            "requests/failure_4.json",
+            "requests/failure_5.json",
+        ];
+        for filename in test_gamestates {
+            let mut base_tree = create_tree_from_gamestate(filename).max_depth(4);
+            let mut test_tree = tree_configurator(base_tree.clone());
+            base_tree.simulate();
+            test_tree.simulate();
+            tree_comparator(&base_tree, &test_tree);
+        }
+    }
 
     #[test]
     fn correct_tree_state_propagation() {
-        let gamestate = read_game_state("requests/failure_1.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_1.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -186,9 +228,7 @@ mod tests {
         assert_eq!(root.direction_status(2), None);
         assert_eq!(root.direction_status(3), None);
 
-        let gamestate = read_game_state("requests/failure_2.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_2.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -199,9 +239,7 @@ mod tests {
         assert_eq!(root.direction_status(2), None);
         assert_eq!(root.direction_status(3), None);
 
-        let gamestate = read_game_state("requests/failure_3.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_3.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -212,9 +250,7 @@ mod tests {
         assert_eq!(root.direction_status(2), Some(NodeStatus::DeadIn(0)));
         assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
 
-        let gamestate = read_game_state("requests/failure_4.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_4.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -225,9 +261,7 @@ mod tests {
         assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
         assert_eq!(root.direction_status(3), None);
 
-        let gamestate = read_game_state("requests/failure_5.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -240,18 +274,40 @@ mod tests {
     }
 
     #[test]
+    fn option_all_root_directions() {
+        test_against_base_simulation(
+            |tree| tree.all_root_directions(),
+            |baseline_tree, tree| {
+                let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                assert!(
+                    root.direction_status(0).is_some()
+                        && root.direction_status(1).is_some()
+                        && root.direction_status(2).is_some()
+                        && root.direction_status(3).is_some(),
+                    "All root directions should be simulated"
+                );
+                // If direction is simulated in baseline, status should match
+                let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                for i in 0..4 {
+                    if let Some(baseline_status) = baseline_root.direction_status(i) {
+                        let status = root.direction_status(i).unwrap();
+                        assert_eq!(
+                            status, baseline_status,
+                            "Direction {} should have same status as baseline",
+                            i
+                        );
+                    }
+                }
+            },
+        );
+    }
+
+    #[test]
     fn display_tree() {
-        let gamestate = read_game_state("requests/failure_4.json");
-        let root = GameState::<BasicField>::from(&gamestate);
-        let mut tree = Tree::new(root).max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_1.json")
+            .max_depth(3)
+            .all_root_directions();
         tree.simulate();
         // println!("{}", tree);
-
-        println!("{}", tree.nodes.get(&"UURU".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"UURU-UUUU".parse().unwrap()).unwrap());
-        println!(
-            "{}",
-            tree.nodes.get(&"UURU-UUUU-LURU".parse().unwrap()).unwrap()
-        );
     }
 }
