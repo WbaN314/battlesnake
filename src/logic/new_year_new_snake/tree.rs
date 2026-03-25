@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt,
     time::{Duration, Instant},
 };
@@ -17,21 +17,23 @@ use crate::logic::{
 #[derive(Clone)]
 struct Tree {
     nodes: HashMap<NodeId, Node>,
-    queue: VecDeque<NodeId>,
+    queue: DepthQueue,
     max_depth: u8,
     max_time: Option<Duration>,
+    max_nodes: usize,
 }
 
 impl Tree {
     pub fn new(root: GameState<BasicField>) -> Self {
         let node = Node::new(NodeId::new(), root);
-        let queue = VecDeque::from([node.id()]);
+        let queue = DepthQueue::from(node.id());
         let nodes = HashMap::from([(node.id(), node)]);
         Self {
             nodes,
             queue,
             max_depth: u8::MAX,
             max_time: None,
+            max_nodes: usize::MAX,
         }
     }
 
@@ -45,8 +47,13 @@ impl Tree {
         self
     }
 
+    pub fn max_nodes(mut self, max_nodes: usize) -> Self {
+        self.max_nodes = max_nodes;
+        self
+    }
+
     pub fn all_root_directions(mut self) -> Self {
-        let root_id = self.queue.pop_front().unwrap();
+        let root_id = self.queue.pop().unwrap();
         while self.simulate_node(root_id) {
             // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
         }
@@ -56,8 +63,8 @@ impl Tree {
     pub fn simulate(&mut self) {
         let deadline = self.max_time.map(|d| Instant::now() + d);
         // Get next node to simulate and check early termination conditions
-        while let Some(node_id) = self.queue.pop_front() {
-            if deadline.is_some_and(|d| Instant::now() >= d) {
+        while let Some(node_id) = self.queue.pop() {
+            if deadline.is_some_and(|d| Instant::now() >= d) || self.nodes.len() > self.max_nodes {
                 debug!("Reached time limit, stopping simulation");
                 break;
             }
@@ -81,7 +88,7 @@ impl Tree {
                 debug!("{} has spawned no children", node_id);
                 // No children for this direction, reque the node itself to simulate the next direction
                 trace!("Adding {} to the front of queue", node_id);
-                self.queue.push_front(node_id);
+                self.queue.push(node_id);
                 true
             }
             Some(children) => {
@@ -90,7 +97,7 @@ impl Tree {
                     let child_id = child.id();
                     trace!("Adding child {} to the back of queue", child_id);
                     self.nodes.insert(child_id, child);
-                    self.queue.push_back(child_id);
+                    self.queue.push(child_id);
                 }
                 true
             }
@@ -101,7 +108,7 @@ impl Tree {
                     && matches!(node_status, NodeStatus::DeadIn(_))
                 {
                     trace!("Adding parent {} to the front of queue", parent_id);
-                    self.queue.push_front(parent_id);
+                    self.queue.push(parent_id);
                 }
                 false
             }
@@ -179,6 +186,42 @@ impl fmt::Display for Tree {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct DepthQueue {
+    buckets: BTreeMap<u8, VecDeque<NodeId>>,
+}
+
+impl DepthQueue {
+    fn new() -> Self {
+        Self {
+            buckets: BTreeMap::new(),
+        }
+    }
+
+    fn from(id: NodeId) -> Self {
+        let mut q = Self::new();
+        q.push(id);
+        q
+    }
+
+    fn push(&mut self, id: NodeId) {
+        self.buckets.entry(id.depth()).or_default().push_back(id);
+    }
+
+    fn pop(&mut self) -> Option<NodeId> {
+        let (&depth, queue) = self.buckets.iter_mut().next()?;
+        let id = queue.pop_front();
+        if queue.is_empty() {
+            self.buckets.remove(&depth);
+        }
+        id
+    }
+
+    fn is_empty(&self) -> bool {
+        self.buckets.is_empty()
     }
 }
 
@@ -305,9 +348,9 @@ mod tests {
     #[test]
     fn display_tree() {
         let mut tree = create_tree_from_gamestate("requests/failure_1.json")
-            .max_depth(3)
-            .all_root_directions();
+            .all_root_directions()
+            .max_nodes(50_000);
         tree.simulate();
-        // println!("{}", tree);
+        println!("{}", tree);
     }
 }
