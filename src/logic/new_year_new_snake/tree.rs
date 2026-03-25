@@ -81,7 +81,9 @@ impl Tree {
                 None => {
                     // All directions exhausted. Go one level up to simulate the next direction of the parent
                     debug!("{} has exhausted all directions", node_id);
-                    if let Some(parent_id) = node_id.parent() {
+                    if let Some(parent_id) = node_id.parent()
+                        && matches!(node_status, NodeStatus::DeadIn(_))
+                    {
                         trace!("Adding parent {} to the front of queue", parent_id);
                         self.queue.push_front(parent_id);
                     }
@@ -181,8 +183,21 @@ mod tests {
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
         assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(0)));
         assert_eq!(root.direction_status(1), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(3), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(2), None);
+        assert_eq!(root.direction_status(3), None);
+
+        let gamestate = read_game_state("requests/failure_2.json");
+        let root = GameState::<BasicField>::from(&gamestate);
+        let mut tree = Tree::new(root).max_depth(4);
+        tree.simulate();
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::AliveFor(4));
+        assert_eq!(root.direction_status(0), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(1), None);
+        assert_eq!(root.direction_status(2), None);
+        assert_eq!(root.direction_status(3), None);
 
         let gamestate = read_game_state("requests/failure_3.json");
         let root = GameState::<BasicField>::from(&gamestate);
@@ -208,6 +223,19 @@ mod tests {
         assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
         assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
         assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
+        assert_eq!(root.direction_status(3), None);
+
+        let gamestate = read_game_state("requests/failure_5.json");
+        let root = GameState::<BasicField>::from(&gamestate);
+        let mut tree = Tree::new(root).max_depth(4);
+        tree.simulate();
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::DeadIn(2));
+        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(1)));
+        assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(2), Some(NodeStatus::DeadIn(0)));
         assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
     }
 
