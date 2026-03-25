@@ -112,6 +112,21 @@ impl Node {
         &self.children
     }
 
+    /// Returns the number of children that would be spawned per explored direction,
+    /// computed from the gamestate's valid moves. Unexplored directions return 0.
+    pub fn count_potential_children(&self) -> [usize; 4] {
+        let move_matrix = self.gamestate.valid_moves();
+        // Product of other snakes' valid move counts (snake 0 is fixed to 1 direction)
+        let others_product: usize = (1..4).map(|i| move_matrix.get(i).count_valid(1)).product();
+        let mut result = [0usize; 4];
+        for i in 0..4 {
+            if self.children[i].is_some() {
+                result[i] = others_product;
+            }
+        }
+        result
+    }
+
     /// Returns None if all directions have been simulated
     pub fn simulate(&mut self) -> Option<Vec<Node>> {
         if let Some(move_matrix) = self.next_moveset() {

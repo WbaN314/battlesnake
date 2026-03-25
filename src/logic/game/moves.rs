@@ -49,7 +49,7 @@ impl From<Direction> for MoveVector {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct MoveMatrix {
     moves: [MoveVector; SNAKES as usize],
 }

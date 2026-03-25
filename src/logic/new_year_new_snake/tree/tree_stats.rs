@@ -12,6 +12,7 @@ use super::Tree;
 #[derive(Debug)]
 pub struct TreeStats {
     pub total_nodes: usize,
+    pub total_potential_children: usize,
     pub total_tracked_children: usize,
     pub max_depth_reached: u8,
     pub nodes_per_depth: Vec<(u8, usize)>,
@@ -98,18 +99,20 @@ impl Tree {
             .map(|v| v.len())
             .sum();
 
-        // Pruned nodes per depth
+        // Total potential children (all valid move combinations, before any pruning)
+        let total_potential_children: usize = self
+            .nodes
+            .values()
+            .map(|n| n.count_potential_children().iter().sum::<usize>())
+            .sum();
+
+        // Pruned nodes per depth (potential - actual spawned in tree)
         let mut pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
         for (&parent_id, node) in &self.nodes {
             let child_depth = parent_id.depth() + 1;
-            let tracked: usize = node
-                .children()
-                .iter()
-                .filter_map(|slot| slot.as_ref())
-                .map(|v| v.len())
-                .sum();
+            let potential: usize = node.count_potential_children().iter().sum();
             let actual = children_map.get(&parent_id).map_or(0, |v| v.len());
-            let pruned = tracked.saturating_sub(actual);
+            let pruned = potential.saturating_sub(actual);
             if pruned > 0 {
                 *pruned_by_depth.entry(child_depth).or_default() += pruned;
             }
@@ -163,6 +166,7 @@ impl Tree {
 
         TreeStats {
             total_nodes: self.nodes.len(),
+            total_potential_children,
             total_tracked_children,
             max_depth_reached,
             nodes_per_depth,
@@ -200,49 +204,75 @@ impl Tree {
 
 impl fmt::Display for TreeStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Root status:          {}", self.root_status)?;
-        writeln!(f, "Total nodes in tree:  {}", self.total_nodes)?;
-        writeln!(f, "Tracked children:     {}", self.total_tracked_children)?;
+        // --- Overview ---
+        writeln!(f, "Overview:")?;
+        writeln!(f, "  Root status:          {}", self.root_status)?;
+        writeln!(f, "  Total nodes in tree:  {}", self.total_nodes)?;
+        writeln!(f, "  Max depth reached:    {}", self.max_depth_reached)?;
         writeln!(
             f,
-            "Pruned (dead) nodes:  {}",
-            self.total_tracked_children - (self.total_nodes - 1)
+            "  Avg branching factor: {:.2}",
+            self.avg_branching_factor
         )?;
-        let pruning_rate = if self.total_tracked_children > 0 {
-            (self.total_tracked_children - (self.total_nodes - 1)) as f64
-                / self.total_tracked_children as f64
-                * 100.0
-        } else {
-            0.0
-        };
-        writeln!(f, "Pruning rate:         {:.1}%", pruning_rate)?;
-        writeln!(f, "Max depth reached:    {}", self.max_depth_reached)?;
-        writeln!(f, "Leaf nodes:           {}", self.leaf_nodes)?;
-        writeln!(f, "  Alive (unexpanded): {}", self.alive_leaves)?;
-        writeln!(f, "  Avg leaf depth:     {:.2}", self.avg_leaf_depth)?;
-        writeln!(f, "  Median leaf depth:  {:.1}", self.median_leaf_depth)?;
-        writeln!(f, "Avg branching factor: {:.2}", self.avg_branching_factor)?;
         let ebf = if self.max_depth_reached > 0 && self.leaf_nodes > 0 {
             (self.leaf_nodes as f64).powf(1.0 / self.max_depth_reached as f64)
         } else {
             0.0
         };
-        writeln!(f, "Eff branching factor: {:.2}", ebf)?;
-        writeln!(f, "Queue remaining:      {}", self.queue_remaining)?;
-        writeln!(f, "Duration:             {:.2?}", self.duration)?;
+        writeln!(f, "  Eff branching factor: {:.2}", ebf)?;
+        writeln!(f, "  Queue remaining:      {}", self.queue_remaining)?;
         let nps = if self.duration.as_secs_f64() > 0.0 {
             self.total_nodes as f64 / self.duration.as_secs_f64()
         } else {
             0.0
         };
-        writeln!(f, "Nodes/sec:            {:.0}", nps)?;
+        writeln!(f, "  Duration:             {:.2?}", self.duration)?;
+        writeln!(f, "  Nodes/sec:            {:.0}", nps)?;
         let (mem_value, mem_unit) = if self.memory_estimate_bytes >= 1024 * 1024 {
             (self.memory_estimate_bytes as f64 / (1024.0 * 1024.0), "MB")
         } else {
             (self.memory_estimate_bytes as f64 / 1024.0, "KB")
         };
-        writeln!(f, "Memory estimate:      {:.1} {}", mem_value, mem_unit)?;
+        writeln!(f, "  Memory estimate:      {:.1} {}", mem_value, mem_unit)?;
         writeln!(f, "")?;
+
+        // --- Pruning ---
+        writeln!(f, "Pruning:")?;
+        writeln!(
+            f,
+            "  Potential children:         {}",
+            self.total_potential_children
+        )?;
+        writeln!(
+            f,
+            "  Spawned children:           {}",
+            self.total_tracked_children
+        )?;
+        let not_spawned = self
+            .total_potential_children
+            .saturating_sub(self.total_tracked_children);
+        let in_tree = self.total_nodes - 1; // exclude root
+        let spawned_not_in_tree = self.total_tracked_children.saturating_sub(in_tree);
+        writeln!(f, "  Pruned (not spawned):       {}", not_spawned)?;
+        writeln!(f, "  Pruned (dead, not in tree): {}", spawned_not_in_tree)?;
+        let total_pruned = not_spawned + spawned_not_in_tree;
+        let pruning_rate = if self.total_potential_children > 0 {
+            total_pruned as f64 / self.total_potential_children as f64 * 100.0
+        } else {
+            0.0
+        };
+        writeln!(f, "  Pruning rate:               {:.1}%", pruning_rate)?;
+        writeln!(f, "")?;
+
+        // --- Leaf nodes ---
+        writeln!(f, "Leaf nodes:")?;
+        writeln!(f, "  Total:              {}", self.leaf_nodes)?;
+        writeln!(f, "  Alive (unexpanded): {}", self.alive_leaves)?;
+        writeln!(f, "  Avg leaf depth:     {:.2}", self.avg_leaf_depth)?;
+        writeln!(f, "  Median leaf depth:  {:.1}", self.median_leaf_depth)?;
+        writeln!(f, "")?;
+
+        // --- Nodes per depth ---
         writeln!(f, "Nodes per depth:")?;
         let pruned_map: std::collections::BTreeMap<u8, usize> =
             self.pruned_per_depth.iter().copied().collect();
