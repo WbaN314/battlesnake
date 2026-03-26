@@ -18,11 +18,9 @@ use super::Tree;
 #[derive(Debug)]
 pub struct TreeStats {
     pub total_nodes: usize,
-    pub total_potential_children: usize,
-    pub total_tracked_children: usize,
     pub max_depth_reached: u8,
     pub nodes_per_depth: Vec<(u8, usize)>,
-    pub pruned_per_depth: Vec<(u8, usize)>,
+    pub pruning_per_depth: Vec<PruningDepthStats>,
     pub nodes_by_status: Vec<(NodeStatus, usize)>,
     pub leaf_nodes: usize,
     pub alive_leaves: usize,
@@ -34,6 +32,15 @@ pub struct TreeStats {
     pub avg_branching_factor: f64,
     pub memory_estimate_bytes: usize,
     pub duration: Duration,
+}
+
+#[derive(Debug)]
+pub struct PruningDepthStats {
+    pub depth: u8,
+    pub potential: usize,
+    pub actual: usize,
+    pub not_spawned: usize,
+    pub dead_pruned: usize,
 }
 
 #[derive(Debug)]
@@ -60,7 +67,7 @@ impl Tree {
         }
 
         let max_depth_reached = by_depth.keys().last().copied().unwrap_or(0);
-        let nodes_per_depth: Vec<(u8, usize)> = by_depth.into_iter().collect();
+        let nodes_per_depth: Vec<(u8, usize)> = by_depth.iter().map(|(&d, &n)| (d, n)).collect();
 
         // Leaf nodes = nodes with no children in the tree
         let leaf_ids: Vec<&NodeId> = self
@@ -96,34 +103,41 @@ impl Tree {
         }
         let nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
 
-        // Total children tracked internally by nodes (includes pruned dead directions)
-        let total_tracked_children: usize = self
-            .nodes
-            .values()
-            .flat_map(|n| n.children().iter())
-            .filter_map(|slot| slot.as_ref())
-            .map(|v| v.len())
-            .sum();
-
-        // Total potential children (all valid move combinations for explored directions)
-        let total_potential_children: usize = self
-            .nodes
-            .values()
-            .map(|n| n.count_potential_children().iter().sum::<usize>())
-            .sum();
-
-        // Pruned nodes per depth (potential - actual spawned in tree)
-        let mut pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        // Per-depth pruning breakdown:
+        //   potential = worst-case (all valid move combos for explored directions)
+        //   tracked   = nodes actually registered as children in parent's vec
+        //   actual    = nodes that exist in the tree (some tracked children are dead and pruned)
+        //   not_spawned  = potential - tracked  (filtered before spawning)
+        //   dead_pruned  = tracked - actual     (spawned but immediately dead, not kept in tree)
+        let mut potential_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut tracked_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
         for (&parent_id, node) in &self.nodes {
             let child_depth = parent_id.depth() + 1;
             let potential: usize = node.count_potential_children().iter().sum();
-            let actual = children_map.get(&parent_id).map_or(0, |v| v.len());
-            let pruned = potential.saturating_sub(actual);
-            if pruned > 0 {
-                *pruned_by_depth.entry(child_depth).or_default() += pruned;
-            }
+            let tracked: usize = node
+                .children()
+                .iter()
+                .filter_map(|s| s.as_ref())
+                .map(|v| v.len())
+                .sum();
+            *potential_by_depth.entry(child_depth).or_default() += potential;
+            *tracked_by_depth.entry(child_depth).or_default() += tracked;
         }
-        let pruned_per_depth: Vec<(u8, usize)> = pruned_by_depth.into_iter().collect();
+        let pruning_per_depth: Vec<PruningDepthStats> = potential_by_depth
+            .keys()
+            .map(|&depth| {
+                let potential = potential_by_depth[&depth];
+                let tracked = tracked_by_depth.get(&depth).copied().unwrap_or(0);
+                let actual = by_depth.get(&depth).copied().unwrap_or(0);
+                PruningDepthStats {
+                    depth,
+                    potential,
+                    actual,
+                    not_spawned: potential.saturating_sub(tracked),
+                    dead_pruned: tracked.saturating_sub(actual),
+                }
+            })
+            .collect();
 
         // Memory estimate (node data + HashMap overhead ~48 bytes/entry)
         let memory_estimate_bytes =
@@ -155,10 +169,7 @@ impl Tree {
             .map(|i| {
                 let direction = Direction::try_from(i).unwrap();
                 let status = root.direction_status(i);
-
-                // Count subtree size by counting nodes whose root direction matches
                 let (subtree_size, max_depth) = self.subtree_stats_for_direction(direction);
-
                 DirectionStats {
                     direction,
                     status,
@@ -172,11 +183,9 @@ impl Tree {
 
         TreeStats {
             total_nodes: self.nodes.len(),
-            total_potential_children,
-            total_tracked_children,
             max_depth_reached,
             nodes_per_depth,
-            pruned_per_depth,
+            pruning_per_depth,
             nodes_by_status,
             leaf_nodes,
             alive_leaves,
@@ -213,7 +222,6 @@ impl fmt::Display for TreeStats {
         write!(f, "{}", self.overview_table())?;
         write!(f, "{}", self.pruning_table())?;
         write!(f, "{}", self.leaf_table())?;
-        write!(f, "{}", self.depth_table())?;
         write!(f, "{}", self.status_table())?;
         write!(f, "{}", self.direction_table())
     }
@@ -268,26 +276,28 @@ impl TreeStats {
     }
 
     fn pruning_table(&self) -> String {
-        let not_spawned = self
-            .total_potential_children
-            .saturating_sub(self.total_tracked_children);
-        let spawned_not_in_tree = self.total_tracked_children.saturating_sub(self.total_nodes - 1);
-        let pruning_rate = if self.total_potential_children > 0 {
-            (not_spawned + spawned_not_in_tree) as f64 / self.total_potential_children as f64
-                * 100.0
-        } else {
-            0.0
-        };
-        Self::kv_table(
-            "Pruning",
-            &[
-                ("Potential children", self.total_potential_children.to_string()),
-                ("Spawned children", self.total_tracked_children.to_string()),
-                ("Pruned (not spawned)", not_spawned.to_string()),
-                ("Pruned (dead, not in tree)", spawned_not_in_tree.to_string()),
-                ("Pruning rate", format!("{:.1}%", pruning_rate)),
-            ],
-        )
+        let mut b = Builder::default();
+        b.push_record(["Depth", "Potential", "Actual", "Not Spawned", "Dead Pruned", "Pruning %"]);
+        for p in &self.pruning_per_depth {
+            let total_pruned = p.not_spawned + p.dead_pruned;
+            let rate = if p.potential > 0 {
+                format!("{:.1}%", total_pruned as f64 / p.potential as f64 * 100.0)
+            } else {
+                "-".to_string()
+            };
+            b.push_record([
+                p.depth.to_string(),
+                p.potential.to_string(),
+                p.actual.to_string(),
+                p.not_spawned.to_string(),
+                p.dead_pruned.to_string(),
+                rate,
+            ]);
+        }
+        let mut t = b.build();
+        t.with(Style::rounded());
+        t.modify(Columns::new(0..=4), Alignment::right());
+        Self::section("Pruning", t)
     }
 
     fn leaf_table(&self) -> String {
@@ -300,20 +310,6 @@ impl TreeStats {
                 ("Median leaf depth", format!("{:.1}", self.median_leaf_depth)),
             ],
         )
-    }
-
-    fn depth_table(&self) -> String {
-        let pruned_map: BTreeMap<u8, usize> = self.pruned_per_depth.iter().copied().collect();
-        let mut b = Builder::default();
-        b.push_record(["Depth", "Nodes", "Pruned"]);
-        for &(depth, nodes) in &self.nodes_per_depth {
-            let pruned = pruned_map.get(&depth).copied().unwrap_or(0);
-            b.push_record([depth.to_string(), nodes.to_string(), pruned.to_string()]);
-        }
-        let mut t = b.build();
-        t.with(Style::rounded());
-        t.modify(Columns::new(..), Alignment::right());
-        Self::section("Nodes per depth", t)
     }
 
     fn status_table(&self) -> String {
@@ -348,5 +344,62 @@ impl TreeStats {
         t.modify(Columns::new(2..=2), Alignment::right());
         t.modify(Columns::new(3..=3), Alignment::right());
         format!("Direction analysis:\n{t}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        logic::{
+            game::{field::BasicField, game_state::GameState},
+            new_year_new_snake::tree::Tree,
+        },
+        read_game_state,
+    };
+
+    fn create_tree_from_gamestate(filename: &str) -> Tree {
+        let gamestate = read_game_state(filename);
+        let root = GameState::<BasicField>::from(&gamestate);
+        Tree::new(root)
+    }
+
+    #[test]
+    fn pruning_stats_are_consistent() {
+        for filename in &[
+            "requests/failure_1.json",
+            "requests/failure_4.json",
+        ] {
+            let mut tree = create_tree_from_gamestate(filename).max_depth(4);
+            tree.simulate();
+            let stats = tree.stats();
+
+            let nodes_per_depth: std::collections::HashMap<u8, usize> =
+                stats.nodes_per_depth.iter().copied().collect();
+
+            for p in &stats.pruning_per_depth {
+                assert_eq!(
+                    p.actual + p.not_spawned + p.dead_pruned,
+                    p.potential,
+                    "{filename} depth {}: actual({}) + not_spawned({}) + dead_pruned({}) != potential({})",
+                    p.depth, p.actual, p.not_spawned, p.dead_pruned, p.potential,
+                );
+
+                let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
+                assert_eq!(
+                    p.actual, nodes_at_depth,
+                    "{filename} depth {}: pruning actual({}) != nodes_per_depth({})",
+                    p.depth, p.actual, nodes_at_depth,
+                );
+            }
+
+            let total_actual: usize = stats.pruning_per_depth.iter().map(|p| p.actual).sum();
+            assert_eq!(
+                total_actual,
+                stats.total_nodes - 1,
+                "{filename}: sum of actual across depths({}) != total_nodes - 1({})",
+                total_actual,
+                stats.total_nodes - 1,
+            );
+        }
     }
 }
