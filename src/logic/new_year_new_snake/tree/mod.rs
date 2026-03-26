@@ -237,7 +237,7 @@ mod tests {
     use super::*;
     use crate::read_game_state;
 
-    fn create_tree_from_gamestate(filename: &str) -> Tree {
+    pub(super) fn create_tree_from_gamestate(filename: &str) -> Tree {
         let gamestate = read_game_state(filename);
         let root = GameState::<BasicField>::from(&gamestate);
         Tree::new(root)

@@ -265,7 +265,10 @@ impl TreeStats {
                 ("Root status", format!("{}", self.root_status)),
                 ("Total nodes", self.total_nodes.to_string()),
                 ("Max depth", self.max_depth_reached.to_string()),
-                ("Avg branching factor", format!("{:.2}", self.avg_branching_factor)),
+                (
+                    "Avg branching factor",
+                    format!("{:.2}", self.avg_branching_factor),
+                ),
                 ("Eff branching factor", format!("{:.2}", ebf)),
                 ("Queue remaining", self.queue_remaining.to_string()),
                 ("Duration", format!("{:.2?}", self.duration)),
@@ -277,7 +280,14 @@ impl TreeStats {
 
     fn pruning_table(&self) -> String {
         let mut b = Builder::default();
-        b.push_record(["Depth", "Potential", "Actual", "Not Spawned", "Dead Pruned", "Pruning %"]);
+        b.push_record([
+            "Depth",
+            "Potential",
+            "Actual",
+            "Not Spawned",
+            "Dead Pruned",
+            "Pruning %",
+        ]);
         for p in &self.pruning_per_depth {
             let total_pruned = p.not_spawned + p.dead_pruned;
             let rate = if p.potential > 0 {
@@ -307,7 +317,10 @@ impl TreeStats {
                 ("Total", self.leaf_nodes.to_string()),
                 ("Alive (unexpanded)", self.alive_leaves.to_string()),
                 ("Avg leaf depth", format!("{:.2}", self.avg_leaf_depth)),
-                ("Median leaf depth", format!("{:.1}", self.median_leaf_depth)),
+                (
+                    "Median leaf depth",
+                    format!("{:.1}", self.median_leaf_depth),
+                ),
             ],
         )
     }
@@ -352,23 +365,14 @@ mod tests {
     use crate::{
         logic::{
             game::{field::BasicField, game_state::GameState},
-            new_year_new_snake::tree::Tree,
+            new_year_new_snake::tree::tests::create_tree_from_gamestate,
         },
         read_game_state,
     };
 
-    fn create_tree_from_gamestate(filename: &str) -> Tree {
-        let gamestate = read_game_state(filename);
-        let root = GameState::<BasicField>::from(&gamestate);
-        Tree::new(root)
-    }
-
     #[test]
     fn pruning_stats_are_consistent() {
-        for filename in &[
-            "requests/failure_1.json",
-            "requests/failure_4.json",
-        ] {
+        for filename in &["requests/failure_1.json", "requests/failure_4.json"] {
             let mut tree = create_tree_from_gamestate(filename).max_depth(4);
             tree.simulate();
             let stats = tree.stats();
@@ -381,7 +385,11 @@ mod tests {
                     p.actual + p.not_spawned + p.dead_pruned,
                     p.potential,
                     "{filename} depth {}: actual({}) + not_spawned({}) + dead_pruned({}) != potential({})",
-                    p.depth, p.actual, p.not_spawned, p.dead_pruned, p.potential,
+                    p.depth,
+                    p.actual,
+                    p.not_spawned,
+                    p.dead_pruned,
+                    p.potential,
                 );
 
                 let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
