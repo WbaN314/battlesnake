@@ -99,7 +99,7 @@ impl Tree {
             .map(|v| v.len())
             .sum();
 
-        // Total potential children (all valid move combinations, before any pruning)
+        // Total potential children (all valid move combinations for explored directions)
         let total_potential_children: usize = self
             .nodes
             .values()
