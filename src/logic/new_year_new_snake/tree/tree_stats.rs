@@ -2,6 +2,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::time::Duration;
 
+use tabled::{
+    Table,
+    builder::Builder,
+    settings::{Alignment, Style, object::Columns},
+};
+
 use crate::logic::{
     game::direction::Direction,
     new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
@@ -204,185 +210,134 @@ impl Tree {
 
 impl fmt::Display for TreeStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn kv_table(rows: &[(&str, String)]) -> Table {
+            let mut b = Builder::default();
+            for (k, v) in rows {
+                b.push_record([k.to_string(), v.clone()]);
+            }
+            let mut t = b.build();
+            t.with(Style::rounded());
+            t.modify(Columns::new(1..=1), Alignment::right());
+            t
+        }
+
         // --- Overview ---
-        writeln!(f, "Overview:")?;
-        writeln!(f, "  Root status:          {}", self.root_status)?;
-        writeln!(f, "  Total nodes in tree:  {}", self.total_nodes)?;
-        writeln!(f, "  Max depth reached:    {}", self.max_depth_reached)?;
-        writeln!(
-            f,
-            "  Avg branching factor: {:.2}",
-            self.avg_branching_factor
-        )?;
         let ebf = if self.max_depth_reached > 0 && self.leaf_nodes > 0 {
             (self.leaf_nodes as f64).powf(1.0 / self.max_depth_reached as f64)
         } else {
             0.0
         };
-        writeln!(f, "  Eff branching factor: {:.2}", ebf)?;
-        writeln!(f, "  Queue remaining:      {}", self.queue_remaining)?;
         let nps = if self.duration.as_secs_f64() > 0.0 {
             self.total_nodes as f64 / self.duration.as_secs_f64()
         } else {
             0.0
         };
-        writeln!(f, "  Duration:             {:.2?}", self.duration)?;
-        writeln!(f, "  Nodes/sec:            {:.0}", nps)?;
         let (mem_value, mem_unit) = if self.memory_estimate_bytes >= 1024 * 1024 {
             (self.memory_estimate_bytes as f64 / (1024.0 * 1024.0), "MB")
         } else {
             (self.memory_estimate_bytes as f64 / 1024.0, "KB")
         };
-        writeln!(f, "  Memory estimate:      {:.1} {}", mem_value, mem_unit)?;
-        writeln!(f, "")?;
+        writeln!(f, "Overview:")?;
+        write!(
+            f,
+            "{}\n\n",
+            kv_table(&[
+                ("Root status", format!("{}", self.root_status)),
+                ("Total nodes", self.total_nodes.to_string()),
+                ("Max depth", self.max_depth_reached.to_string()),
+                ("Avg branching factor", format!("{:.2}", self.avg_branching_factor)),
+                ("Eff branching factor", format!("{:.2}", ebf)),
+                ("Queue remaining", self.queue_remaining.to_string()),
+                ("Duration", format!("{:.2?}", self.duration)),
+                ("Nodes/sec", format!("{:.0}", nps)),
+                ("Memory estimate", format!("{:.1} {}", mem_value, mem_unit)),
+            ])
+        )?;
 
         // --- Pruning ---
-        writeln!(f, "Pruning:")?;
-        writeln!(
-            f,
-            "  Potential children:         {}",
-            self.total_potential_children
-        )?;
-        writeln!(
-            f,
-            "  Spawned children:           {}",
-            self.total_tracked_children
-        )?;
         let not_spawned = self
             .total_potential_children
             .saturating_sub(self.total_tracked_children);
-        let in_tree = self.total_nodes - 1; // exclude root
+        let in_tree = self.total_nodes - 1;
         let spawned_not_in_tree = self.total_tracked_children.saturating_sub(in_tree);
-        writeln!(f, "  Pruned (not spawned):       {}", not_spawned)?;
-        writeln!(f, "  Pruned (dead, not in tree): {}", spawned_not_in_tree)?;
         let total_pruned = not_spawned + spawned_not_in_tree;
         let pruning_rate = if self.total_potential_children > 0 {
             total_pruned as f64 / self.total_potential_children as f64 * 100.0
         } else {
             0.0
         };
-        writeln!(f, "  Pruning rate:               {:.1}%", pruning_rate)?;
-        writeln!(f, "")?;
+        writeln!(f, "Pruning:")?;
+        write!(
+            f,
+            "{}\n\n",
+            kv_table(&[
+                ("Potential children", self.total_potential_children.to_string()),
+                ("Spawned children", self.total_tracked_children.to_string()),
+                ("Pruned (not spawned)", not_spawned.to_string()),
+                ("Pruned (dead, not in tree)", spawned_not_in_tree.to_string()),
+                ("Pruning rate", format!("{:.1}%", pruning_rate)),
+            ])
+        )?;
 
         // --- Leaf nodes ---
         writeln!(f, "Leaf nodes:")?;
-        writeln!(f, "  Total:              {}", self.leaf_nodes)?;
-        writeln!(f, "  Alive (unexpanded): {}", self.alive_leaves)?;
-        writeln!(f, "  Avg leaf depth:     {:.2}", self.avg_leaf_depth)?;
-        writeln!(f, "  Median leaf depth:  {:.1}", self.median_leaf_depth)?;
-        writeln!(f, "")?;
+        write!(
+            f,
+            "{}\n\n",
+            kv_table(&[
+                ("Total", self.leaf_nodes.to_string()),
+                ("Alive (unexpanded)", self.alive_leaves.to_string()),
+                ("Avg leaf depth", format!("{:.2}", self.avg_leaf_depth)),
+                ("Median leaf depth", format!("{:.1}", self.median_leaf_depth)),
+            ])
+        )?;
 
         // --- Nodes per depth ---
+        let pruned_map: BTreeMap<u8, usize> = self.pruned_per_depth.iter().copied().collect();
+        let mut b = Builder::default();
+        b.push_record(["Depth", "Nodes", "Pruned"]);
+        for &(depth, nodes) in &self.nodes_per_depth {
+            let pruned = pruned_map.get(&depth).copied().unwrap_or(0);
+            b.push_record([depth.to_string(), nodes.to_string(), pruned.to_string()]);
+        }
+        let mut table = b.build();
+        table.with(Style::rounded());
+        table.modify(Columns::new(..), Alignment::right());
         writeln!(f, "Nodes per depth:")?;
-        let pruned_map: std::collections::BTreeMap<u8, usize> =
-            self.pruned_per_depth.iter().copied().collect();
-        let max_count_width = self
-            .nodes_per_depth
-            .iter()
-            .map(|(_, c)| c.to_string().len())
-            .max()
-            .unwrap_or(1);
-        let max_pruned_width = self
-            .pruned_per_depth
-            .iter()
-            .map(|(_, c)| c.to_string().len())
-            .max()
-            .unwrap_or(1);
-        let max_depth_width = self
-            .nodes_per_depth
-            .iter()
-            .map(|(d, _)| d.to_string().len())
-            .max()
-            .unwrap_or(1)
-            .max(2);
-        for (depth, count) in &self.nodes_per_depth {
-            let pruned = pruned_map.get(depth).copied().unwrap_or(0);
-            if pruned > 0 {
-                writeln!(
-                    f,
-                    "  depth {:>dw$}: {:>cw$} nodes  ({:>pw$} pruned)",
-                    depth,
-                    count,
-                    pruned,
-                    dw = max_depth_width,
-                    cw = max_count_width,
-                    pw = max_pruned_width,
-                )?;
-            } else {
-                writeln!(
-                    f,
-                    "  depth {:>dw$}: {:>cw$} nodes",
-                    depth,
-                    count,
-                    dw = max_depth_width,
-                    cw = max_count_width,
-                )?;
-            }
-        }
-        writeln!(f, "")?;
-        writeln!(f, "Nodes by status:")?;
-        let max_status_width = self
-            .nodes_by_status
-            .iter()
-            .map(|(s, _)| format!("{}:", s).len())
-            .max()
-            .unwrap_or(1);
-        let max_status_count_width = self
-            .nodes_by_status
-            .iter()
-            .map(|(_, c)| c.to_string().len())
-            .max()
-            .unwrap_or(1);
+        write!(f, "{}\n\n", table)?;
+
+        // --- Nodes by status ---
+        let mut b = Builder::default();
+        b.push_record(["Status", "Count"]);
         for (status, count) in &self.nodes_by_status {
-            writeln!(
-                f,
-                "  {:<sw$} {:>cw$}",
-                format!("{}:", status),
-                count,
-                sw = max_status_width,
-                cw = max_status_count_width,
-            )?;
+            b.push_record([format!("{}", status), count.to_string()]);
         }
-        writeln!(f, "")?;
-        writeln!(f, "Direction analysis:")?;
-        let max_dir_width = self
-            .direction_stats
-            .iter()
-            .map(|ds| format!("{}", ds.direction).len())
-            .max()
-            .unwrap_or(1);
-        let max_status_str_width = self
-            .direction_stats
-            .iter()
-            .map(|ds| match ds.status {
-                Some(s) => format!("{}", s).len(),
-                None => "unexplored".len(),
-            })
-            .max()
-            .unwrap_or(1);
-        let max_subtree_width = self
-            .direction_stats
-            .iter()
-            .map(|ds| ds.subtree_size.to_string().len())
-            .max()
-            .unwrap_or(1);
+        let mut table = b.build();
+        table.with(Style::rounded());
+        table.modify(Columns::new(1..=1), Alignment::right());
+        writeln!(f, "Nodes by status:")?;
+        write!(f, "{}\n\n", table)?;
+
+        // --- Direction analysis ---
+        let mut b = Builder::default();
+        b.push_record(["Direction", "Status", "Subtree", "Max Depth"]);
         for ds in &self.direction_stats {
             let status_str = match ds.status {
                 Some(s) => format!("{}", s),
                 None => "unexplored".to_string(),
             };
-            writeln!(
-                f,
-                "  {:>dw$}: {:>sw$}  ({:>tw$} nodes, max depth {})",
-                ds.direction,
+            b.push_record([
+                format!("{}", ds.direction),
                 status_str,
-                ds.subtree_size,
-                ds.max_depth,
-                dw = max_dir_width,
-                sw = max_status_str_width,
-                tw = max_subtree_width,
-            )?;
+                ds.subtree_size.to_string(),
+                ds.max_depth.to_string(),
+            ]);
         }
-        Ok(())
+        let mut table = b.build();
+        table.with(Style::rounded());
+        table.modify(Columns::new(2..=2), Alignment::right());
+        table.modify(Columns::new(3..=3), Alignment::right());
+        writeln!(f, "Direction analysis:")?;
+        write!(f, "{}", table)
     }
 }
