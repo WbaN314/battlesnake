@@ -210,18 +210,32 @@ impl Tree {
 
 impl fmt::Display for TreeStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn kv_table(rows: &[(&str, String)]) -> Table {
-            let mut b = Builder::default();
-            for (k, v) in rows {
-                b.push_record([k.to_string(), v.clone()]);
-            }
-            let mut t = b.build();
-            t.with(Style::rounded());
-            t.modify(Columns::new(1..=1), Alignment::right());
-            t
-        }
+        write!(f, "{}", self.overview_table())?;
+        write!(f, "{}", self.pruning_table())?;
+        write!(f, "{}", self.leaf_table())?;
+        write!(f, "{}", self.depth_table())?;
+        write!(f, "{}", self.status_table())?;
+        write!(f, "{}", self.direction_table())
+    }
+}
 
-        // --- Overview ---
+impl TreeStats {
+    fn section(title: &str, table: Table) -> String {
+        format!("{title}:\n{table}\n\n")
+    }
+
+    fn kv_table(title: &str, rows: &[(&str, String)]) -> String {
+        let mut b = Builder::default();
+        for (k, v) in rows {
+            b.push_record([k.to_string(), v.clone()]);
+        }
+        let mut t = b.build();
+        t.with(Style::rounded());
+        t.modify(Columns::new(1..=1), Alignment::right());
+        Self::section(title, t)
+    }
+
+    fn overview_table(&self) -> String {
         let ebf = if self.max_depth_reached > 0 && self.leaf_nodes > 0 {
             (self.leaf_nodes as f64).powf(1.0 / self.max_depth_reached as f64)
         } else {
@@ -237,11 +251,9 @@ impl fmt::Display for TreeStats {
         } else {
             (self.memory_estimate_bytes as f64 / 1024.0, "KB")
         };
-        writeln!(f, "Overview:")?;
-        write!(
-            f,
-            "{}\n\n",
-            kv_table(&[
+        Self::kv_table(
+            "Overview",
+            &[
                 ("Root status", format!("{}", self.root_status)),
                 ("Total nodes", self.total_nodes.to_string()),
                 ("Max depth", self.max_depth_reached.to_string()),
@@ -251,48 +263,46 @@ impl fmt::Display for TreeStats {
                 ("Duration", format!("{:.2?}", self.duration)),
                 ("Nodes/sec", format!("{:.0}", nps)),
                 ("Memory estimate", format!("{:.1} {}", mem_value, mem_unit)),
-            ])
-        )?;
+            ],
+        )
+    }
 
-        // --- Pruning ---
+    fn pruning_table(&self) -> String {
         let not_spawned = self
             .total_potential_children
             .saturating_sub(self.total_tracked_children);
-        let in_tree = self.total_nodes - 1;
-        let spawned_not_in_tree = self.total_tracked_children.saturating_sub(in_tree);
-        let total_pruned = not_spawned + spawned_not_in_tree;
+        let spawned_not_in_tree = self.total_tracked_children.saturating_sub(self.total_nodes - 1);
         let pruning_rate = if self.total_potential_children > 0 {
-            total_pruned as f64 / self.total_potential_children as f64 * 100.0
+            (not_spawned + spawned_not_in_tree) as f64 / self.total_potential_children as f64
+                * 100.0
         } else {
             0.0
         };
-        writeln!(f, "Pruning:")?;
-        write!(
-            f,
-            "{}\n\n",
-            kv_table(&[
+        Self::kv_table(
+            "Pruning",
+            &[
                 ("Potential children", self.total_potential_children.to_string()),
                 ("Spawned children", self.total_tracked_children.to_string()),
                 ("Pruned (not spawned)", not_spawned.to_string()),
                 ("Pruned (dead, not in tree)", spawned_not_in_tree.to_string()),
                 ("Pruning rate", format!("{:.1}%", pruning_rate)),
-            ])
-        )?;
+            ],
+        )
+    }
 
-        // --- Leaf nodes ---
-        writeln!(f, "Leaf nodes:")?;
-        write!(
-            f,
-            "{}\n\n",
-            kv_table(&[
+    fn leaf_table(&self) -> String {
+        Self::kv_table(
+            "Leaf nodes",
+            &[
                 ("Total", self.leaf_nodes.to_string()),
                 ("Alive (unexpanded)", self.alive_leaves.to_string()),
                 ("Avg leaf depth", format!("{:.2}", self.avg_leaf_depth)),
                 ("Median leaf depth", format!("{:.1}", self.median_leaf_depth)),
-            ])
-        )?;
+            ],
+        )
+    }
 
-        // --- Nodes per depth ---
+    fn depth_table(&self) -> String {
         let pruned_map: BTreeMap<u8, usize> = self.pruned_per_depth.iter().copied().collect();
         let mut b = Builder::default();
         b.push_record(["Depth", "Nodes", "Pruned"]);
@@ -300,25 +310,25 @@ impl fmt::Display for TreeStats {
             let pruned = pruned_map.get(&depth).copied().unwrap_or(0);
             b.push_record([depth.to_string(), nodes.to_string(), pruned.to_string()]);
         }
-        let mut table = b.build();
-        table.with(Style::rounded());
-        table.modify(Columns::new(..), Alignment::right());
-        writeln!(f, "Nodes per depth:")?;
-        write!(f, "{}\n\n", table)?;
+        let mut t = b.build();
+        t.with(Style::rounded());
+        t.modify(Columns::new(..), Alignment::right());
+        Self::section("Nodes per depth", t)
+    }
 
-        // --- Nodes by status ---
+    fn status_table(&self) -> String {
         let mut b = Builder::default();
         b.push_record(["Status", "Count"]);
         for (status, count) in &self.nodes_by_status {
             b.push_record([format!("{}", status), count.to_string()]);
         }
-        let mut table = b.build();
-        table.with(Style::rounded());
-        table.modify(Columns::new(1..=1), Alignment::right());
-        writeln!(f, "Nodes by status:")?;
-        write!(f, "{}\n\n", table)?;
+        let mut t = b.build();
+        t.with(Style::rounded());
+        t.modify(Columns::new(1..=1), Alignment::right());
+        Self::section("Nodes by status", t)
+    }
 
-        // --- Direction analysis ---
+    fn direction_table(&self) -> String {
         let mut b = Builder::default();
         b.push_record(["Direction", "Status", "Subtree", "Max Depth"]);
         for ds in &self.direction_stats {
@@ -333,11 +343,10 @@ impl fmt::Display for TreeStats {
                 ds.max_depth.to_string(),
             ]);
         }
-        let mut table = b.build();
-        table.with(Style::rounded());
-        table.modify(Columns::new(2..=2), Alignment::right());
-        table.modify(Columns::new(3..=3), Alignment::right());
-        writeln!(f, "Direction analysis:")?;
-        write!(f, "{}", table)
+        let mut t = b.build();
+        t.with(Style::rounded());
+        t.modify(Columns::new(2..=2), Alignment::right());
+        t.modify(Columns::new(3..=3), Alignment::right());
+        format!("Direction analysis:\n{t}")
     }
 }
