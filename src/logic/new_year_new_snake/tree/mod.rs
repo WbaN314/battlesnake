@@ -352,9 +352,7 @@ mod tests {
 
     #[test]
     fn display_tree() {
-        let mut tree = create_tree_from_gamestate("requests/failure_1.json")
-            .all_root_directions()
-            .max_nodes(50_000);
+        let mut tree = create_tree_from_gamestate("requests/failure_1.json").max_nodes(50_000);
         tree.simulate();
         println!("{}", tree);
         println!("{}", tree.stats());
