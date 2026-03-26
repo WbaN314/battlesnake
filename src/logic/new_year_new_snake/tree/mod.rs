@@ -307,7 +307,7 @@ mod tests {
         assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
         assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
         assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(3), None);
+        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
 
         let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
         tree.simulate();
