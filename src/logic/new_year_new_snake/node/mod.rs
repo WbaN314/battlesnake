@@ -13,10 +13,11 @@ use node_id::NodeId;
 
 mod node_stats;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
     AliveFor(u8), // Number of steps where we have checked with guaranteed survival
     DeadIn(u8),   // Number of steps until inevitable death (if opponents play optimally)
+    NotSimulated, // Status not yet determined as this direction has not been simulated
 }
 
 impl NodeStatus {
@@ -24,6 +25,19 @@ impl NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
             NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
+            _ => panic!("Cannot increment status: {}", self),
+        }
+    }
+
+    pub fn is_comparable(self) -> bool {
+        matches!(self, NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_))
+    }
+
+    pub fn for_comparison(self) -> Option<NodeStatus> {
+        if self.is_comparable() {
+            Some(self)
+        } else {
+            None
         }
     }
 }
@@ -36,12 +50,6 @@ impl PartialEq for NodeStatus {
     }
 }
 
-impl Ord for NodeStatus {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
 impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {
@@ -49,6 +57,9 @@ impl PartialOrd for NodeStatus {
             (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => n.partial_cmp(m),
             (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
             (NodeStatus::DeadIn(_), NodeStatus::AliveFor(_)) => Some(std::cmp::Ordering::Less),
+            // NotSimulated is not comparable to AliveFor or DeadIn, but two NotSimulated are considered equal (required for partial_eq to be consistent with partial_cmp)
+            (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
+            _ => None,
         }
     }
 }
@@ -58,6 +69,7 @@ impl Display for NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
+            NodeStatus::NotSimulated => write!(f, "NotSimulated"),
         }
     }
 }
@@ -86,24 +98,40 @@ impl Node {
         if !self.gamestate.is_alive(0) {
             return NodeStatus::DeadIn(0);
         }
-        let best = (0..4).filter_map(|i| self.direction_status(i)).max();
+
+        let best = (0..4)
+            .map(|i| self.direction_status(i))
+            .filter_map(|s| s.for_comparison())
+            .max_by(|x, y| x.partial_cmp(y).unwrap());
+
         match best {
+            None => NodeStatus::AliveFor(0), // No directions explored yet
             Some(s @ NodeStatus::AliveFor(_)) => s.increment(),
-            Some(s @ NodeStatus::DeadIn(_)) if self.children.iter().all(|c| c.is_some()) => {
-                s.increment()
+            Some(s @ NodeStatus::DeadIn(_)) => {
+                if self.children.iter().all(|c| c.is_some()) {
+                    s.increment()
+                } else {
+                    NodeStatus::AliveFor(0) // Best so far is dead but not all directions explored, so we are still alive for now
+                }
             }
-            _ => NodeStatus::AliveFor(0),
+            _ => panic!("Invalid best status: {}", best.unwrap()),
         }
     }
 
-    pub fn direction_status(&self, dir: usize) -> Option<NodeStatus> {
-        self.children[dir].as_ref().map(|children| {
-            children
-                .iter()
-                .map(|(_, s)| *s)
-                .min()
-                .unwrap_or(NodeStatus::DeadIn(0))
-        })
+    pub fn direction_status(&self, dir: usize) -> NodeStatus {
+        self.children[dir]
+            .as_ref()
+            .map_or(NodeStatus::NotSimulated, |children| {
+                if children.is_empty() {
+                    return NodeStatus::DeadIn(0);
+                } else {
+                    return children
+                        .iter()
+                        .filter_map(|(_, s)| s.for_comparison())
+                        .min_by(|x, y| x.partial_cmp(y).unwrap())
+                        .unwrap(); // Direction with children should always contain a comparable child
+                }
+            })
     }
 
     pub fn gamestate(&self) -> &GameState<BasicField> {
@@ -190,7 +218,7 @@ impl Display for Node {
             match slot {
                 None => writeln!(f, "  {} unexplored", dir)?,
                 Some(children) => {
-                    let status = self.direction_status(i).unwrap();
+                    let status = self.direction_status(i);
                     writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
                     for (child_id, child_status) in children {
                         writeln!(f, "    {} {}", child_id, child_status)?;
@@ -226,8 +254,22 @@ mod tests {
             NodeStatus::DeadIn(0),
             NodeStatus::AliveFor(0),
         ];
-        assert_eq!(statuses.iter().max().unwrap(), &NodeStatus::AliveFor(2));
-        assert_eq!(statuses.iter().min().unwrap(), &NodeStatus::DeadIn(0));
+        assert_eq!(
+            statuses
+                .iter()
+                .filter_map(|x| x.for_comparison())
+                .max_by(|x, y| x.partial_cmp(y).unwrap())
+                .unwrap(),
+            NodeStatus::AliveFor(2)
+        );
+        assert_eq!(
+            statuses
+                .iter()
+                .filter_map(|x| x.for_comparison())
+                .min_by(|x, y| x.partial_cmp(y).unwrap())
+                .unwrap(),
+            NodeStatus::DeadIn(0)
+        );
     }
 
     fn make_root_node(json_path: &str) -> Node {
@@ -250,7 +292,7 @@ mod tests {
         );
         // All direction statuses should be AliveFor(0) or DeadIn(0)
         for i in 0..4 {
-            let status = node.direction_status(i).unwrap();
+            let status = node.direction_status(i);
             assert!(
                 matches!(status, NodeStatus::AliveFor(0) | NodeStatus::DeadIn(0)),
                 "direction {} has unexpected status: {}",

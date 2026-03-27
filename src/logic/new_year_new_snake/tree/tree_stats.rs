@@ -97,7 +97,7 @@ impl Tree {
         };
 
         // Count nodes by exact status
-        let mut status_counts: BTreeMap<NodeStatus, usize> = BTreeMap::new();
+        let mut status_counts: HashMap<NodeStatus, usize> = HashMap::new();
         for node in self.nodes.values() {
             *status_counts.entry(node.status()).or_default() += 1;
         }
@@ -165,7 +165,7 @@ impl Tree {
         let direction_stats = (0..4)
             .map(|i| {
                 let direction = Direction::try_from(i).unwrap();
-                let status = root.direction_status(i);
+                let status = root.direction_status(i).for_comparison();
                 let (subtree_size, max_depth) = self.subtree_stats_for_direction(direction);
                 DirectionStats {
                     direction,

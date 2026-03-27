@@ -174,9 +174,13 @@ impl fmt::Display for Tree {
             ids.sort_by(|a, b| {
                 let status_a = self.nodes[a].status();
                 let status_b = self.nodes[b].status();
-                status_a
-                    .cmp(&status_b)
-                    .then_with(|| a.to_string().cmp(&b.to_string()))
+                match (status_a.is_comparable(), status_b.is_comparable()) {
+                    (true, false) => return std::cmp::Ordering::Less,
+                    (false, true) => return std::cmp::Ordering::Greater,
+                    (false, false) => return std::cmp::Ordering::Equal,
+                    _ => status_a.partial_cmp(&status_b).unwrap(),
+                }
+                .then_with(|| a.to_string().cmp(&b.to_string()))
             });
         }
 
@@ -271,10 +275,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(0)));
-        assert_eq!(root.direction_status(1), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(2), None);
-        assert_eq!(root.direction_status(3), None);
+        assert_eq!(root.direction_status(0), NodeStatus::DeadIn(0));
+        assert_eq!(root.direction_status(1), NodeStatus::AliveFor(3));
+        assert_eq!(root.direction_status(2), NodeStatus::NotSimulated);
+        assert_eq!(root.direction_status(3), NodeStatus::NotSimulated);
 
         let mut tree = create_tree_from_gamestate("requests/failure_2.json").max_depth(4);
         tree.simulate();
@@ -282,10 +286,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(0), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(1), None);
-        assert_eq!(root.direction_status(2), None);
-        assert_eq!(root.direction_status(3), None);
+        assert_eq!(root.direction_status(0), NodeStatus::AliveFor(3));
+        assert_eq!(root.direction_status(1), NodeStatus::NotSimulated);
+        assert_eq!(root.direction_status(2), NodeStatus::NotSimulated);
+        assert_eq!(root.direction_status(3), NodeStatus::NotSimulated);
 
         let mut tree = create_tree_from_gamestate("requests/failure_3.json").max_depth(4);
         tree.simulate();
@@ -293,10 +297,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
-        assert_eq!(root.direction_status(1), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(2), Some(NodeStatus::DeadIn(0)));
-        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(0), NodeStatus::DeadIn(3));
+        assert_eq!(root.direction_status(1), NodeStatus::AliveFor(3));
+        assert_eq!(root.direction_status(2), NodeStatus::DeadIn(0));
+        assert_eq!(root.direction_status(3), NodeStatus::DeadIn(0));
 
         let mut tree = create_tree_from_gamestate("requests/failure_4.json").max_depth(4);
         tree.simulate();
@@ -304,10 +308,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(3)));
-        assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
-        assert_eq!(root.direction_status(2), Some(NodeStatus::AliveFor(3)));
-        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(0), NodeStatus::DeadIn(3));
+        assert_eq!(root.direction_status(1), NodeStatus::DeadIn(0));
+        assert_eq!(root.direction_status(2), NodeStatus::AliveFor(3));
+        assert_eq!(root.direction_status(3), NodeStatus::DeadIn(0));
 
         let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
         tree.simulate();
@@ -315,10 +319,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::DeadIn(2));
-        assert_eq!(root.direction_status(0), Some(NodeStatus::DeadIn(1)));
-        assert_eq!(root.direction_status(1), Some(NodeStatus::DeadIn(0)));
-        assert_eq!(root.direction_status(2), Some(NodeStatus::DeadIn(0)));
-        assert_eq!(root.direction_status(3), Some(NodeStatus::DeadIn(0)));
+        assert_eq!(root.direction_status(0), NodeStatus::DeadIn(1));
+        assert_eq!(root.direction_status(1), NodeStatus::DeadIn(0));
+        assert_eq!(root.direction_status(2), NodeStatus::DeadIn(0));
+        assert_eq!(root.direction_status(3), NodeStatus::DeadIn(0));
     }
 
     #[test]
@@ -328,23 +332,24 @@ mod tests {
             |baseline_tree, tree| {
                 let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
                 assert!(
-                    root.direction_status(0).is_some()
-                        && root.direction_status(1).is_some()
-                        && root.direction_status(2).is_some()
-                        && root.direction_status(3).is_some(),
+                    (!matches!(root.direction_status(0), NodeStatus::NotSimulated)
+                        && !matches!(root.direction_status(1), NodeStatus::NotSimulated)
+                        && !matches!(root.direction_status(2), NodeStatus::NotSimulated)
+                        && !matches!(root.direction_status(3), NodeStatus::NotSimulated)),
                     "All root directions should be simulated"
                 );
                 // If direction is simulated in baseline, status should match
                 let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
                 for i in 0..4 {
-                    if let Some(baseline_status) = baseline_root.direction_status(i) {
-                        let status = root.direction_status(i).unwrap();
+                    let baseline_status = baseline_root.direction_status(i);
+                    if baseline_status != NodeStatus::NotSimulated {
+                        let status = root.direction_status(i);
                         assert_eq!(
                             status, baseline_status,
                             "Direction {} should have same status as baseline",
                             i
                         );
-                    }
+                    };
                 }
             },
         );
