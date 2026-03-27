@@ -101,7 +101,13 @@ impl Tree {
         for node in self.nodes.values() {
             *status_counts.entry(node.status()).or_default() += 1;
         }
-        let nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
+        let mut nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
+        nodes_by_status.sort_by(|(a, _), (b, _)| match (a.is_comparable(), b.is_comparable()) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            (false, false) => std::cmp::Ordering::Equal,
+            _ => b.partial_cmp(a).unwrap(), // descending: best status first
+        });
 
         // Per-depth pruning breakdown:
         //   A = count_potential_children_all  (all valid dirs, explored or not)
