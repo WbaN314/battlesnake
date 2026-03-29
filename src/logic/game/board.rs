@@ -80,6 +80,8 @@ impl<T: Field> Board<T> {
                         } else {
                             break;
                         }
+                    } else {
+                        break;
                     }
                 } else {
                     break;

@@ -11,7 +11,7 @@ use tabled::{
 use crate::logic::game::direction::DIRECTIONS;
 use crate::logic::{
     game::direction::Direction,
-    new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
+    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 
 use super::Tree;
@@ -38,12 +38,12 @@ pub struct TreeStats {
 #[derive(Debug)]
 pub struct PruningDepthStats {
     pub depth: u8,
-    pub potential: usize,           // A: valid combos for all valid directions
-    pub dir_skip: usize,            // A - B: combos for directions never started
-    pub dead_break: usize,          // B - Tree: explored-direction combos not in tree (DeadIn(0) cut short)
+    pub potential: usize,            // A: valid combos for all valid directions
+    pub dir_skip: usize,             // A - B: combos for directions never started
+    pub dead_break: usize, // B - Tree: explored-direction combos not in tree (DeadIn(0) cut short)
     pub pruned_dead_ancestor: usize, // nodes skipped because an ancestor direction is dead
-    pub pruned_max_depth: usize,    // nodes skipped because max depth was reached
-    pub simulated: usize,           // nodes actually simulated (tree - pruned)
+    pub pruned_max_depth: usize, // nodes skipped because max depth was reached
+    pub simulated: usize,  // nodes actually simulated (tree - pruned)
 }
 
 #[derive(Debug)]
@@ -154,10 +154,11 @@ impl Tree {
                 let a = potential_all_by_depth[&depth];
                 let b = potential_eval_by_depth.get(&depth).copied().unwrap_or(0);
                 let tree = by_depth.get(&depth).copied().unwrap_or(0);
-                let pruned_dead_ancestor =
-                    pruned_dead_ancestor_by_depth.get(&depth).copied().unwrap_or(0);
-                let pruned_max_depth =
-                    pruned_max_depth_by_depth.get(&depth).copied().unwrap_or(0);
+                let pruned_dead_ancestor = pruned_dead_ancestor_by_depth
+                    .get(&depth)
+                    .copied()
+                    .unwrap_or(0);
+                let pruned_max_depth = pruned_max_depth_by_depth.get(&depth).copied().unwrap_or(0);
                 PruningDepthStats {
                     depth,
                     potential: a,
@@ -444,7 +445,7 @@ mod tests {
     use crate::{
         logic::{
             game::{field::BasicField, game_state::GameState},
-            new_year_new_snake::tree::tests::create_tree_from_gamestate,
+            single_gamestate_nodes::tree::tests::create_tree_from_gamestate,
         },
         read_game_state,
     };
@@ -462,7 +463,13 @@ mod tests {
                     + p.simulated,
                 p.potential,
                 "[{label}] {filename} depth {}: dir_skip({}) + dead_break({}) + anc({}) + depth({}) + simulated({}) != potential({})",
-                p.depth, p.dir_skip, p.dead_break, p.pruned_dead_ancestor, p.pruned_max_depth, p.simulated, p.potential,
+                p.depth,
+                p.dir_skip,
+                p.dead_break,
+                p.pruned_dead_ancestor,
+                p.pruned_max_depth,
+                p.simulated,
+                p.potential,
             );
 
             let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
@@ -470,7 +477,11 @@ mod tests {
                 p.simulated + p.pruned_dead_ancestor + p.pruned_max_depth,
                 nodes_at_depth,
                 "[{label}] {filename} depth {}: simulated({}) + anc({}) + depth({}) != nodes_per_depth({})",
-                p.depth, p.simulated, p.pruned_dead_ancestor, p.pruned_max_depth, nodes_at_depth,
+                p.depth,
+                p.simulated,
+                p.pruned_dead_ancestor,
+                p.pruned_max_depth,
+                nodes_at_depth,
             );
         }
 

@@ -52,6 +52,8 @@ fn decode(val: u128) -> Direction {
 }
 
 impl NodeId {
+    pub const MAX_DEPTH: u8 = MAX_DEPTH;
+
     pub fn new() -> Self {
         NodeId { data: 0 }
     }

@@ -4,17 +4,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::{debug, trace};
+use log::{debug, info, trace};
 
 mod tree_stats;
 
 use crate::logic::{
-    game::{
-        direction::{DIRECTIONS, Direction},
-        field::BasicField,
-        game_state::GameState,
-    },
-    new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
+    game::{direction::Direction, field::BasicField, game_state::GameState},
+    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 
 #[derive(Clone)]
@@ -36,7 +32,7 @@ impl Tree {
         Self {
             nodes,
             queue,
-            max_depth: u8::MAX,
+            max_depth: NodeId::MAX_DEPTH,
             max_time: None,
             max_nodes: usize::MAX,
             elapsed: Duration::ZERO,
@@ -515,23 +511,13 @@ mod tests {
 
     #[test]
     fn display_tree() {
-        let mut tree = create_tree_from_gamestate("requests/failure_3.json")
+        let mut tree = create_tree_from_gamestate("requests/failure_18.json")
+            .all_root_directions()
             .dead_ancestor_pruning()
-            .max_depth(4);
+            .max_time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"UUUU".try_into().unwrap()).unwrap());
-        println!(
-            "{}",
-            tree.nodes.get(&"UUUU-UUUU".try_into().unwrap()).unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"UUUU-UUUU-ULUU".try_into().unwrap())
-                .unwrap()
-        );
     }
 }

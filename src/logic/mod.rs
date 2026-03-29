@@ -12,15 +12,17 @@
 
 use legacy::shared::brain::Brain;
 use log::info;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::env;
 
-use crate::{OriginalDirection, OriginalGameState, OriginalBattlesnake, OriginalBoard, OriginalGame};
+use crate::{
+    OriginalBattlesnake, OriginalBoard, OriginalDirection, OriginalGame, OriginalGameState,
+};
 
 pub mod depth_first;
-pub mod legacy;
-pub mod new_year_new_snake;
 pub mod game;
+pub mod legacy;
+pub mod single_gamestate_nodes;
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -65,7 +67,7 @@ pub fn get_move(gamestate: &OriginalGameState, variant: String) -> OriginalDirec
         "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),
         "breadth_first" => Box::new(legacy::breadth_first::BreadthFirstSnake::new()),
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
-        "new_year_new_snake" => Box::new(new_year_new_snake::NewYearNewSnake::new()),
+        "single_gamestate_nodes" => Box::new(single_gamestate_nodes::NewYearNewSnake::new()),
         _ => panic!("No VARIANT given for snake"),
     };
     brain.logic(gamestate)

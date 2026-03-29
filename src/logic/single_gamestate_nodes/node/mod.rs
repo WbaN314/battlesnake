@@ -1,16 +1,17 @@
 use core::panic;
 use std::fmt::Display;
 
-use crate::logic::game::{
-    direction::{DIRECTIONS, Direction},
-    field::BasicField,
-    game_state::GameState,
-    moves::{MoveMatrix, MoveVector},
+use crate::logic::{
+    game::{
+        direction::{DIRECTIONS, Direction},
+        field::BasicField,
+        game_state::GameState,
+        moves::{MoveMatrix, MoveVector},
+    },
+    single_gamestate_nodes::node::node_id::NodeId,
 };
 
 pub mod node_id;
-use node_id::NodeId;
-
 mod node_stats;
 
 #[derive(Copy, Clone, Debug, Hash)]

@@ -5,7 +5,7 @@ use crate::{
     logic::{
         game::direction::Direction,
         legacy::shared::brain::Brain,
-        new_year_new_snake::{node::NodeStatus, tree::Tree},
+        single_gamestate_nodes::{node::NodeStatus, tree::Tree},
     },
 };
 
@@ -36,8 +36,15 @@ impl Brain for NewYearNewSnake {
             .max_by(|(_, x), (_, y)| x.partial_cmp(y).unwrap())
         {
             Direction::try_from(i).unwrap().into()
+        } else if let Some((i, _)) = result
+            .iter()
+            .enumerate()
+            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(_)))
+            .max_by(|(_, x), (_, y)| x.partial_cmp(y).unwrap())
+        {
+            Direction::try_from(i).unwrap().into()
         } else {
-            Direction::Up.into() // Default to Up if no alive directions, though it shouldn't matter since all directions are effectively dead
+            Direction::Up.into()
         }
     }
 }
