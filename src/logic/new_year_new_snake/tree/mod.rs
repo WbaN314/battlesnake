@@ -9,7 +9,11 @@ use log::{debug, trace};
 mod tree_stats;
 
 use crate::logic::{
-    game::{direction::Direction, field::BasicField, game_state::GameState},
+    game::{
+        direction::{DIRECTIONS, Direction},
+        field::BasicField,
+        game_state::GameState,
+    },
     new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
 };
 
@@ -66,6 +70,16 @@ impl Tree {
             // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
         }
         self
+    }
+
+    pub fn result(&self) -> [NodeStatus; 4] {
+        let root = self.nodes.get(&NodeId::new()).unwrap();
+        [
+            root.direction_status(Direction::Up),
+            root.direction_status(Direction::Down),
+            root.direction_status(Direction::Left),
+            root.direction_status(Direction::Right),
+        ]
     }
 
     pub fn simulate(&mut self) {

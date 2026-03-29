@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::HashMap, env};
 
-use crate::logic::get_move;
+use crate::logic::{game::direction::Direction, get_move};
 
 pub mod logic;
 
@@ -69,6 +69,17 @@ pub enum OriginalDirection {
     Down,
     Left,
     Right,
+}
+
+impl From<Direction> for OriginalDirection {
+    fn from(dir: Direction) -> Self {
+        match dir {
+            Direction::Up => OriginalDirection::Up,
+            Direction::Down => OriginalDirection::Down,
+            Direction::Left => OriginalDirection::Left,
+            Direction::Right => OriginalDirection::Right,
+        }
+    }
 }
 
 impl fmt::Display for OriginalDirection {
