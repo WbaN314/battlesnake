@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
 use crate::logic::game::{direction::Direction, moves::Moves, snakes::SNAKES};
@@ -33,7 +33,7 @@ pub type DirectionVector = [Direction; SNAKES as usize];
 /// ```
 /// Direction encoding: Up=0, Down=1, Left=2, Right=3. `None` maps to `Up`.
 /// Flags are stored in the top 4 bits, addressable by index 0..3.
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy)]
 pub struct NodeId {
     data: u128,
 }
@@ -184,6 +184,12 @@ impl Display for NodeId {
             }
         }
         Ok(())
+    }
+}
+
+impl Debug for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

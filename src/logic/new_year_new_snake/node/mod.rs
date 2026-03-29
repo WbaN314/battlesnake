@@ -2,7 +2,7 @@ use core::panic;
 use std::fmt::Display;
 
 use crate::logic::game::{
-    direction::Direction,
+    direction::{DIRECTIONS, Direction},
     field::BasicField,
     game_state::GameState,
     moves::{MoveMatrix, MoveVector},
@@ -15,9 +15,11 @@ mod node_stats;
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
-    AliveFor(u8), // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),   // Number of steps until inevitable death (if opponents play optimally)
-    NotSimulated, // Status not yet determined as this direction has not been simulated
+    AliveFor(u8),       // Number of steps where we have checked with guaranteed survival
+    DeadIn(u8),         // Number of steps until inevitable death (if opponents play optimally)
+    NotSimulated,       // Status not yet determined as this direction has not been simulated
+    PrunedDeadAncestor, // Node was skipped: an ancestor direction u8 levels up is dead
+    PrunedMaxDepth,     // Node was skipped: max depth reached
 }
 
 impl NodeStatus {
@@ -59,6 +61,12 @@ impl PartialOrd for NodeStatus {
             (NodeStatus::DeadIn(_), NodeStatus::AliveFor(_)) => Some(std::cmp::Ordering::Less),
             // NotSimulated is not comparable to AliveFor or DeadIn, but two NotSimulated are considered equal (required for partial_eq to be consistent with partial_cmp)
             (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
+            (NodeStatus::PrunedDeadAncestor, NodeStatus::PrunedDeadAncestor) => {
+                Some(std::cmp::Ordering::Equal)
+            }
+            (NodeStatus::PrunedMaxDepth, NodeStatus::PrunedMaxDepth) => {
+                Some(std::cmp::Ordering::Equal)
+            }
             _ => None,
         }
     }
@@ -70,6 +78,8 @@ impl Display for NodeStatus {
             NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
+            NodeStatus::PrunedDeadAncestor => write!(f, "PrunedDeadAncestor"),
+            NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
         }
     }
 }
@@ -79,6 +89,7 @@ pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,
     children: [Option<Vec<(NodeId, NodeStatus)>>; 4],
+    pinned_status: Option<NodeStatus>,
 }
 
 impl Node {
@@ -87,7 +98,21 @@ impl Node {
             id,
             gamestate,
             children: [None, None, None, None],
+            pinned_status: None,
         }
+    }
+
+    pub fn pin_status(&mut self, status: NodeStatus) {
+        if let Some(pinned) = self.pinned_status {
+            assert!(
+                pinned == status,
+                "Node {} already pinned as {}, cannot pin as {}",
+                self.id,
+                pinned,
+                status
+            );
+        }
+        self.pinned_status = Some(status);
     }
 
     pub fn id(&self) -> NodeId {
@@ -95,11 +120,15 @@ impl Node {
     }
 
     pub fn status(&self) -> NodeStatus {
+        if let Some(pinned) = self.pinned_status {
+            return pinned;
+        }
         if !self.gamestate.is_alive(0) {
             return NodeStatus::DeadIn(0);
         }
 
-        let best = (0..4)
+        let best = DIRECTIONS
+            .into_iter()
             .map(|i| self.direction_status(i))
             .filter_map(|s| s.for_comparison())
             .max_by(|x, y| x.partial_cmp(y).unwrap());
@@ -118,18 +147,28 @@ impl Node {
         }
     }
 
-    pub fn direction_status(&self, dir: usize) -> NodeStatus {
-        self.children[dir]
+    pub fn direction_status(&self, direction: Direction) -> NodeStatus {
+        self.children[direction as usize]
             .as_ref()
             .map_or(NodeStatus::NotSimulated, |children| {
                 if children.is_empty() {
                     return NodeStatus::DeadIn(0);
+                } else if children
+                    .iter()
+                    .all(|(_, status)| matches!(status, NodeStatus::PrunedDeadAncestor))
+                {
+                    return NodeStatus::PrunedDeadAncestor;
+                } else if children
+                    .iter()
+                    .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
+                {
+                    return NodeStatus::AliveFor(0);
                 } else {
                     return children
                         .iter()
                         .filter_map(|(_, s)| s.for_comparison())
                         .min_by(|x, y| x.partial_cmp(y).unwrap())
-                        .unwrap(); // Direction with children should always contain a comparable child
+                        .unwrap_or_else(|| panic!("{:#?}", self.children)); // Direction with children should always contain a comparable child
                 }
             })
     }
@@ -218,7 +257,7 @@ impl Display for Node {
             match slot {
                 None => writeln!(f, "  {} unexplored", dir)?,
                 Some(children) => {
-                    let status = self.direction_status(i);
+                    let status = self.direction_status(i.try_into().unwrap());
                     writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
                     for (child_id, child_status) in children {
                         writeln!(f, "    {} {}", child_id, child_status)?;
@@ -291,7 +330,7 @@ mod tests {
             "all children slots should be populated after exhaustion"
         );
         // All direction statuses should be AliveFor(0) or DeadIn(0)
-        for i in 0..4 {
+        for i in DIRECTIONS {
             let status = node.direction_status(i);
             assert!(
                 matches!(status, NodeStatus::AliveFor(0) | NodeStatus::DeadIn(0)),

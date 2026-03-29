@@ -8,6 +8,7 @@ use tabled::{
     settings::{Alignment, Style, object::Columns},
 };
 
+use crate::logic::game::direction::DIRECTIONS;
 use crate::logic::{
     game::direction::Direction,
     new_year_new_snake::node::{Node, NodeStatus, node_id::NodeId},
@@ -102,12 +103,14 @@ impl Tree {
             *status_counts.entry(node.status()).or_default() += 1;
         }
         let mut nodes_by_status: Vec<(NodeStatus, usize)> = status_counts.into_iter().collect();
-        nodes_by_status.sort_by(|(a, _), (b, _)| match (a.is_comparable(), b.is_comparable()) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            (false, false) => std::cmp::Ordering::Equal,
-            _ => b.partial_cmp(a).unwrap(), // descending: best status first
-        });
+        nodes_by_status.sort_by(
+            |(a, _), (b, _)| match (a.is_comparable(), b.is_comparable()) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                (false, false) => std::cmp::Ordering::Equal,
+                _ => b.partial_cmp(a).unwrap(), // descending: best status first
+            },
+        );
 
         // Per-depth pruning breakdown:
         //   A = count_potential_children_all  (all valid dirs, explored or not)
@@ -168,7 +171,8 @@ impl Tree {
         };
 
         // Per-direction stats for root
-        let direction_stats = (0..4)
+        let direction_stats = DIRECTIONS
+            .into_iter()
             .map(|i| {
                 let direction = Direction::try_from(i).unwrap();
                 let status = root.direction_status(i).for_comparison();
