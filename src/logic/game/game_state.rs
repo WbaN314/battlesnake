@@ -29,6 +29,14 @@ pub struct GameState<T: Field> {
 }
 
 impl<F: Field> GameState<F> {
+    pub fn board(&self) -> &Board<F> {
+        &self.board
+    }
+
+    pub fn snakes(&self) -> &Snakes {
+        &self.snakes
+    }
+
     /// Convenience method to play a game with a list of moves
     /// Moves are given as a list of strings where each string represents the moves for a snake
     /// Example input: ["UDDL", "DUU", "", ""]

@@ -557,8 +557,7 @@ mod tests {
     #[test]
     fn display_tree() {
         let mut tree = create_tree_from_gamestate(
-            "requests/failure_46_go_for_kill
-        .json",
+            "requests/failure_43_going_down_guarantees_getting_killed.json",
         )
         .all_root_directions()
         .dead_ancestor_pruning()
