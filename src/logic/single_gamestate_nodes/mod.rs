@@ -25,6 +25,7 @@ impl Brain for NewYearNewSnake {
         let mut tree = Tree::new(gamestate.into())
             .all_root_directions()
             .dead_ancestor_pruning()
+            .similarity_pruning(|_| 6)
             .max_time(Duration::from_millis(200));
         tree.simulate();
         let result = tree.result();

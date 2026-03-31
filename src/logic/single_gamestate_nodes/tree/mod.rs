@@ -22,9 +22,13 @@ pub struct Tree {
     max_time: Option<Duration>,
     max_nodes: usize,
     dead_ancestor_pruning: bool,
+    all_root_directions: bool,
+    similarity_distance_fn: Option<fn(u8) -> u8>,
 }
 
 impl Tree {
+    pub const MAX_DEPTH: u8 = NodeId::MAX_DEPTH;
+
     pub fn new(root: GameState<BasicField>) -> Self {
         let node = Node::new(NodeId::new(), root);
         let queue = DepthQueue::from(node.id());
@@ -37,6 +41,8 @@ impl Tree {
             max_nodes: usize::MAX,
             elapsed: Duration::ZERO,
             dead_ancestor_pruning: false,
+            all_root_directions: false,
+            similarity_distance_fn: None,
         }
     }
 
@@ -60,11 +66,13 @@ impl Tree {
         self
     }
 
+    pub fn similarity_pruning(mut self, distance_fn: fn(u8) -> u8) -> Self {
+        self.similarity_distance_fn = Some(distance_fn);
+        self
+    }
+
     pub fn all_root_directions(mut self) -> Self {
-        let root_id = self.queue.pop().unwrap();
-        while self.simulate_node(root_id) {
-            // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
-        }
+        self.all_root_directions = true;
         self
     }
 
@@ -82,6 +90,14 @@ impl Tree {
         let start = Instant::now();
         let deadline = self.max_time.map(|d| Instant::now() + d);
         // Get next node to simulate and check early termination conditions
+
+        if self.all_root_directions {
+            let root_id = self.queue.pop().unwrap();
+            while self.simulate_node(root_id) {
+                // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
+            }
+        }
+
         while let Some(node_id) = self.queue.pop() {
             if deadline.is_some_and(|d| Instant::now() >= d) {
                 debug!("Reached time limit, stopping simulation");
@@ -131,9 +147,12 @@ impl Tree {
 
     fn simulate_node(&mut self, node_id: NodeId) -> bool {
         debug!("Simulating {}", node_id);
+        let similarity_distance = self
+            .similarity_distance_fn
+            .as_ref()
+            .map(|f| f(node_id.depth()));
         let node = self.nodes.get_mut(&node_id).unwrap();
-        let children = node.simulate();
-        let node_id = node.id();
+        let children = node.simulate(similarity_distance);
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
         match children {
@@ -510,11 +529,41 @@ mod tests {
     }
 
     #[test]
+    fn option_similarity_pruning() {
+        test_against_base_simulation(
+            |tree| tree.similarity_pruning(|depth| 6),
+            |baseline_tree, tree, filename| {
+                let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                assert_eq!(
+                    root.status(),
+                    baseline_root.status(),
+                    "Root status should be same as baseline for {}",
+                    filename
+                );
+                for i in DIRECTIONS.into_iter() {
+                    assert_eq!(
+                        root.direction_status(i),
+                        baseline_root.direction_status(i),
+                        "Root direction {} should have same status as baseline for {}",
+                        i,
+                        filename
+                    );
+                }
+            },
+        );
+    }
+
+    #[test]
     fn display_tree() {
-        let mut tree = create_tree_from_gamestate("requests/failure_18.json")
-            .all_root_directions()
-            .dead_ancestor_pruning()
-            .max_time(Duration::from_millis(200));
+        let mut tree = create_tree_from_gamestate(
+            "requests/failure_46_go_for_kill
+        .json",
+        )
+        .all_root_directions()
+        .dead_ancestor_pruning()
+        .similarity_pruning(|_| 6)
+        .max_time(Duration::from_millis(200));
         tree.simulate();
         println!("{}", tree);
         println!("{}", tree.stats());

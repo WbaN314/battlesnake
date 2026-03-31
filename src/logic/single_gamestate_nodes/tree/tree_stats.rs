@@ -14,6 +14,12 @@ use crate::logic::{
     single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 
+const ALL_PRUNED_STATUSES: &[NodeStatus] = &[
+    NodeStatus::PrunedDeadAncestor,
+    NodeStatus::PrunedMaxDepth,
+    NodeStatus::PrunedForSimilarity,
+];
+
 use super::Tree;
 
 #[derive(Debug)]
@@ -38,12 +44,23 @@ pub struct TreeStats {
 #[derive(Debug)]
 pub struct PruningDepthStats {
     pub depth: u8,
-    pub potential: usize,            // A: valid combos for all valid directions
-    pub dir_skip: usize,             // A - B: combos for directions never started
-    pub dead_break: usize, // B - Tree: explored-direction combos not in tree (DeadIn(0) cut short)
-    pub pruned_dead_ancestor: usize, // nodes skipped because an ancestor direction is dead
-    pub pruned_max_depth: usize, // nodes skipped because max depth was reached
-    pub simulated: usize,  // nodes actually simulated (tree - pruned)
+    pub potential: usize,
+    pub dir_skip: usize,
+    pub dead_break: usize,
+    /// Counts per pruned NodeStatus variant, sorted by Display string for stable ordering.
+    /// New Pruned* variants appear here automatically once added to ALL_PRUNED_STATUSES.
+    /// Includes both real pruned nodes (in self.nodes) and virtual-pruned entries (only in
+    /// parent children arrays, never inserted as nodes).
+    pub pruned: Vec<(NodeStatus, usize)>,
+    pub simulated: usize,
+    /// Number of virtual-pruned entries in pruned (not present as nodes in the tree).
+    pub virtual_pruned: usize,
+}
+
+impl PruningDepthStats {
+    pub fn total_pruned_nodes(&self) -> usize {
+        self.pruned.iter().map(|(_, c)| c).sum()
+    }
 }
 
 #[derive(Debug)]
@@ -117,17 +134,18 @@ impl Tree {
         // Per-depth pruning breakdown:
         //   A = count_potential_children_all  (all valid dirs, explored or not)
         //   B = count_potential_children_from_evaluated_directions (explored dirs only)
-        //   dir_skip           = A - B  (valid directions never started)
-        //   dead_break         = B - Tree  (explored-direction combos cut short by DeadIn(0))
-        //   pruned_dead_ancestor = nodes pinned PrunedDeadAncestor at this depth
-        //   pruned_max_depth   = nodes pinned PrunedMaxDepth at this depth
-        //   simulated          = Tree - pruned_dead_ancestor - pruned_max_depth
+        //   dir_skip   = A - B  (valid directions never started)
+        //   dead_break = B - Tree  (explored-direction combos cut short by DeadIn(0))
+        //   pruned     = nodes with a pruned status at this depth (dynamic, see NodeStatus::is_pruned)
+        //   simulated  = Tree - sum(pruned)
         let mut potential_all_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
         let mut potential_eval_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut pruned_dead_ancestor_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut pruned_max_depth_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut pruned_by_depth: BTreeMap<u8, HashMap<String, (NodeStatus, usize)>> =
+            BTreeMap::new();
+        // virtual_pruned_by_depth: children recorded in parent's children array with a pruned
+        // status but never inserted into self.nodes (e.g. PrunedForSimilarity)
+        let mut virtual_pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
         for (&id, node) in &self.nodes {
-            // Potential children are counted from the parent's perspective
             let child_depth = id.depth() + 1;
             let a: usize = node.count_potential_children_all().iter().sum();
             let b: usize = node
@@ -136,15 +154,33 @@ impl Tree {
                 .sum();
             *potential_all_by_depth.entry(child_depth).or_default() += a;
             *potential_eval_by_depth.entry(child_depth).or_default() += b;
-            // Pruned counts are from the node's status (pruned nodes have pinned status)
-            match node.status() {
-                NodeStatus::PrunedDeadAncestor => {
-                    *pruned_dead_ancestor_by_depth.entry(id.depth()).or_default() += 1;
+            let status = node.status();
+            if ALL_PRUNED_STATUSES.contains(&status) {
+                pruned_by_depth
+                    .entry(id.depth())
+                    .or_default()
+                    .entry(format!("{}", status))
+                    .or_insert((status, 0))
+                    .1 += 1;
+            }
+            // Collect virtual-pruned children (pruned status recorded in children array but
+            // not present as nodes in self.nodes)
+            for direction_slot in node.children() {
+                if let Some(children_vec) = direction_slot {
+                    for (child_id, child_status) in children_vec {
+                        if ALL_PRUNED_STATUSES.contains(child_status)
+                            && !self.nodes.contains_key(child_id)
+                        {
+                            pruned_by_depth
+                                .entry(child_id.depth())
+                                .or_default()
+                                .entry(format!("{}", child_status))
+                                .or_insert((*child_status, 0))
+                                .1 += 1;
+                            *virtual_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
+                        }
+                    }
                 }
-                NodeStatus::PrunedMaxDepth => {
-                    *pruned_max_depth_by_depth.entry(id.depth()).or_default() += 1;
-                }
-                _ => {}
             }
         }
         let pruning_per_depth: Vec<PruningDepthStats> = potential_all_by_depth
@@ -154,21 +190,23 @@ impl Tree {
                 let a = potential_all_by_depth[&depth];
                 let b = potential_eval_by_depth.get(&depth).copied().unwrap_or(0);
                 let tree = by_depth.get(&depth).copied().unwrap_or(0);
-                let pruned_dead_ancestor = pruned_dead_ancestor_by_depth
+                let virtual_pruned = virtual_pruned_by_depth.get(&depth).copied().unwrap_or(0);
+                let mut pruned: Vec<(NodeStatus, usize)> = pruned_by_depth
                     .get(&depth)
-                    .copied()
-                    .unwrap_or(0);
-                let pruned_max_depth = pruned_max_depth_by_depth.get(&depth).copied().unwrap_or(0);
+                    .map_or(vec![], |m| m.values().map(|&(s, c)| (s, c)).collect());
+                pruned.sort_by_key(|(s, _)| format!("{}", s));
+                let total_pruned_nodes: usize = pruned.iter().map(|(_, c)| c).sum();
                 PruningDepthStats {
                     depth,
                     potential: a,
                     dir_skip: a.saturating_sub(b),
-                    dead_break: b.saturating_sub(tree),
-                    pruned_dead_ancestor,
-                    pruned_max_depth,
-                    simulated: tree
-                        .saturating_sub(pruned_dead_ancestor)
-                        .saturating_sub(pruned_max_depth),
+                    // b includes virtual-pruned children (they were enumerated by
+                    // count_potential_children_from_evaluated_directions), but they never entered
+                    // self.nodes (tree count), so subtract them from dead_break
+                    dead_break: b.saturating_sub(tree).saturating_sub(virtual_pruned),
+                    pruned,
+                    simulated: tree.saturating_sub(total_pruned_nodes - virtual_pruned),
+                    virtual_pruned,
                 }
             })
             .collect();
@@ -314,78 +352,75 @@ impl TreeStats {
     }
 
     fn pruning_table(&self) -> String {
+        let all_pruned = ALL_PRUNED_STATUSES;
+
         let mut b = Builder::default();
-        b.push_record([
-            "Depth",
-            "Potential",
-            "Dir Prune",
-            "Dead Prune",
-            "Anc Pruned",
-            "Depth Pruned",
-            "Simulated",
-            "%",
-        ]);
-        let (
-            mut tot_potential,
-            mut tot_dir_skip,
-            mut tot_dead_break,
-            mut tot_anc,
-            mut tot_depth,
-            mut tot_simulated,
-        ) = (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
+        let mut header: Vec<String> = vec![
+            "Depth".into(), "Potential".into(), "Dir Prune".into(), "Dead Prune".into(),
+        ];
+        header.extend(all_pruned.iter().map(|s| format!("{}", s)));
+        header.extend(["Simulated".into(), "%".into()]);
+        b.push_record(header.iter().map(String::as_str).collect::<Vec<_>>());
+
+        let mut tot_potential = 0usize;
+        let mut tot_dir_skip = 0usize;
+        let mut tot_dead_break = 0usize;
+        let mut tot_by_type = vec![0usize; all_pruned.len()];
+        let mut tot_simulated = 0usize;
+
         for p in &self.pruning_per_depth {
-            let pruned = p.dir_skip + p.dead_break + p.pruned_dead_ancestor + p.pruned_max_depth;
+            let type_counts: Vec<usize> = all_pruned
+                .iter()
+                .map(|s| {
+                    p.pruned.iter().find(|(ps, _)| ps == s).map_or(0, |(_, c)| *c)
+                })
+                .collect();
+            let total_pruned = p.dir_skip + p.dead_break + type_counts.iter().sum::<usize>();
             let rate = if p.potential > 0 {
-                format!("{:.1}%", pruned as f64 / p.potential as f64 * 100.0)
+                format!("{:.1}%", total_pruned as f64 / p.potential as f64 * 100.0)
             } else {
                 "-".to_string()
             };
-            b.push_record([
-                p.depth.to_string(),
-                p.potential.to_string(),
-                p.dir_skip.to_string(),
-                p.dead_break.to_string(),
-                p.pruned_dead_ancestor.to_string(),
-                p.pruned_max_depth.to_string(),
-                p.simulated.to_string(),
-                rate,
-            ]);
+            let mut row: Vec<String> = vec![
+                p.depth.to_string(), p.potential.to_string(),
+                p.dir_skip.to_string(), p.dead_break.to_string(),
+            ];
+            row.extend(type_counts.iter().map(|c| c.to_string()));
+            row.push(p.simulated.to_string());
+            row.push(rate);
+            b.push_record(row);
+
             tot_potential += p.potential;
             tot_dir_skip += p.dir_skip;
             tot_dead_break += p.dead_break;
-            tot_anc += p.pruned_dead_ancestor;
-            tot_depth += p.pruned_max_depth;
+            for (i, c) in type_counts.iter().enumerate() { tot_by_type[i] += c; }
             tot_simulated += p.simulated;
         }
-        let tot_pruned = tot_dir_skip + tot_dead_break + tot_anc + tot_depth;
+
+        let tot_pruned = tot_dir_skip + tot_dead_break + tot_by_type.iter().sum::<usize>();
         let tot_rate = if tot_potential > 0 {
             format!("{:.1}%", tot_pruned as f64 / tot_potential as f64 * 100.0)
         } else {
             "-".to_string()
         };
-        b.push_record([
-            "Total".to_string(),
-            tot_potential.to_string(),
-            tot_dir_skip.to_string(),
-            tot_dead_break.to_string(),
-            tot_anc.to_string(),
-            tot_depth.to_string(),
-            tot_simulated.to_string(),
-            tot_rate,
-        ]);
+        let mut tot_row: Vec<String> = vec![
+            "Total".into(), tot_potential.to_string(),
+            tot_dir_skip.to_string(), tot_dead_break.to_string(),
+        ];
+        tot_row.extend(tot_by_type.iter().map(|c| c.to_string()));
+        tot_row.push(tot_simulated.to_string());
+        tot_row.push(tot_rate);
+        b.push_record(tot_row);
+
         let mut t = b.build();
         t.with(Style::rounded());
-        t.modify(Columns::new(0..=6), Alignment::right());
+        t.modify(Columns::new(0..=4 + all_pruned.len()), Alignment::right());
         let legend = concat!(
-            "  Potential    = valid move combos for all valid directions, regardless of whether they were explored\n",
-            "  Dir Prune    = valid directions never started; node was pruned before this direction was tried\n",
-            "  Dead Prune   = evaluated children that didn't reach the tree; a DeadIn(0) child cut the direction short\n",
-            "  Anc Pruned   = nodes skipped because an ancestor direction is confirmed dead (PrunedDeadAncestor)\n",
-            "  Depth Pruned = nodes skipped because max depth was reached (PrunedMaxDepth)\n",
-            "  Simulated    = nodes that were actually explored by the search\n",
-            "  %            = (Dir Prune + Dead Prune + Anc Pruned + Depth Pruned) / Potential\n",
-            "\n",
-            "  Invariant: Dir Prune + Dead Prune + Anc Pruned + Depth Pruned + Simulated == Potential\n",
+            "  Potential  = valid move combos for all valid directions\n",
+            "  Dir Prune  = valid directions never started\n",
+            "  Dead Prune = evaluated children cut short by DeadIn(0)\n",
+            "  Simulated  = nodes actually explored\n",
+            "  %          = (all pruned) / Potential\n",
         );
         format!("Pruning:\n{t}\n\n{legend}\n")
     }
@@ -445,7 +480,10 @@ mod tests {
     use crate::{
         logic::{
             game::{field::BasicField, game_state::GameState},
-            single_gamestate_nodes::tree::tests::create_tree_from_gamestate,
+            single_gamestate_nodes::{
+                node::NodeStatus,
+                tree::tests::create_tree_from_gamestate,
+            },
         },
         read_game_state,
     };
@@ -455,40 +493,28 @@ mod tests {
             stats.nodes_per_depth.iter().copied().collect();
 
         for p in &stats.pruning_per_depth {
+            let total_pruned_nodes = p.total_pruned_nodes();
             assert_eq!(
-                p.dir_skip
-                    + p.dead_break
-                    + p.pruned_dead_ancestor
-                    + p.pruned_max_depth
-                    + p.simulated,
+                p.dir_skip + p.dead_break + total_pruned_nodes + p.simulated,
                 p.potential,
-                "[{label}] {filename} depth {}: dir_skip({}) + dead_break({}) + anc({}) + depth({}) + simulated({}) != potential({})",
-                p.depth,
-                p.dir_skip,
-                p.dead_break,
-                p.pruned_dead_ancestor,
-                p.pruned_max_depth,
-                p.simulated,
-                p.potential,
+                "[{label}] {filename} depth {}: dir_skip({}) + dead_break({}) + pruned({}) + simulated({}) != potential({})",
+                p.depth, p.dir_skip, p.dead_break, total_pruned_nodes, p.simulated, p.potential,
             );
 
             let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
+            let real_pruned = p.total_pruned_nodes() - p.virtual_pruned;
             assert_eq!(
-                p.simulated + p.pruned_dead_ancestor + p.pruned_max_depth,
+                p.simulated + real_pruned,
                 nodes_at_depth,
-                "[{label}] {filename} depth {}: simulated({}) + anc({}) + depth({}) != nodes_per_depth({})",
-                p.depth,
-                p.simulated,
-                p.pruned_dead_ancestor,
-                p.pruned_max_depth,
-                nodes_at_depth,
+                "[{label}] {filename} depth {}: simulated({}) + real_pruned({}) != nodes_per_depth({})",
+                p.depth, p.simulated, real_pruned, nodes_at_depth,
             );
         }
 
         let total_tree: usize = stats
             .pruning_per_depth
             .iter()
-            .map(|p| p.simulated + p.pruned_dead_ancestor + p.pruned_max_depth)
+            .map(|p| p.simulated + p.total_pruned_nodes() - p.virtual_pruned)
             .sum();
         assert_eq!(
             total_tree,
@@ -519,11 +545,44 @@ mod tests {
             let total_anc: usize = stats
                 .pruning_per_depth
                 .iter()
-                .map(|p| p.pruned_dead_ancestor)
+                .map(|p| {
+                    p.pruned
+                        .iter()
+                        .find(|(s, _)| *s == NodeStatus::PrunedDeadAncestor)
+                        .map_or(0, |(_, c)| *c)
+                })
                 .sum();
             assert!(
                 total_anc > 0,
                 "[dead_ancestor_pruning] {filename}: expected PrunedDeadAncestor nodes but got 0"
+            );
+        }
+    }
+
+    #[test]
+    fn similarity_pruning_shows_in_stats() {
+        let filenames = ["requests/failure_1.json", "requests/failure_4.json"];
+        for filename in &filenames {
+            let mut tree = create_tree_from_gamestate(filename)
+                .max_depth(4)
+                .similarity_pruning(|_| 2); // small distance → more collisions → pruning fires
+            tree.simulate();
+            let stats = tree.stats();
+            check_invariants(&stats, "similarity_pruning", filename);
+
+            let total_sim: usize = stats
+                .pruning_per_depth
+                .iter()
+                .map(|p| {
+                    p.pruned
+                        .iter()
+                        .find(|(s, _)| *s == NodeStatus::PrunedForSimilarity)
+                        .map_or(0, |(_, c)| *c)
+                })
+                .sum();
+            assert!(
+                total_sim > 0,
+                "[similarity_pruning] {filename}: expected PrunedForSimilarity entries in stats but got 0"
             );
         }
     }

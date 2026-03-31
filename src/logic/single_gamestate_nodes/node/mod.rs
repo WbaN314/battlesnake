@@ -1,5 +1,5 @@
 use core::panic;
-use std::fmt::Display;
+use std::{collections::HashSet, fmt::Display};
 
 use crate::logic::{
     game::{
@@ -16,11 +16,12 @@ mod node_stats;
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
-    AliveFor(u8),       // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),         // Number of steps until inevitable death (if opponents play optimally)
-    NotSimulated,       // Status not yet determined as this direction has not been simulated
-    PrunedDeadAncestor, // Node was skipped: an ancestor direction u8 levels up is dead
-    PrunedMaxDepth,     // Node was skipped: max depth reached
+    AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
+    DeadIn(u8),          // Number of steps until inevitable death (if opponents play optimally)
+    NotSimulated,        // Status not yet determined as this direction has not been simulated
+    PrunedDeadAncestor,  // Node was skipped: an ancestor direction is dead
+    PrunedMaxDepth,      // Node was skipped: max depth reached
+    PrunedForSimilarity, // Node was skipped: a similar gamestate is already in the node
 }
 
 impl NodeStatus {
@@ -68,6 +69,9 @@ impl PartialOrd for NodeStatus {
             (NodeStatus::PrunedMaxDepth, NodeStatus::PrunedMaxDepth) => {
                 Some(std::cmp::Ordering::Equal)
             }
+            (NodeStatus::PrunedForSimilarity, NodeStatus::PrunedForSimilarity) => {
+                Some(std::cmp::Ordering::Equal)
+            }
             _ => None,
         }
     }
@@ -81,6 +85,7 @@ impl Display for NodeStatus {
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::PrunedDeadAncestor => write!(f, "PrunedDeadAncestor"),
             NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
+            NodeStatus::PrunedForSimilarity => write!(f, "PrunedForSimilarity"),
         }
     }
 }
@@ -156,11 +161,13 @@ impl Node {
                     return NodeStatus::DeadIn(0);
                 } else if children
                     .iter()
+                    .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
                     .all(|(_, status)| matches!(status, NodeStatus::PrunedDeadAncestor))
                 {
                     return NodeStatus::PrunedDeadAncestor;
                 } else if children
                     .iter()
+                    .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
                     .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
                 {
                     return NodeStatus::AliveFor(0);
@@ -183,15 +190,27 @@ impl Node {
     }
 
     /// Returns None if all directions have been simulated
-    pub fn simulate(&mut self) -> Option<Vec<Node>> {
+    pub fn simulate(&mut self, similarity_distance: Option<u8>) -> Option<Vec<Node>> {
         if let Some(move_matrix) = self.next_moveset() {
             let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
+            let mut similarity_set: HashSet<u64> = HashSet::new();
             for moves in move_matrix {
                 let mut child_gamestate = self.gamestate.clone();
                 child_gamestate.next_state(moves);
-                let child = Node::new(self.id.child(moves), child_gamestate);
-                let child_id = child.id();
+                let child_id = self.id.child(moves);
+
+                if let Some(dist) = similarity_distance {
+                    let hash = child_gamestate.local_environment_hash(dist);
+                    if !similarity_set.insert(hash) {
+                        self.children[direction as usize]
+                            .as_mut()
+                            .map(|v| v.push((child_id, NodeStatus::PrunedForSimilarity)));
+                        continue;
+                    }
+                }
+
+                let child = Node::new(child_id, child_gamestate);
                 let child_status = child.status();
                 children.push(child);
                 self.children[direction as usize]
@@ -322,8 +341,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate().is_some() {
-            node.simulate();
+        while node.simulate(None).is_some() {
+            node.simulate(None);
         }
         // After exhaustion, all children slots should be filled
         assert!(
@@ -342,14 +361,14 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate().is_none());
+        assert!(node.simulate(None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate();
+        node.simulate(None);
         println!("{}", node);
     }
 }
