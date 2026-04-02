@@ -1,7 +1,6 @@
-use std::char;
-
 use crate::logic::game::field::BasicField;
 
+#[derive(Clone, Copy, PartialEq)]
 pub enum SituationField {
     OwnHead,
     OtherHead,
@@ -9,15 +8,26 @@ pub enum SituationField {
     NonMovableArea,
     Any,
 }
+
 impl SituationField {
-    pub fn from(char: char) -> Self {
-        match char {
-            'A' => SituationField::OwnHead,
-            'B' | 'C' | 'D' => SituationField::OtherHead,
-            '.' => SituationField::MovableArea,
-            'N' => SituationField::NonMovableArea,
-            '*' => SituationField::Any,
-            _ => panic!("Invalid character for SituationField: {}", char),
+    pub fn from(c: char) -> Self {
+        match c {
+            'A' => Self::OwnHead,
+            'B' => Self::OtherHead,
+            '.' => Self::MovableArea,
+            'N' => Self::NonMovableArea,
+            '*' => Self::Any,
+            _ => panic!("Invalid character for SituationField: {}", c),
+        }
+    }
+
+    pub fn display_char(&self) -> char {
+        match self {
+            Self::OwnHead        => 'A',
+            Self::OtherHead      => 'B',
+            Self::MovableArea    => '.',
+            Self::NonMovableArea => 'N',
+            Self::Any            => '*',
         }
     }
 
