@@ -1,14 +1,17 @@
 mod situation_field;
 
-use std::fmt;
+use log::debug;
 use situation_field::SituationField;
+use std::fmt;
 
-use crate::logic::game::{direction::Direction, field::BasicField, game_state::GameState, snake::Snake};
+use crate::logic::game::{
+    direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SituationMatch {
     Recommend(Direction),
-    Disallow(Direction),
+    Avoid(Direction),
 }
 
 struct SituationPattern {
@@ -116,7 +119,12 @@ impl SituationPattern {
                 field.check(gamestate.board().cell(x as i8, y as i8).map(|c| c.get()))
             })
         });
-        if matches { Some(self.result) } else { None }
+        if matches {
+            debug!("Situation pattern matched:\n{}", self);
+            Some(self.result)
+        } else {
+            None
+        }
     }
 }
 
@@ -130,7 +138,7 @@ impl SituationMatch {
     fn map_direction(self, f: impl Fn(Direction) -> Direction) -> Self {
         match self {
             Self::Recommend(dir) => Self::Recommend(f(dir)),
-            Self::Disallow(dir) => Self::Disallow(f(dir)),
+            Self::Avoid(dir) => Self::Avoid(f(dir)),
         }
     }
 }
@@ -139,7 +147,7 @@ impl fmt::Display for SituationMatch {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SituationMatch::Recommend(dir) => write!(f, "Recommend({:?})", dir),
-            SituationMatch::Disallow(dir) => write!(f, "Disallow({:?})", dir),
+            SituationMatch::Avoid(dir) => write!(f, "Disallow({:?})", dir),
         }
     }
 }
@@ -147,14 +155,20 @@ impl fmt::Display for SituationMatch {
 impl fmt::Display for SituationPattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for row in self.fields.chunks(self.width).rev() {
-            let line: String = row.iter().map(|f| f.display_char()).flat_map(|c| [c, ' ']).collect::<String>().trim_end().to_string();
+            let line: String = row
+                .iter()
+                .map(|f| f.display_char())
+                .flat_map(|c| [c, ' '])
+                .collect::<String>()
+                .trim_end()
+                .to_string();
             writeln!(f, "{}", line)?;
         }
         write!(f, "=> {}", self.result)
     }
 }
 
-struct Situation {
+pub struct Situation {
     patterns: Vec<SituationPattern>,
 }
 
@@ -164,11 +178,13 @@ impl Situation {
     }
 
     pub fn disallowing(str: &str, direction: Direction) -> Self {
-        Self::build(str, SituationMatch::Disallow(direction))
+        Self::build(str, SituationMatch::Avoid(direction))
     }
 
     fn build(str: &str, result: SituationMatch) -> Self {
-        Self { patterns: vec![SituationPattern::parse(str, result)] }
+        Self {
+            patterns: vec![SituationPattern::parse(str, result)],
+        }
     }
 
     pub fn rotational(mut self) -> Self {
@@ -293,7 +309,8 @@ mod tests {
             . N .
             ",
             Direction::Up,
-        ).rotational();
+        )
+        .rotational();
 
         assert_eq!(situation.patterns.len(), 4);
 
@@ -301,16 +318,34 @@ mod tests {
             println!("rotation {}:\n{}", i, p);
         }
 
-        let dirs: Vec<Direction> = situation.patterns.iter().map(|p| {
-            match p.result {
+        let dirs: Vec<Direction> = situation
+            .patterns
+            .iter()
+            .map(|p| match p.result {
                 super::SituationMatch::Recommend(d) => d,
                 _ => panic!("expected Recommend"),
-            }
-        }).collect();
-        assert!(matches!(dirs[0], Direction::Up),    "pattern 0:\n{}", situation.patterns[0]);
-        assert!(matches!(dirs[1], Direction::Right), "pattern 1:\n{}", situation.patterns[1]);
-        assert!(matches!(dirs[2], Direction::Down),  "pattern 2:\n{}", situation.patterns[2]);
-        assert!(matches!(dirs[3], Direction::Left),  "pattern 3:\n{}", situation.patterns[3]);
+            })
+            .collect();
+        assert!(
+            matches!(dirs[0], Direction::Up),
+            "pattern 0:\n{}",
+            situation.patterns[0]
+        );
+        assert!(
+            matches!(dirs[1], Direction::Right),
+            "pattern 1:\n{}",
+            situation.patterns[1]
+        );
+        assert!(
+            matches!(dirs[2], Direction::Down),
+            "pattern 2:\n{}",
+            situation.patterns[2]
+        );
+        assert!(
+            matches!(dirs[3], Direction::Left),
+            "pattern 3:\n{}",
+            situation.patterns[3]
+        );
     }
 
     #[test]
@@ -320,7 +355,8 @@ mod tests {
             N A .
             ",
             Direction::Right,
-        ).mirrored();
+        )
+        .mirrored();
 
         assert_eq!(situation.patterns.len(), 2);
 
@@ -328,14 +364,24 @@ mod tests {
             println!("mirror {}:\n{}", i, p);
         }
 
-        let dirs: Vec<Direction> = situation.patterns.iter().map(|p| {
-            match p.result {
+        let dirs: Vec<Direction> = situation
+            .patterns
+            .iter()
+            .map(|p| match p.result {
                 super::SituationMatch::Recommend(d) => d,
                 _ => panic!("expected Recommend"),
-            }
-        }).collect();
-        assert!(matches!(dirs[0], Direction::Right), "pattern 0:\n{}", situation.patterns[0]);
-        assert!(matches!(dirs[1], Direction::Left),  "pattern 1:\n{}", situation.patterns[1]);
+            })
+            .collect();
+        assert!(
+            matches!(dirs[0], Direction::Right),
+            "pattern 0:\n{}",
+            situation.patterns[0]
+        );
+        assert!(
+            matches!(dirs[1], Direction::Left),
+            "pattern 1:\n{}",
+            situation.patterns[1]
+        );
     }
 
     #[test]
@@ -347,7 +393,8 @@ mod tests {
             . . .
             ",
             Direction::Right,
-        ).full_symmetry();
+        )
+        .full_symmetry();
 
         for (i, p) in situation.patterns.iter().enumerate() {
             println!("symmetry {}:\n{}", i, p);

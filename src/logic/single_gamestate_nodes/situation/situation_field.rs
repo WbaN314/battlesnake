@@ -6,6 +6,7 @@ pub enum SituationField {
     OtherHead,
     MovableArea,
     NonMovableArea,
+    Wall,
     Any,
 }
 
@@ -16,6 +17,7 @@ impl SituationField {
             'B' => Self::OtherHead,
             '.' => Self::MovableArea,
             'N' => Self::NonMovableArea,
+            'W' => Self::Wall,
             '*' => Self::Any,
             _ => panic!("Invalid character for SituationField: {}", c),
         }
@@ -23,17 +25,18 @@ impl SituationField {
 
     pub fn display_char(&self) -> char {
         match self {
-            Self::OwnHead        => 'A',
-            Self::OtherHead      => 'B',
-            Self::MovableArea    => '.',
+            Self::OwnHead => 'A',
+            Self::OtherHead => 'B',
+            Self::MovableArea => '.',
             Self::NonMovableArea => 'N',
-            Self::Any            => '*',
+            Self::Wall => 'W',
+            Self::Any => '*',
         }
     }
 
     pub fn check(&self, field: Option<BasicField>) -> bool {
         match field {
-            None => matches!(self, Self::NonMovableArea),
+            None => matches!(self, Self::NonMovableArea | Self::Wall),
             Some(f) => match self {
                 Self::OwnHead => matches!(f, BasicField::Snake { id: 0, next: None }),
                 Self::OtherHead => matches!(
@@ -45,7 +48,7 @@ impl SituationField {
                 ),
                 Self::MovableArea => matches!(f, BasicField::Empty | BasicField::Food),
                 Self::NonMovableArea => matches!(f, BasicField::Snake { .. }),
-                Self::Any => true,
+                Self::Any | Self::Wall => true,
             },
         }
     }
