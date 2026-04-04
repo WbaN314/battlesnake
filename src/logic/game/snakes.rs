@@ -30,6 +30,10 @@ impl Snakes {
         Snakes { snakes: d_snakes }
     }
 
+    pub fn from_cells(snakes: [Cell<Snake>; SNAKES]) -> Self {
+        Snakes { snakes }
+    }
+
     pub fn cell(&self, id: u8) -> &Cell<Snake> {
         &self.snakes[id as usize]
     }

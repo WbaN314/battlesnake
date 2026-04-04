@@ -2,10 +2,10 @@ mod situation_field;
 
 use log::debug;
 use situation_field::SituationField;
-use std::fmt;
+use std::{cell::Cell, fmt};
 
 use crate::logic::game::{
-    direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
+    direction::Direction, field::BasicField, game_state::GameState, snake::Snake, snakes::Snakes,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -105,23 +105,41 @@ impl SituationPattern {
         }
     }
 
-    fn check(&self, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
+    // Returns the match result and a [Option<u8>; 3] mapping labels B/C/D to snake IDs.
+    fn check(
+        &self,
+        gamestate: &GameState<BasicField>,
+    ) -> Option<(SituationMatch, [Option<u8>; 3])> {
         let head = match gamestate.snakes().cell(0).get() {
             Snake::Alive { head, .. } => head,
             _ => return None,
         };
         let base_x = head.x as isize - self.head_dx;
         let base_y = head.y as isize - self.head_dy;
+        // label_ids[0] = B, [1] = C, [2] = D
+        let mut label_ids: [Option<u8>; 3] = [None; 3];
         let matches = self.fields.chunks(self.width).enumerate().all(|(dy, row)| {
             row.iter().enumerate().all(|(dx, field)| {
                 let x = base_x + dx as isize;
                 let y = base_y + dy as isize;
-                field.check(gamestate.board().cell(x as i8, y as i8).map(|c| c.get()))
+                let cell = gamestate.board().cell(x as i8, y as i8).map(|c| c.get());
+                if let SituationField::OtherHead(idx) = field {
+                    if let Some(BasicField::Snake { id, next: None }) = cell {
+                        if id != 0 {
+                            label_ids[*idx as usize] = Some(id);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                    return false;
+                }
+                field.check(cell)
             })
         });
         if matches {
             debug!("Situation pattern matched:\n{}", self);
-            Some(self.result)
+            Some((self.result, label_ids))
         } else {
             None
         }
@@ -170,6 +188,7 @@ impl fmt::Display for SituationPattern {
 
 pub struct Situation {
     patterns: Vec<SituationPattern>,
+    condition: Option<fn([Snake; 4]) -> bool>,
 }
 
 impl Situation {
@@ -184,6 +203,7 @@ impl Situation {
     fn build(str: &str, result: SituationMatch) -> Self {
         Self {
             patterns: vec![SituationPattern::parse(str, result)],
+            condition: None,
         }
     }
 
@@ -222,7 +242,30 @@ impl Situation {
     }
 
     pub fn check(&self, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
-        self.patterns.iter().find_map(|p| p.check(gamestate))
+        self.patterns.iter().find_map(|p| {
+            let (result, label_ids) = p.check(gamestate)?;
+            if let Some(condition) = self.condition {
+                // Build ordered Snakes: slot 0 = own snake (A), slots 1/2/3 = B/C/D matched IDs.
+                // Unmatched labels get NonExistent.
+                let src = gamestate.snakes();
+                let mut ordered = [Snake::NonExistent; 4];
+                ordered[0] = src.cell(0).get();
+                for (slot, maybe_id) in label_ids.iter().enumerate() {
+                    if let Some(id) = maybe_id {
+                        ordered[slot + 1] = src.cell(*id).get();
+                    }
+                }
+                if !condition(ordered) {
+                    return None;
+                }
+            }
+            Some(result)
+        })
+    }
+
+    pub fn condition(mut self, condition: fn([Snake; 4]) -> bool) -> Self {
+        self.condition = Some(condition);
+        self
     }
 }
 
@@ -230,7 +273,7 @@ impl Situation {
 mod tests {
     use super::Situation;
     use crate::{
-        logic::game::{direction::Direction, field::BasicField, game_state::GameState},
+        logic::game::{direction::Direction, field::BasicField, game_state::GameState, snake::Snake},
         read_game_state,
     };
 
@@ -401,5 +444,40 @@ mod tests {
         }
 
         assert_eq!(situation.patterns.len(), 8);
+    }
+
+    #[test]
+    fn test_condition() {
+        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let state = GameState::<BasicField>::from(&gamestate);
+
+        // Both snakes have length 3. Pattern places B to the left of A.
+        let pattern = "
+            N . .
+            N . A
+            N B N
+        ";
+
+        fn own_longer_than_b(snakes: [Snake; 4]) -> bool {
+            match (snakes[0], snakes[1]) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            }
+        }
+
+        fn own_not_shorter_than_b(snakes: [Snake; 4]) -> bool {
+            match (snakes[0], snakes[1]) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a >= b,
+                _ => false,
+            }
+        }
+
+        // Pattern matches but condition fails (3 > 3 is false) → no match
+        let situation = Situation::recommending(pattern, Direction::Up).condition(own_longer_than_b);
+        assert!(situation.check(&state).is_none());
+
+        // Pattern matches and condition passes (3 >= 3 is true) → match
+        let situation = Situation::recommending(pattern, Direction::Up).condition(own_not_shorter_than_b);
+        assert!(situation.check(&state).is_some());
     }
 }
