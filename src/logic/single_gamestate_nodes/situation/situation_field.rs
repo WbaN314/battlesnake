@@ -7,6 +7,7 @@ pub enum SituationField {
     MovableArea,
     NonMovableArea,
     Wall,
+    Food,
     Any,
 }
 
@@ -21,6 +22,7 @@ impl SituationField {
             'N' => Self::NonMovableArea,
             'W' => Self::Wall,
             '*' => Self::Any,
+            'X' => Self::Food,
             _ => panic!("Invalid character for SituationField: {}", c),
         }
     }
@@ -34,6 +36,7 @@ impl SituationField {
             Self::MovableArea => '.',
             Self::NonMovableArea => 'N',
             Self::Wall => 'W',
+            Self::Food => 'X',
             Self::Any => '*',
         }
     }
@@ -43,8 +46,15 @@ impl SituationField {
             None => matches!(self, Self::NonMovableArea | Self::Wall),
             Some(f) => match self {
                 Self::OwnHead => matches!(f, BasicField::Snake { id: 0, next: None }),
-                Self::OtherHead(_) => matches!(f, BasicField::Snake { id: 1..=3, next: None }),
+                Self::OtherHead(_) => matches!(
+                    f,
+                    BasicField::Snake {
+                        id: 1..=3,
+                        next: None
+                    }
+                ),
                 Self::MovableArea => matches!(f, BasicField::Empty | BasicField::Food),
+                Self::Food => matches!(f, BasicField::Food),
                 Self::NonMovableArea => matches!(f, BasicField::Snake { .. }),
                 Self::Any | Self::Wall => true,
             },

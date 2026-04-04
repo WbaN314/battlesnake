@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
-        game::{direction::Direction, field::BasicField, game_state::GameState},
+        game::{direction::Direction, field::BasicField, game_state::GameState, snake::Snake},
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
@@ -58,13 +58,42 @@ impl Brain for NewYearNewSnake {
         }
 
         let situations = [
+            // Kill by follow
+            Situation::recommending(
+                "
+                W B .
+                W N A
+                ",
+                Direction::Up,
+            )
+            .full_symmetry()
+            .condition(|snakes| {
+                if let [
+                    Snake::Alive { length: a, .. },
+                    Snake::Alive { length: b, .. },
+                    _,
+                    _,
+                ] = snakes
+                {
+                    a > b
+                } else {
+                    false
+                }
+            }),
+            // Eat Food
+            Situation::recommending(
+                "
+                X A",
+                Direction::Left,
+            ),
+            // Move away from walls
             Situation::recommending(
                 "
                 W A .
                 ",
                 Direction::Right,
             )
-            .full_symmetry(), // Move away from walls
+            .full_symmetry(),
         ];
 
         for situation in situations {
@@ -80,8 +109,17 @@ impl Brain for NewYearNewSnake {
         directions
             .into_iter()
             .enumerate()
-            .find(|(_, allowed)| *allowed)
-            .map(|(index, _)| Direction::try_from(index).unwrap().into())
-            .unwrap_or(Direction::Up.into())
+            .filter(|(_, allowed)| *allowed)
+            .filter_map(|(index, _)| {
+                if result[index].is_comparable() {
+                    Some((index, result[index]))
+                } else {
+                    None
+                }
+            })
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .map(|(index, _)| index.try_into().unwrap())
+            .unwrap_or(Direction::Up)
+            .into()
     }
 }
