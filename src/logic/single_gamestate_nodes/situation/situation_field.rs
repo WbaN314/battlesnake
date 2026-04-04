@@ -56,7 +56,8 @@ impl SituationField {
                 Self::MovableArea => matches!(f, BasicField::Empty | BasicField::Food),
                 Self::Food => matches!(f, BasicField::Food),
                 Self::NonMovableArea => matches!(f, BasicField::Snake { .. }),
-                Self::Any | Self::Wall => true,
+                Self::Wall => false,
+                Self::Any => true,
             },
         }
     }

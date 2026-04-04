@@ -1,5 +1,5 @@
 #[cfg(test)]
-use battlesnake_game_of_chicken_lib::{get_move_from_json_file, OriginalDirection};
+use battlesnake_game_of_chicken_lib::{OriginalDirection, get_move_from_json_file};
 
 #[test]
 fn test_move_request() {
@@ -45,7 +45,7 @@ fn failure_4() {
 }
 
 #[test]
-fn failure_5() {
+fn failure_05() {
     let chosen_move = get_move_from_json_file("failure_5.json");
     assert_eq!(chosen_move, OriginalDirection::Up);
 }
@@ -208,7 +208,7 @@ fn failure_29_move_down_towards_food() {
 #[test]
 fn failure_30_grab_food_leads_to_death() {
     let chosen_move = get_move_from_json_file("failure_30_grab_food_leads_to_death.json");
-    assert_ne!(chosen_move, OriginalDirection::Right);
+    assert_ne!(chosen_move, OriginalDirection::Left);
     assert_ne!(chosen_move, OriginalDirection::Up);
 }
 

@@ -34,8 +34,8 @@ impl Brain for NewYearNewSnake {
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
 
+        // Start with all directions and simulate
         let mut directions = [true; 4];
-
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .dead_ancestor_pruning()
@@ -47,6 +47,7 @@ impl Brain for NewYearNewSnake {
         #[cfg(debug_assertions)]
         println!("{}", tree.stats());
 
+        // Exclude DeadIn directions
         for (index, _) in result
             .iter()
             .enumerate()
@@ -55,10 +56,12 @@ impl Brain for NewYearNewSnake {
             directions[index] = false;
         }
 
+        // If all are excluded, include all again
         if directions.iter().all(|&d| !d) {
             directions = [true; 4];
         }
 
+        // Evaluate situations and return or avoid direction
         #[cfg(debug_assertions)]
         let time = Instant::now();
         let situations = [
@@ -115,16 +118,27 @@ impl Brain for NewYearNewSnake {
             match situation.check(&gamestate) {
                 Some(SituationMatch::Recommend(direction)) if directions[direction as usize] => {
                     #[cfg(debug_assertions)]
-                    println!("Time for Situations: {:?}", time.elapsed());
+                    println!("Time for Situations (match): {:?}", time.elapsed());
                     return direction.into();
                 }
                 Some(SituationMatch::Avoid(direction)) => directions[direction as usize] = false,
                 _ => continue,
             }
         }
-        #[cfg(debug_assertions)]
-        println!("Time for Situations: {:?}", time.elapsed());
 
+        #[cfg(debug_assertions)]
+        {
+            println!("Time for Situations: {:?}", time.elapsed());
+            println!("Directions after Situations {:?}", directions);
+        }
+
+        // Food hunting and general strategies should probably go here
+        // failure_20_for_improved_area_evaluation -> NodeID length limit reached in late game
+        // failure_31_going_right_leads_to_death -> better general board positioning
+        // failure_43_going_down_guarantees_getting_killed -> Single Child priority queue
+        // failure_46_go_for_kill -> Kill propagation in simulation
+
+        // Take the best from the allowed directions or default
         directions
             .into_iter()
             .enumerate()
