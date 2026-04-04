@@ -1,4 +1,6 @@
 use std::time::Duration;
+#[cfg(debug_assertions)]
+use std::time::Instant;
 
 use crate::{
     OriginalDirection, OriginalGameState,
@@ -57,7 +59,19 @@ impl Brain for NewYearNewSnake {
             directions = [true; 4];
         }
 
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
         let situations = [
+            // Kill by lead
+            Situation::recommending(
+                "
+                W N *
+                W B N
+                W . A
+                ",
+                Direction::Down,
+            )
+            .full_symmetry(),
             // Kill by follow
             Situation::recommending(
                 "
@@ -85,7 +99,8 @@ impl Brain for NewYearNewSnake {
                 "
                 X A",
                 Direction::Left,
-            ),
+            )
+            .full_symmetry(),
             // Move away from walls
             Situation::recommending(
                 "
@@ -99,12 +114,16 @@ impl Brain for NewYearNewSnake {
         for situation in situations {
             match situation.check(&gamestate) {
                 Some(SituationMatch::Recommend(direction)) if directions[direction as usize] => {
+                    #[cfg(debug_assertions)]
+                    println!("Time for Situations: {:?}", time.elapsed());
                     return direction.into();
                 }
                 Some(SituationMatch::Avoid(direction)) => directions[direction as usize] = false,
                 _ => continue,
             }
         }
+        #[cfg(debug_assertions)]
+        println!("Time for Situations: {:?}", time.elapsed());
 
         directions
             .into_iter()
