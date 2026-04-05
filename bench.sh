@@ -1,19 +1,24 @@
 #!/bin/zsh
-# Usage: ./bench.sh [-n NUM_GAMES] snake1 snake2 [snake3 snake4]
+# Usage: ./bench.sh [-n NUM_GAMES] [-w] [-d DELAY_MS] snake1 snake2 [snake3 snake4]
 # Example: ./bench.sh -n 100 new_year_new_snake depth_first
+# Example: ./bench.sh -w -d 200 new_year_new_snake depth_first
 
 N_GAMES=0
+WATCH=0
+DELAY=0
 SNAKES=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -n) N_GAMES=$2; shift 2 ;;
+        -w) WATCH=1; shift ;;
+        -d) DELAY=$2; shift 2 ;;
         *) SNAKES+=("$1"); shift ;;
     esac
 done
 
 if [ ${#SNAKES[@]} -lt 2 ]; then
-    echo "Usage: $0 [-n NUM_GAMES] snake1 snake2 [snake3 snake4]"
+    echo "Usage: $0 [-n NUM_GAMES] [-w] [-d DELAY_MS] snake1 snake2 [snake3 snake4]"
     echo "Variants: depth_first breadth_first simple_tree_search simple_hungry new_year_new_snake"
     exit 1
 fi
@@ -99,11 +104,23 @@ print_tally() {
     tally_lines=$lines
 }
 
+PLAY_FLAGS=()
+[ "$DELAY" -gt 0 ] && PLAY_FLAGS+=(-d "$DELAY")
+[ "$WATCH" -eq 1 ] && PLAY_FLAGS+=(-v -c)
+
 echo ""
 while true; do
-    winner=$(../battlesnake_local/battlesnake play -W 11 -H 11 "${BATTLESNAKE_ARGS[@]}" 2>&1 | \
-        grep -oE '[A-Za-z0-9_-]+ was the winner' | \
-        awk '{print $1}')
+    if [ "$WATCH" -eq 1 ]; then
+        # tee /dev/tty streams to terminal live while keeping output for winner parsing
+        output=$(../battlesnake_local/battlesnake play -W 11 -H 11 "${PLAY_FLAGS[@]}" "${BATTLESNAKE_ARGS[@]}" 2>&1 | tee /dev/tty)
+        winner=$(echo "$output" | grep -oE '[A-Za-z0-9_-]+ was the winner' | awk '{print $1}')
+        # Tally prints below the scrolled game output (no in-place overwrite in watch mode)
+        tally_lines=0
+    else
+        winner=$(../battlesnake_local/battlesnake play -W 11 -H 11 "${PLAY_FLAGS[@]}" "${BATTLESNAKE_ARGS[@]}" 2>&1 | \
+            grep -oE '[A-Za-z0-9_-]+ was the winner' | \
+            awk '{print $1}')
+    fi
 
     if [ -n "$winner" ]; then
         if (( ${+wins[$winner]} )); then
