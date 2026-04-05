@@ -186,6 +186,42 @@ impl fmt::Display for SituationPattern {
     }
 }
 
+pub struct SituationSet {
+    situations: Vec<Situation>,
+}
+
+impl SituationSet {
+    pub fn new(situations: Vec<Situation>) -> Self {
+        Self { situations }
+    }
+
+    /// Iterates through all situations and applies recommendations/avoidances.
+    /// Returns `Some(Direction)` if a situation recommends an allowed direction, `None` otherwise.
+    pub fn evaluate(
+        &self,
+        gamestate: &GameState<BasicField>,
+        directions: &mut [bool; 4],
+    ) -> Option<Direction> {
+        for situation in &self.situations {
+            match situation.check(gamestate) {
+                Some(SituationMatch::Recommend(direction)) if directions[direction as usize] => {
+                    return Some(direction);
+                }
+                Some(SituationMatch::Avoid(direction)) => {
+                    directions[direction as usize] = false;
+                    // If only one direction remains, return it
+                    let mut remaining = directions.iter().enumerate().filter(|(_, d)| **d);
+                    if let (Some((i, _)), None) = (remaining.next(), remaining.next()) {
+                        return Some(i.try_into().unwrap());
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
+
 pub struct Situation {
     patterns: Vec<SituationPattern>,
     condition: Option<fn([Snake; 4]) -> bool>,
@@ -273,7 +309,9 @@ impl Situation {
 mod tests {
     use super::Situation;
     use crate::{
-        logic::game::{direction::Direction, field::BasicField, game_state::GameState, snake::Snake},
+        logic::game::{
+            direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
+        },
         read_game_state,
     };
 
@@ -473,11 +511,13 @@ mod tests {
         }
 
         // Pattern matches but condition fails (3 > 3 is false) → no match
-        let situation = Situation::recommending(pattern, Direction::Up).condition(own_longer_than_b);
+        let situation =
+            Situation::recommending(pattern, Direction::Up).condition(own_longer_than_b);
         assert!(situation.check(&state).is_none());
 
         // Pattern matches and condition passes (3 >= 3 is true) → match
-        let situation = Situation::recommending(pattern, Direction::Up).condition(own_not_shorter_than_b);
+        let situation =
+            Situation::recommending(pattern, Direction::Up).condition(own_not_shorter_than_b);
         assert!(situation.check(&state).is_some());
     }
 }

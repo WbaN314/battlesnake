@@ -9,7 +9,7 @@ use crate::{
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
-            situation::{Situation, SituationMatch},
+            situation::{Situation, SituationSet},
             tree::Tree,
         },
     },
@@ -64,7 +64,7 @@ impl Brain for NewYearNewSnake {
         // Evaluate situations and return or avoid direction
         #[cfg(debug_assertions)]
         let time = Instant::now();
-        let situations = [
+        let situation_set = SituationSet::new(vec![
             // Kill by lead
             Situation::recommending(
                 "
@@ -112,18 +112,12 @@ impl Brain for NewYearNewSnake {
                 Direction::Right,
             )
             .full_symmetry(),
-        ];
+        ]);
 
-        for situation in situations {
-            match situation.check(&gamestate) {
-                Some(SituationMatch::Recommend(direction)) if directions[direction as usize] => {
-                    #[cfg(debug_assertions)]
-                    println!("Time for Situations (match): {:?}", time.elapsed());
-                    return direction.into();
-                }
-                Some(SituationMatch::Avoid(direction)) => directions[direction as usize] = false,
-                _ => continue,
-            }
+        if let Some(direction) = situation_set.evaluate(&gamestate, &mut directions) {
+            #[cfg(debug_assertions)]
+            println!("Time for Situations (match): {:?}", time.elapsed());
+            return direction.into();
         }
 
         #[cfg(debug_assertions)]
