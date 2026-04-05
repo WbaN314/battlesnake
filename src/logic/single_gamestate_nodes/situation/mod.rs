@@ -521,3 +521,148 @@ mod tests {
         assert!(situation.check(&state).is_some());
     }
 }
+
+#[cfg(test)]
+mod benchmarks {
+    use std::hint::black_box;
+
+    use super::{Situation, SituationSet};
+    use crate::{
+        logic::game::{
+            direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
+        },
+        read_game_state,
+    };
+
+    fn test_states() -> Vec<GameState<BasicField>> {
+        [
+            "requests/test_move_request_2.json",
+            "requests/example_move_request_2.json",
+            "requests/example_move_request_3.json",
+            "requests/failure_1.json",
+            "requests/failure_2.json",
+            "requests/failure_3.json",
+            "requests/failure_4.json",
+            "requests/failure_5.json",
+        ]
+        .iter()
+        .map(|p| GameState::<BasicField>::from(&read_game_state(p)))
+        .collect()
+    }
+
+    #[bench]
+    fn bench_situation_full_symmetry_evaluate(b: &mut test::Bencher) {
+        let states = test_states();
+        let situation = Situation::recommending(
+            "
+            W N *
+            W B N
+            W . A
+            ",
+            Direction::Down,
+        )
+        .full_symmetry();
+
+        let mut i = 0;
+        b.iter(|| {
+            let state = &states[i % states.len()];
+            i += 1;
+            black_box(situation.check(black_box(state)))
+        });
+    }
+
+    #[bench]
+    fn bench_situation_full_symmetry_with_condition_evaluate(b: &mut test::Bencher) {
+        let states = test_states();
+        let situation = Situation::recommending(
+            "
+            W B .
+            W N A
+            ",
+            Direction::Up,
+        )
+        .full_symmetry()
+        .condition(|snakes| {
+            if let [
+                Snake::Alive { length: a, .. },
+                Snake::Alive { length: b, .. },
+                _,
+                _,
+            ] = snakes
+            {
+                a > b
+            } else {
+                false
+            }
+        });
+
+        let mut i = 0;
+        b.iter(|| {
+            let state = &states[i % states.len()];
+            i += 1;
+            black_box(situation.check(black_box(state)))
+        });
+    }
+
+    #[bench]
+    fn bench_situation_set_evaluate(b: &mut test::Bencher) {
+        let states = test_states();
+        let situation_set = SituationSet::new(vec![
+            // Kill by lead
+            Situation::recommending(
+                "
+                W N *
+                W B N
+                W . A
+                ",
+                Direction::Down,
+            )
+            .full_symmetry(),
+            // Kill by follow
+            Situation::recommending(
+                "
+                W B .
+                W N A
+                ",
+                Direction::Up,
+            )
+            .full_symmetry()
+            .condition(|snakes| {
+                if let [
+                    Snake::Alive { length: a, .. },
+                    Snake::Alive { length: b, .. },
+                    _,
+                    _,
+                ] = snakes
+                {
+                    a > b
+                } else {
+                    false
+                }
+            }),
+            // Eat Food
+            Situation::recommending(
+                "
+                X A",
+                Direction::Left,
+            )
+            .full_symmetry(),
+            // Move away from walls
+            Situation::recommending(
+                "
+                W A .
+                ",
+                Direction::Right,
+            )
+            .full_symmetry(),
+        ]);
+
+        let mut i = 0;
+        b.iter(|| {
+            let state = &states[i % states.len()];
+            i += 1;
+            let mut directions = black_box([true; 4]);
+            black_box(situation_set.evaluate(black_box(state), &mut directions))
+        });
+    }
+}
