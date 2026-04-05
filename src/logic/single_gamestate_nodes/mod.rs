@@ -63,7 +63,7 @@ impl Brain for NewYearNewSnake {
 
         // Evaluate situations and return or avoid direction
         #[cfg(debug_assertions)]
-        let time = Instant::now();
+        let mut time = Instant::now();
         let situation_set = SituationSet::new(vec![
             // Kill by lead
             Situation::recommending(
@@ -113,6 +113,11 @@ impl Brain for NewYearNewSnake {
             )
             .full_symmetry(),
         ]);
+        #[cfg(debug_assertions)]
+        {
+            println!("Time for Situations construction: {:?}", time.elapsed());
+            time = Instant::now();
+        }
 
         if let Some(direction) = situation_set.evaluate(&gamestate, &mut directions) {
             #[cfg(debug_assertions)]
