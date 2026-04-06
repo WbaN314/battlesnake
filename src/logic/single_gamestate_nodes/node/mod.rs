@@ -15,13 +15,6 @@ use crate::logic::{
 pub mod node_id;
 mod node_stats;
 
-#[derive(PartialEq, Debug)]
-pub enum SimulationResult {
-    Normal,
-    NoChildren,
-    Exhausted,
-}
-
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
     AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
@@ -213,9 +206,7 @@ impl Node {
         &mut self,
         similarity_distance: Option<u8>,
         fast_track_fn: Option<&dyn Fn(&Node) -> Option<[Option<Direction>; SNAKES]>>,
-    ) -> (Vec<Node>, SimulationResult) {
-        let mut children = Vec::new();
-
+    ) -> Option<Vec<Node>> {
         // Check fast track once
         if self.fast_track_checked == false
             && let Some(fast_track_fn) = fast_track_fn
@@ -233,13 +224,13 @@ impl Node {
                     let child_status = child.status();
                     // Register the direction slot so status propagation works
                     self.children[dir as usize] = Some(vec![(child_id, child_status)]);
-                    children.push(child);
-                    return (children, SimulationResult::Normal);
+                    return Some(vec![child]);
                 }
             }
         }
 
-        if let Some(move_matrix) = self.next_moveset() {
+        'moveset: while let Some(move_matrix) = self.next_moveset() {
+            let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
             let mut similarity_set: HashSet<u64> = HashSet::new();
             for moves in move_matrix {
@@ -266,7 +257,7 @@ impl Node {
                 match child_status {
                     NodeStatus::DeadIn(0) => {
                         // Do not return children as this direction is already dead
-                        return (children, SimulationResult::NoChildren);
+                        continue 'moveset;
                     }
                     NodeStatus::AliveFor(0) => {}
                     _ => {
@@ -275,10 +266,9 @@ impl Node {
                 }
             }
             debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
-            debug_assert!(!self.is_fast_tracked(), "{}", self); // Fast tracked nodes should not return normal children in this way
-            return (children, SimulationResult::Normal);
+            return Some(children);
         }
-        (children, SimulationResult::Exhausted)
+        None
     }
 
     pub fn propagate_update_from_child(
@@ -389,7 +379,7 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while !matches!(node.simulate(None, None), (_, SimulationResult::Exhausted)) {
+        while node.simulate(None, None).is_some() {
             node.simulate(None, None);
         }
         // After exhaustion, all children slots should be filled
@@ -409,7 +399,7 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert_eq!(node.simulate(None, None).1, SimulationResult::Exhausted);
+        assert!(node.simulate(None, None).is_none());
     }
 
     #[test]

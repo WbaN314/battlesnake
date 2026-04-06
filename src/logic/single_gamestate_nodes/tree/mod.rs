@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
@@ -12,7 +13,7 @@ mod tree_stats;
 
 use crate::logic::{
     game::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
-    single_gamestate_nodes::node::{Node, NodeStatus, SimulationResult, node_id::NodeId},
+    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 
 #[derive(Clone)]
@@ -169,19 +170,7 @@ impl Tree {
         let node_is_fast_tracked = node.is_fast_tracked();
         self.propagate_status(node_id, node_status);
         match simulation_result {
-            (_, SimulationResult::NoChildren) => {
-                debug!("{} has spawned no children", node_id);
-                // No children for this direction, reque the node itself to simulate the next direction
-                if node_is_fast_tracked {
-                    trace!("Fast Tracked: Adding {} to the front of queue", node_id);
-                    self.queue.push_front(node_id);
-                } else {
-                    trace!("Adding {} to the queue", node_id);
-                    self.queue.push(node_id);
-                }
-                true
-            }
-            (children, SimulationResult::Normal) => {
+            Some(children) => {
                 debug!("{} has spawned {} children", node_id, children.len());
                 for child in children {
                     let child_id = child.id();
@@ -199,7 +188,7 @@ impl Tree {
                 }
                 true
             }
-            (_, SimulationResult::Exhausted) => {
+            None => {
                 // All directions exhausted. Go one level up to simulate the next direction of the parent
                 debug!("{} has exhausted all directions", node_id);
                 if let Some(parent_id) = node_id.parent()
