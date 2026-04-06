@@ -278,7 +278,7 @@ impl Tree {
         let mut max_depth = 0u8;
         for (&id, _) in &self.nodes {
             if id.depth() > 0 {
-                if let Some(dir) = id.direction_at(0, 0) {
+                if let Some(Some(dir)) = id.direction_at(0, 0) {
                     if dir == direction {
                         count += 1;
                         max_depth = max_depth.max(id.depth());

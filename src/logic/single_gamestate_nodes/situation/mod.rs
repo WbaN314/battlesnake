@@ -5,13 +5,17 @@ use situation_field::SituationField;
 use std::{cell::Cell, fmt};
 
 use crate::logic::game::{
-    direction::Direction, field::BasicField, game_state::GameState, snake::Snake, snakes::Snakes,
+    direction::Direction,
+    field::BasicField,
+    game_state::GameState,
+    snake::Snake,
+    snakes::{SNAKES, Snakes},
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SituationMatch {
-    Recommend(Direction),
-    Avoid(Direction),
+    Recommend([Option<Direction>; SNAKES]),
+    Avoid([Option<Direction>; SNAKES]),
 }
 
 struct SituationPattern {
@@ -154,9 +158,30 @@ impl PartialEq for SituationPattern {
 
 impl SituationMatch {
     fn map_direction(self, f: impl Fn(Direction) -> Direction) -> Self {
+        let map_dirs = |dirs: [Option<Direction>; SNAKES]| dirs.map(|d| d.map(&f));
         match self {
-            Self::Recommend(dir) => Self::Recommend(f(dir)),
-            Self::Avoid(dir) => Self::Avoid(f(dir)),
+            Self::Recommend(dirs) => Self::Recommend(map_dirs(dirs)),
+            Self::Avoid(dirs) => Self::Avoid(map_dirs(dirs)),
+        }
+    }
+
+    // Remaps directions from label-order [A,B,C,D] to gamestate-snake-order.
+    // label_ids[0..2] map labels B/C/D to their actual gamestate snake IDs.
+    // A (index 0) always stays at slot 0.
+    fn remap_to_gamestate(self, label_ids: &[Option<u8>; 3]) -> Self {
+        let remap = |label_dirs: [Option<Direction>; SNAKES]| {
+            let mut out = [None; SNAKES];
+            out[0] = label_dirs[0]; // A = own snake, always slot 0
+            for (label_idx, maybe_id) in label_ids.iter().enumerate() {
+                if let Some(id) = maybe_id {
+                    out[*id as usize] = label_dirs[label_idx + 1];
+                }
+            }
+            out
+        };
+        match self {
+            Self::Recommend(dirs) => Self::Recommend(remap(dirs)),
+            Self::Avoid(dirs) => Self::Avoid(remap(dirs)),
         }
     }
 }
@@ -204,10 +229,12 @@ impl SituationSet {
     ) -> Option<Direction> {
         for situation in &self.situations {
             match situation.check(gamestate) {
-                Some(SituationMatch::Recommend(direction)) if directions[direction as usize] => {
+                Some(SituationMatch::Recommend([Some(direction), ..]))
+                    if directions[direction as usize] =>
+                {
                     return Some(direction);
                 }
-                Some(SituationMatch::Avoid(direction)) => {
+                Some(SituationMatch::Avoid([Some(direction), ..])) => {
                     directions[direction as usize] = false;
                     // If only one direction remains, return it
                     let mut remaining = directions.iter().enumerate().filter(|(_, d)| **d);
@@ -229,11 +256,25 @@ pub struct Situation {
 
 impl Situation {
     pub fn recommending(str: &str, direction: Direction) -> Self {
-        Self::build(str, SituationMatch::Recommend(direction))
+        Self::build(
+            str,
+            SituationMatch::Recommend([Some(direction), None, None, None]),
+        )
     }
 
-    pub fn disallowing(str: &str, direction: Direction) -> Self {
-        Self::build(str, SituationMatch::Avoid(direction))
+    pub fn avoiding(str: &str, direction: Direction) -> Self {
+        Self::build(
+            str,
+            SituationMatch::Avoid([Some(direction), None, None, None]),
+        )
+    }
+
+    pub fn multi_recommending(str: &str, directions: [Option<Direction>; SNAKES]) -> Self {
+        Self::build(str, SituationMatch::Recommend(directions))
+    }
+
+    pub fn multi_avoiding(str: &str, directions: [Option<Direction>; SNAKES]) -> Self {
+        Self::build(str, SituationMatch::Avoid(directions))
     }
 
     fn build(str: &str, result: SituationMatch) -> Self {
@@ -295,7 +336,10 @@ impl Situation {
                     return None;
                 }
             }
-            Some(result)
+            // Remap from label-order [A,B,C,D] to gamestate-snake-order.
+            // result[0] (A = own snake) stays at slot 0.
+            // result[1..] (B/C/D) move to the slot of the matched gamestate snake ID.
+            Some(result.remap_to_gamestate(&label_ids))
         })
     }
 
@@ -403,7 +447,7 @@ mod tests {
             .patterns
             .iter()
             .map(|p| match p.result {
-                super::SituationMatch::Recommend(d) => d,
+                super::SituationMatch::Recommend(d) => d[0].unwrap(),
                 _ => panic!("expected Recommend"),
             })
             .collect();
@@ -449,7 +493,7 @@ mod tests {
             .patterns
             .iter()
             .map(|p| match p.result {
-                super::SituationMatch::Recommend(d) => d,
+                super::SituationMatch::Recommend(d) => d[0].unwrap(),
                 _ => panic!("expected Recommend"),
             })
             .collect();
@@ -519,6 +563,47 @@ mod tests {
         let situation =
             Situation::recommending(pattern, Direction::Up).condition(own_not_shorter_than_b);
         assert!(situation.check(&state).is_some());
+    }
+
+    #[test]
+    fn test_label_to_gamestate_remap() {
+        let gamestate = read_game_state("requests/evaluate.json");
+        let state = GameState::<BasicField>::from(&gamestate);
+        println!("{}", state);
+
+        let mut dirs = [None; 4];
+        dirs[1] = Some(Direction::Left); // direction for label B
+        let situation = Situation::multi_recommending(
+            // rows parsed bottom-up: row 0 = bottom, row 2 = top.
+            // A at col 2 row 2, B at col 0 row 0 => dx=-2, dy=-2.
+            // Use * (Any) for intermediate cells to avoid body-cell mismatches.
+            "
+            * * A
+            * * *
+            B * *
+            ",
+            dirs,
+        );
+
+        let result = situation.check(&state);
+        assert!(result.is_some(), "pattern should match");
+
+        match result.unwrap() {
+            super::SituationMatch::Recommend(out) => {
+                assert_eq!(
+                    out[2],
+                    Some(Direction::Left),
+                    "B matched ID 2, so Up should be at slot 2, got {:?}",
+                    out
+                );
+                assert_eq!(
+                    out[1], None,
+                    "slot 1 should be empty after remap, got {:?}",
+                    out
+                );
+            }
+            other => panic!("expected Recommend, got {:?}", other),
+        }
     }
 }
 

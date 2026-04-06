@@ -1,16 +1,18 @@
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
+    rc::Rc,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 mod tree_stats;
 
 use crate::logic::{
-    game::{direction::Direction, field::BasicField, game_state::GameState},
-    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+    game::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
+    single_gamestate_nodes::node::{Node, NodeStatus, SimulationResult, node_id::NodeId},
 };
 
 #[derive(Clone)]
@@ -24,6 +26,7 @@ pub struct Tree {
     dead_ancestor_pruning: bool,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
+    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[Option<Direction>; SNAKES]>>>,
 }
 
 impl Tree {
@@ -43,6 +46,7 @@ impl Tree {
             dead_ancestor_pruning: false,
             all_root_directions: false,
             similarity_distance_fn: None,
+            fast_track_fn: None,
         }
     }
 
@@ -73,6 +77,14 @@ impl Tree {
 
     pub fn all_root_directions(mut self) -> Self {
         self.all_root_directions = true;
+        self
+    }
+
+    pub fn fast_track(
+        mut self,
+        fast_track_fn: impl Fn(&Node) -> Option<[Option<Direction>; SNAKES]> + 'static,
+    ) -> Self {
+        self.fast_track_fn = Some(Rc::new(fast_track_fn));
         self
     }
 
@@ -152,35 +164,57 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
         let node = self.nodes.get_mut(&node_id).unwrap();
-        let children = node.simulate(similarity_distance);
+        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref());
         let node_status = node.status();
+        let node_is_fast_tracked = node.is_fast_tracked();
         self.propagate_status(node_id, node_status);
-        match children {
-            Some(children) if children.is_empty() => {
+        match simulation_result {
+            (_, SimulationResult::NoChildren) => {
                 debug!("{} has spawned no children", node_id);
                 // No children for this direction, reque the node itself to simulate the next direction
-                trace!("Adding {} to the queue", node_id);
-                self.queue.push(node_id);
-                true
-            }
-            Some(children) => {
-                debug!("{} has spawned {} children", node_id, children.len());
-                for child in children {
-                    let child_id = child.id();
-                    trace!("Adding child {} to the queue", child_id);
-                    self.nodes.insert(child_id, child);
-                    self.queue.push(child_id);
+                if node_is_fast_tracked {
+                    trace!("Fast Tracked: Adding {} to the front of queue", node_id);
+                    self.queue.push_front(node_id);
+                } else {
+                    trace!("Adding {} to the queue", node_id);
+                    self.queue.push(node_id);
                 }
                 true
             }
-            None => {
+            (children, SimulationResult::Normal) => {
+                debug!("{} has spawned {} children", node_id, children.len());
+                for child in children {
+                    let child_id = child.id();
+                    if child.is_fast_tracked() {
+                        trace!(
+                            "Fast Tracked: Adding child {} to the front of queue",
+                            child_id
+                        );
+                        self.queue.push_front(child_id);
+                    } else {
+                        trace!("Adding child {} to the queue", child_id);
+                        self.queue.push(child_id);
+                    }
+                    self.nodes.insert(child_id, child);
+                }
+                true
+            }
+            (_, SimulationResult::Exhausted) => {
                 // All directions exhausted. Go one level up to simulate the next direction of the parent
                 debug!("{} has exhausted all directions", node_id);
                 if let Some(parent_id) = node_id.parent()
                     && matches!(node_status, NodeStatus::DeadIn(_))
                 {
-                    trace!("Adding parent {} to the queue", parent_id);
-                    self.queue.push(parent_id);
+                    if node_is_fast_tracked {
+                        trace!(
+                            "Fast Tracked: Adding parent {} to the front of queue",
+                            parent_id
+                        );
+                        self.queue.push_front(parent_id);
+                    } else {
+                        trace!("Adding parent {} to the queue", parent_id);
+                        self.queue.push(parent_id);
+                    }
                 }
                 false
             }
@@ -211,7 +245,7 @@ impl Tree {
         let mut id = node_id;
         while let Some(parent_id) = id.parent() {
             if let Some(parent) = self.nodes.get(&parent_id) {
-                let direction = id.last_direction_for(0).unwrap();
+                let direction = id.last_direction_for(0).unwrap().unwrap();
                 let parent_direction_status = parent.direction_status(direction);
                 if matches!(
                     parent_direction_status,
@@ -305,6 +339,10 @@ impl DepthQueue {
         self.buckets.entry(id.depth()).or_default().push_back(id);
     }
 
+    fn push_front(&mut self, id: NodeId) {
+        self.buckets.entry(0).or_default().push_front(id);
+    }
+
     fn pop(&mut self) -> Option<NodeId> {
         let (&depth, queue) = self.buckets.iter_mut().next()?;
         let id = queue.pop_front();
@@ -325,10 +363,16 @@ impl DepthQueue {
 
 #[cfg(test)]
 mod tests {
-    use tabled::assert;
+    use log::info;
 
     use super::*;
-    use crate::{logic::game::direction::DIRECTIONS, read_game_state};
+    use crate::{
+        logic::{
+            game::{direction::DIRECTIONS, snake::Snake},
+            single_gamestate_nodes::situation::{Situation, SituationMatch},
+        },
+        read_game_state,
+    };
 
     pub(super) fn create_tree_from_gamestate(filename: &str) -> Tree {
         let gamestate = read_game_state(filename);
@@ -531,7 +575,7 @@ mod tests {
     #[test]
     fn option_similarity_pruning() {
         test_against_base_simulation(
-            |tree| tree.similarity_pruning(|depth| 6),
+            |tree| tree.similarity_pruning(|_depth| 6),
             |baseline_tree, tree, filename| {
                 let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
                 let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -555,16 +599,123 @@ mod tests {
     }
 
     #[test]
-    fn display_tree() {
+    fn option_fast_track() {
+        let situation = Rc::new(
+            Situation::multi_recommending(
+                "
+                W . *
+                W A .
+                W N B
+                ",
+                [Some(Direction::Up), Some(Direction::Up), None, None],
+            )
+            .full_symmetry()
+            .condition(|snakes| {
+                if let [
+                    Snake::Alive { length: a, .. },
+                    Snake::Alive { length: b, .. },
+                    _,
+                    _,
+                ] = snakes
+                {
+                    a <= b
+                } else {
+                    false
+                }
+            }),
+        );
+        test_against_base_simulation(
+            |tree| {
+                let situation = situation.clone();
+                tree.fast_track(move |node| {
+                    if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate())
+                    {
+                        return Some(dirs);
+                    } else {
+                        return None;
+                    }
+                })
+            },
+            |baseline_tree, tree, filename| {
+                let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                assert_eq!(
+                    root.status(),
+                    baseline_root.status(),
+                    "Root status should be same as baseline for {}",
+                    filename
+                );
+                for i in DIRECTIONS.into_iter() {
+                    assert_eq!(
+                        root.direction_status(i),
+                        baseline_root.direction_status(i),
+                        "Root direction {} should have same status as baseline for {}",
+                        i,
+                        filename
+                    );
+                }
+            },
+        );
         let mut tree = create_tree_from_gamestate(
             "requests/failure_43_going_down_guarantees_getting_killed.json",
         )
         .all_root_directions()
         .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
+        .fast_track(move |node| {
+            if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
+                info!("Fast tracking {}", node.id());
+                return Some(dirs);
+            } else {
+                return None;
+            }
+        })
         .max_time(Duration::from_millis(200));
         tree.simulate();
-        println!("{}", tree);
+        assert_eq!(tree.result()[1], NodeStatus::DeadIn(7));
+    }
+
+    #[test]
+    fn display_tree() {
+        let situation = Rc::new(
+            Situation::multi_recommending(
+                "
+                W . .
+                W A .
+                W N B
+                ",
+                [Some(Direction::Up), Some(Direction::Up), None, None],
+            )
+            .full_symmetry()
+            .condition(|snakes| {
+                if let [
+                    Snake::Alive { length: a, .. },
+                    Snake::Alive { length: b, .. },
+                    _,
+                    _,
+                ] = snakes
+                {
+                    a <= b
+                } else {
+                    false
+                }
+            }),
+        );
+
+        let mut tree = create_tree_from_gamestate("requests/failure_1.json")
+            .all_root_directions()
+            .dead_ancestor_pruning()
+            .similarity_pruning(|_| 6)
+            .fast_track(move |node| {
+                if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
+                    return Some(dirs);
+                } else {
+                    return None;
+                }
+            })
+            .max_time(Duration::from_millis(200));
+        tree.simulate();
+        // println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
     }

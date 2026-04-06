@@ -7,12 +7,20 @@ use crate::logic::{
         field::BasicField,
         game_state::GameState,
         moves::{MoveMatrix, MoveVector},
+        snakes::SNAKES,
     },
     single_gamestate_nodes::node::node_id::NodeId,
 };
 
 pub mod node_id;
 mod node_stats;
+
+#[derive(PartialEq, Debug)]
+pub enum SimulationResult {
+    Normal,
+    NoChildren,
+    Exhausted,
+}
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
@@ -96,6 +104,8 @@ pub struct Node {
     gamestate: GameState<BasicField>,
     children: [Option<Vec<(NodeId, NodeStatus)>>; 4],
     pinned_status: Option<NodeStatus>,
+    fast_track_checked: bool,
+    fast_tracked: bool,
 }
 
 impl Node {
@@ -105,6 +115,8 @@ impl Node {
             gamestate,
             children: [None, None, None, None],
             pinned_status: None,
+            fast_track_checked: false,
+            fast_tracked: false,
         }
     }
 
@@ -119,6 +131,14 @@ impl Node {
             );
         }
         self.pinned_status = Some(status);
+    }
+
+    pub fn set_fast_tracked(&mut self) {
+        self.fast_tracked = true;
+    }
+
+    pub fn is_fast_tracked(&self) -> bool {
+        self.fast_tracked
     }
 
     pub fn id(&self) -> NodeId {
@@ -189,10 +209,37 @@ impl Node {
         &self.children
     }
 
-    /// Returns None if all directions have been simulated
-    pub fn simulate(&mut self, similarity_distance: Option<u8>) -> Option<Vec<Node>> {
+    pub fn simulate(
+        &mut self,
+        similarity_distance: Option<u8>,
+        fast_track_fn: Option<&dyn Fn(&Node) -> Option<[Option<Direction>; SNAKES]>>,
+    ) -> (Vec<Node>, SimulationResult) {
+        let mut children = Vec::new();
+
+        // Check fast track once
+        if self.fast_track_checked == false
+            && let Some(fast_track_fn) = fast_track_fn
+        {
+            self.fast_track_checked = true;
+            if let Some(moves) = fast_track_fn(self) {
+                // Determine the direction for our snake from the moves
+                if let Some(dir) = moves[0] {
+                    self.set_fast_tracked();
+                    let mut child_gamestate = self.gamestate.clone();
+                    child_gamestate.next_state(moves);
+                    let child_id = self.id.child(moves);
+                    let mut child = Node::new(child_id, child_gamestate);
+                    child.set_fast_tracked();
+                    let child_status = child.status();
+                    // Register the direction slot so status propagation works
+                    self.children[dir as usize] = Some(vec![(child_id, child_status)]);
+                    children.push(child);
+                    return (children, SimulationResult::Normal);
+                }
+            }
+        }
+
         if let Some(move_matrix) = self.next_moveset() {
-            let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
             let mut similarity_set: HashSet<u64> = HashSet::new();
             for moves in move_matrix {
@@ -219,7 +266,7 @@ impl Node {
                 match child_status {
                     NodeStatus::DeadIn(0) => {
                         // Do not return children as this direction is already dead
-                        return Some(Vec::new());
+                        return (children, SimulationResult::NoChildren);
                     }
                     NodeStatus::AliveFor(0) => {}
                     _ => {
@@ -228,9 +275,10 @@ impl Node {
                 }
             }
             debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
-            return Some(children);
+            debug_assert!(!self.is_fast_tracked(), "{}", self); // Fast tracked nodes should not return normal children in this way
+            return (children, SimulationResult::Normal);
         }
-        None
+        (children, SimulationResult::Exhausted)
     }
 
     pub fn propagate_update_from_child(
@@ -239,7 +287,7 @@ impl Node {
         child_status: NodeStatus,
     ) -> bool {
         let old_status = self.status();
-        let dir = child_id.last_direction_for(0).unwrap() as usize;
+        let dir = child_id.last_direction_for(0).unwrap().unwrap() as usize;
         if let Some(entry) = self.children[dir]
             .as_mut()
             .and_then(|v| v.iter_mut().find(|(id, _)| *id == child_id))
@@ -341,8 +389,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None).is_some() {
-            node.simulate(None);
+        while !matches!(node.simulate(None, None), (_, SimulationResult::Exhausted)) {
+            node.simulate(None, None);
         }
         // After exhaustion, all children slots should be filled
         assert!(
@@ -361,14 +409,14 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None).is_none());
+        assert_eq!(node.simulate(None, None).1, SimulationResult::Exhausted);
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate(None);
+        node.simulate(None, None);
         println!("{}", node);
     }
 }

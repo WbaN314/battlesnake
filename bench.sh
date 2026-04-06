@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Usage: ./bench.sh [-n NUM_GAMES] [-w] [-d DELAY_MS] snake1 snake2 [snake3 snake4]
-# Example: ./bench.sh -n 100 new_year_new_snake depth_first
-# Example: ./bench.sh -w -d 200 new_year_new_snake depth_first
+# Example: ./bench.sh -n 100 single_gamestate_nodes depth_first breadth_first simple_tree_search
+# Example: ./bench.sh -w -d 200  depth_first
 
 N_GAMES=0
 WATCH=0

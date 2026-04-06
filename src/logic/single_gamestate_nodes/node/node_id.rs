@@ -3,45 +3,60 @@ use std::str::FromStr;
 
 use crate::logic::game::{direction::Direction, moves::Moves, snakes::SNAKES};
 
-/// Bits reserved for storing the depth (max 15, fits in 4 bits).
-const DEPTH_BITS: u32 = 4;
-/// Bits per snake direction (2 bits: U=0, D=1, L=2, R=3). `None` maps to `Up`.
+/// Bits reserved for storing the depth (5 bits supports up to 31 depth levels).
+const DEPTH_BITS: u32 = 5;
+/// Bits per snake direction at a level: 2 bits for real moves (Up/Down/Left/Right).
+/// None moves are tracked separately via `none_start`.
 const BITS_PER_SNAKE: u32 = 2;
 /// Bits consumed per tree level (4 snakes × 2 bits).
 const BITS_PER_LEVEL: u32 = BITS_PER_SNAKE * SNAKES as u32; // 8
-/// Maximum supported tree depth: (128 − 4) / 8 = 15.
-const MAX_DEPTH: u8 = ((128 - DEPTH_BITS) / BITS_PER_LEVEL) as u8;
-/// Number of flag bits stored at the top of the u128.
-const FLAGS_BITS: u32 = 128 - DEPTH_BITS - MAX_DEPTH as u32 * BITS_PER_LEVEL; // 4
+/// Bits used to store the first-None level per snake (5 bits supports depths 0-30 + sentinel).
+const NONE_START_BITS: u32 = 5;
+/// Sentinel value meaning a snake has never gone None.
+const NONE_SENTINEL: u8 = 0x1F; // 31
+/// Total header bits before level data: depth + 4 × none_start.
+const HEADER_BITS: u32 = DEPTH_BITS + NONE_START_BITS * SNAKES as u32; // 25
+/// Total bits in the backing store ([u128; 2]).
+const TOTAL_BITS: u32 = 256;
+/// Maximum supported tree depth: (256 − 25) / 8 = 28.
+const MAX_DEPTH: u8 = ((TOTAL_BITS - HEADER_BITS) / BITS_PER_LEVEL) as u8;
+/// Initial data[0] value: depth=0, all none_start = NONE_SENTINEL (bits 5-24 all 1s).
+const NONE_SENTINEL_INITIAL: u128 =
+    ((1u128 << (NONE_START_BITS * SNAKES as u32)) - 1) << DEPTH_BITS;
 
-const DEPTH_MASK: u128 = (1u128 << DEPTH_BITS) - 1;
-const LEVEL_MASK: u128 = (1u128 << BITS_PER_LEVEL) - 1;
-const FLAGS_SHIFT: u32 = 128 - FLAGS_BITS;
-const FLAGS_MASK: u128 = ((1u128 << FLAGS_BITS) - 1) << FLAGS_SHIFT;
+pub type DirectionVector = [Option<Direction>; SNAKES as usize];
 
-pub type DirectionVector = [Direction; SNAKES as usize];
-
-/// Compact node identifier for the game tree, packed into a single `u128`.
+/// Compact node identifier for the game tree, packed into two `u128` values (256 bits total).
 ///
 /// Layout (LSB first):
 /// ```text
-/// [depth: 4 bits][level 0: 8 bits]...[level 14: 8 bits][flags: 4 bits (MSB)]
+/// [depth: 5][none_start×4: 20][level 0: 8]...[level 27: 8][spare: 7]
 /// ```
-/// Each level encodes 4 snake directions (2 bits each):
+/// Each level encodes 4 snake directions (2 bits each, real moves only):
 /// ```text
 /// [snake 0: 2 bits][snake 1: 2 bits][snake 2: 2 bits][snake 3: 2 bits]
 /// ```
-/// Direction encoding: Up=0, Down=1, Left=2, Right=3. `None` maps to `Up`.
-/// Flags are stored in the top 4 bits, addressable by index 0..3.
+/// Real direction encoding: Up=0, Down=1, Left=2, Right=3.
+/// `None` moves are not stored per-level. Instead, `none_start[snake]` records the first
+/// depth at which that snake went `None` (sentinel `31` = never). All levels ≥ `none_start`
+/// for that snake implicitly return `None`.
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 pub struct NodeId {
-    data: u128,
+    data: [u128; 2],
 }
 
-/// Decodes 2 bits from a shifted u128 value into a Direction.
-/// Only the lowest 2 bits of `val` are considered.
 #[inline(always)]
-fn decode(val: u128) -> Direction {
+fn encode_real_dir(dir: Direction) -> u128 {
+    match dir {
+        Direction::Up => 0,
+        Direction::Down => 1,
+        Direction::Left => 2,
+        Direction::Right => 3,
+    }
+}
+
+#[inline(always)]
+fn decode_real_dir(val: u128) -> Direction {
     match val & 0b11 {
         0 => Direction::Up,
         1 => Direction::Down,
@@ -51,15 +66,83 @@ fn decode(val: u128) -> Direction {
     }
 }
 
+#[inline(always)]
+fn dir_char(dir: Option<Direction>) -> char {
+    match dir {
+        None => '_',
+        Some(Direction::Up) => 'U',
+        Some(Direction::Down) => 'D',
+        Some(Direction::Left) => 'L',
+        Some(Direction::Right) => 'R',
+    }
+}
+
 impl NodeId {
     pub const MAX_DEPTH: u8 = MAX_DEPTH;
 
     pub fn new() -> Self {
-        NodeId { data: 0 }
+        // depth=0, all none_start = NONE_SENTINEL (bits 5-24 all 1s), rest zero.
+        NodeId {
+            data: [NONE_SENTINEL_INITIAL, 0],
+        }
+    }
+
+    /// Reads `len` bits starting at `start` (LSB-first across the two u128s).
+    #[inline(always)]
+    fn read_bits(&self, start: u32, len: u32) -> u128 {
+        debug_assert!(len > 0 && len <= 64);
+        let mask = (1u128 << len) - 1;
+        if start >= 128 {
+            (self.data[1] >> (start - 128)) & mask
+        } else if start + len <= 128 {
+            (self.data[0] >> start) & mask
+        } else {
+            let bits_in_low = 128 - start;
+            let low = self.data[0] >> start;
+            let high = self.data[1] & ((1u128 << (len - bits_in_low)) - 1);
+            low | (high << bits_in_low)
+        }
+    }
+
+    /// Writes `len` bits of `val` starting at `start` (LSB-first across the two u128s).
+    #[inline(always)]
+    fn write_bits(&mut self, start: u32, len: u32, val: u128) {
+        debug_assert!(len > 0 && len <= 64);
+        let mask = (1u128 << len) - 1;
+        let val = val & mask;
+        if start >= 128 {
+            let s = start - 128;
+            self.data[1] = (self.data[1] & !(mask << s)) | (val << s);
+        } else if start + len <= 128 {
+            self.data[0] = (self.data[0] & !(mask << start)) | (val << start);
+        } else {
+            let bits_in_low = 128 - start;
+            let low_mask = (1u128 << bits_in_low) - 1;
+            self.data[0] =
+                (self.data[0] & !(low_mask << start)) | ((val & low_mask) << start);
+            let high_bits = len - bits_in_low;
+            let high_mask = (1u128 << high_bits) - 1;
+            self.data[1] = (self.data[1] & !high_mask) | (val >> bits_in_low);
+        }
+    }
+
+    /// Returns the first level at which `snake` went None, or `NONE_SENTINEL` if never.
+    #[inline(always)]
+    fn none_start(&self, snake: u8) -> u8 {
+        self.read_bits(DEPTH_BITS + snake as u32 * NONE_START_BITS, NONE_START_BITS) as u8
+    }
+
+    #[inline(always)]
+    fn set_none_start(&mut self, snake: u8, val: u8) {
+        self.write_bits(
+            DEPTH_BITS + snake as u32 * NONE_START_BITS,
+            NONE_START_BITS,
+            val as u128,
+        );
     }
 
     pub fn depth(&self) -> u8 {
-        (self.data & DEPTH_MASK) as u8
+        self.read_bits(0, DEPTH_BITS) as u8
     }
 
     pub fn child(&self, moves: Moves) -> Self {
@@ -74,15 +157,37 @@ impl NodeId {
             depth < MAX_DEPTH,
             "Maximum tree depth ({MAX_DEPTH}) exceeded"
         );
-
         let mut encoded: u128 = 0;
         for (i, &dir) in moves.iter().enumerate() {
-            let bits = dir.unwrap_or(Direction::Up) as u128;
-            encoded |= bits << (i as u32 * BITS_PER_SNAKE);
+            match dir {
+                None => {
+                    let ns = self.none_start(i as u8);
+                    if ns == NONE_SENTINEL {
+                        self.set_none_start(i as u8, depth);
+                    } else {
+                        debug_assert!(
+                            ns < depth,
+                            "Snake {} none_start {} should be < depth {}",
+                            i, ns, depth
+                        );
+                    }
+                    // 2-bit slot stays 0 — never read once none_start is set
+                }
+                Some(d) => {
+                    debug_assert_eq!(
+                        self.none_start(i as u8),
+                        NONE_SENTINEL,
+                        "Snake {} already went None at level {}",
+                        i,
+                        self.none_start(i as u8)
+                    );
+                    encoded |= encode_real_dir(d) << (i as u32 * BITS_PER_SNAKE);
+                }
+            }
         }
-
-        let shift = DEPTH_BITS + depth as u32 * BITS_PER_LEVEL;
-        self.data = (self.data & !DEPTH_MASK) | (depth as u128 + 1) | (encoded << shift);
+        let shift = HEADER_BITS + depth as u32 * BITS_PER_LEVEL;
+        self.write_bits(shift, BITS_PER_LEVEL, encoded);
+        self.write_bits(0, DEPTH_BITS, depth as u128 + 1);
     }
 
     pub fn parent(&self) -> Option<Self> {
@@ -90,22 +195,28 @@ impl NodeId {
         if depth == 0 {
             return None;
         }
-
-        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
-        let new_data = (self.data & !(LEVEL_MASK << shift)) - 1;
-
-        Some(NodeId { data: new_data })
+        let last = depth - 1;
+        let mut parent = *self;
+        // Reset none_start for any snake that first went None at the level being removed.
+        for snake in 0..SNAKES as u8 {
+            if self.none_start(snake) == last {
+                parent.set_none_start(snake, NONE_SENTINEL);
+            }
+        }
+        let shift = HEADER_BITS + last as u32 * BITS_PER_LEVEL;
+        parent.write_bits(shift, BITS_PER_LEVEL, 0);
+        parent.write_bits(0, DEPTH_BITS, last as u128);
+        Some(parent)
     }
 
-    pub fn last_direction_for(&self, snake: u8) -> Option<Direction> {
+    /// Returns the direction stored for `snake` at the last level.
+    /// Outer `None` = root (depth 0). Inner `None` = snake went None at or before this level.
+    pub fn last_direction_for(&self, snake: u8) -> Option<Option<Direction>> {
         let depth = self.depth();
         if depth == 0 {
             return None;
         }
-
-        let shift =
-            DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
-        Some(decode(self.data >> shift))
+        self.direction_at(depth - 1, snake)
     }
 
     pub fn last_directions(&self) -> Option<DirectionVector> {
@@ -113,76 +224,43 @@ impl NodeId {
         if depth == 0 {
             return None;
         }
-
-        let mut directions = [Direction::Up; SNAKES];
-        let shift = DEPTH_BITS + (depth as u32 - 1) * BITS_PER_LEVEL;
-        let level_data = (self.data >> shift) & LEVEL_MASK;
+        let mut directions = [None; SNAKES];
         for snake in 0..SNAKES as u8 {
-            directions[snake as usize] = decode(level_data >> (snake as u32 * BITS_PER_SNAKE));
+            directions[snake as usize] = self.direction_at(depth - 1, snake).unwrap();
         }
         Some(directions)
     }
 
-    /// Returns the direction of a specific snake at a specific level.
-    pub fn direction_at(&self, level: u8, snake: u8) -> Option<Direction> {
+    /// Returns the direction of `snake` at `level`.
+    /// Outer `None` = level >= depth. Inner `None` = snake went None at or before this level.
+    pub fn direction_at(&self, level: u8, snake: u8) -> Option<Option<Direction>> {
         if level >= self.depth() {
             return None;
         }
-        let shift = DEPTH_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
-        Some(decode(self.data >> shift))
-    }
-
-    /// Returns the value of a flag bit (0-indexed from MSB, max index: FLAGS_BITS-1).
-    #[inline(always)]
-    pub fn read_flag(&self, index: u8) -> bool {
-        debug_assert!((index as u32) < FLAGS_BITS);
-        self.data & (1u128 << (FLAGS_SHIFT + index as u32)) != 0
-    }
-
-    /// Sets or clears a flag bit (0-indexed from MSB, max index: FLAGS_BITS-1).
-    #[inline(always)]
-    pub fn set_flag(&mut self, index: u8, value: bool) {
-        debug_assert!((index as u32) < FLAGS_BITS);
-        let bit = 1u128 << (FLAGS_SHIFT + index as u32);
-        if value {
-            self.data |= bit;
-        } else {
-            self.data &= !bit;
+        if level >= self.none_start(snake) {
+            return Some(None);
         }
-    }
-
-    /// Returns all flag bits as a u8 (lower FLAGS_BITS bits used).
-    #[inline(always)]
-    pub fn read_flags(&self) -> u8 {
-        ((self.data & FLAGS_MASK) >> FLAGS_SHIFT) as u8
-    }
-
-    /// Sets all flag bits from a u8 (lower FLAGS_BITS bits used).
-    #[inline(always)]
-    pub fn set_flags(&mut self, flags: u8) {
-        self.data = (self.data & !FLAGS_MASK) | ((flags as u128) << FLAGS_SHIFT);
+        let shift =
+            HEADER_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
+        Some(Some(decode_real_dir(self.read_bits(shift, BITS_PER_SNAKE))))
     }
 }
 
-/// Displays the node path grouped by depth level:
-/// `level0moves-level1moves-level2moves-...`
+/// Displays the node path grouped by depth level: `level0moves-level1moves-...`
 ///
-/// e.g. `DRDL-DUDU-UUDD-RDDR` (depth 4, 4 snakes per level)
-///
-/// Each group contains one direction per snake in order.
+/// Each character is one of U/D/L/R (direction) or X (None move).
 impl Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let depth = self.depth();
         if depth == 0 {
             return write!(f, "ROOT");
         }
-
         for level in 0..depth {
             if level > 0 {
                 write!(f, "-")?;
             }
             for snake in 0..SNAKES as u8 {
-                write!(f, "{}", self.direction_at(level, snake).unwrap())?;
+                write!(f, "{}", dir_char(self.direction_at(level, snake).unwrap()))?;
             }
         }
         Ok(())
@@ -198,8 +276,8 @@ impl Debug for NodeId {
 impl FromStr for NodeId {
     type Err = String;
 
-    /// Parses a string like `"DRDL-DUDU-UUDD-RDDR"` or `"ROOT"` into a `NodeId`.
-    /// Each group is one depth level containing one direction per snake.
+    /// Parses a string like `"DRDL-DUDU-UUDD"` or `"ROOT"` into a `NodeId`.
+    /// Each group is one depth level with one char per snake: U/D/L/R or X (None).
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "ROOT" {
             return Ok(NodeId::new());
@@ -221,13 +299,17 @@ impl FromStr for NodeId {
         for group in &groups {
             let mut moves: Moves = [None; SNAKES];
             for (snake, ch) in group.bytes().enumerate() {
-                let dir = Direction::try_from(ch as char)
-                    .map_err(|_| format!("Invalid direction char: '{}'", ch as char))?;
-                moves[snake] = Some(dir);
+                moves[snake] = match ch {
+                    b'_' => None,
+                    b'U' => Some(Direction::Up),
+                    b'D' => Some(Direction::Down),
+                    b'L' => Some(Direction::Left),
+                    b'R' => Some(Direction::Right),
+                    _ => return Err(format!("Invalid direction char: '{}'", ch as char)),
+                };
             }
             node.push(moves);
         }
-
         Ok(node)
     }
 }
@@ -258,13 +340,10 @@ mod tests {
         let child = root.child([Some(Down), Some(Right), Some(Up), Some(Left)]);
 
         assert_eq!(child.depth(), 1);
-        assert_eq!(child.last_direction_for(0), Some(Down)); // snake 0
-        assert_eq!(child.last_direction_for(1), Some(Right)); // snake 1
-        assert_eq!(child.last_direction_for(2), Some(Up)); // snake 2
-        assert_eq!(child.last_direction_for(0), Some(Down));
-        assert_eq!(child.last_direction_for(1), Some(Right));
-        assert_eq!(child.last_direction_for(2), Some(Up));
-        assert_eq!(child.last_direction_for(3), Some(Left));
+        assert_eq!(child.last_direction_for(0), Some(Some(Down)));
+        assert_eq!(child.last_direction_for(1), Some(Some(Right)));
+        assert_eq!(child.last_direction_for(2), Some(Some(Up)));
+        assert_eq!(child.last_direction_for(3), Some(Some(Left)));
         assert_eq!(child.to_string(), "DRUL");
     }
 
@@ -289,12 +368,61 @@ mod tests {
     }
 
     #[test]
-    fn none_directions_default_to_up() {
+    fn none_directions_stored_as_x() {
         let root = NodeId::new();
         let child = root.child([Some(Down), None, Some(Up), None]);
 
-        // None maps to Up
-        assert_eq!(child.to_string(), "DUUU");
+        assert_eq!(child.to_string(), "D_U_");
+        assert_eq!(child.direction_at(0, 0), Some(Some(Down)));
+        assert_eq!(child.direction_at(0, 1), Some(None));
+        assert_eq!(child.direction_at(0, 2), Some(Some(Up)));
+        assert_eq!(child.direction_at(0, 3), Some(None));
+    }
+
+    #[test]
+    fn none_propagates_to_children() {
+        // Once a snake goes None, it stays None — none_start is inherited.
+        let c1 = NodeId::new().child([Some(Down), None, Some(Up), None]);
+        let c2 = c1.child([Some(Right), None, Some(Left), None]);
+
+        assert_eq!(c2.to_string(), "D_U_-R_L_");
+        assert_eq!(c2.direction_at(0, 1), Some(None));
+        assert_eq!(c2.direction_at(1, 1), Some(None));
+        assert_eq!(c2.none_start(1), 0);
+        assert_eq!(c2.none_start(3), 0);
+    }
+
+    #[test]
+    fn none_parent_resets_none_start() {
+        // If a snake went None at the last level, parent() should restore none_start to sentinel.
+        let root = NodeId::new();
+        let c1 = root.child([Some(Down), None, Some(Up), None]);
+        assert_eq!(c1.parent(), Some(root));
+        let parent = c1.parent().unwrap();
+        assert_eq!(parent.none_start(1), NONE_SENTINEL);
+        assert_eq!(parent.none_start(3), NONE_SENTINEL);
+    }
+
+    #[test]
+    fn none_parent_preserves_earlier_none_start() {
+        // none_start at level 0 should survive popping level 1.
+        let c1 = NodeId::new().child([Some(Down), None, Some(Up), None]);
+        let c2 = c1.child([Some(Right), None, Some(Left), None]);
+        let back_to_c1 = c2.parent().unwrap();
+        assert_eq!(back_to_c1, c1);
+        assert_eq!(back_to_c1.none_start(1), 0);
+        assert_eq!(back_to_c1.none_start(3), 0);
+    }
+
+    #[test]
+    fn none_directions_round_trip() {
+        let node: NodeId = "D_U_".parse().unwrap();
+        assert_eq!(node.depth(), 1);
+        assert_eq!(node.to_string(), "D_U_");
+        assert_eq!(node.last_direction_for(0), Some(Some(Down)));
+        assert_eq!(node.last_direction_for(1), Some(None));
+        assert_eq!(node.last_direction_for(2), Some(Some(Up)));
+        assert_eq!(node.last_direction_for(3), Some(None));
     }
 
     #[test]
@@ -327,62 +455,6 @@ mod tests {
     }
 
     #[test]
-    fn flags_default_to_zero() {
-        let node = NodeId::new();
-        assert_eq!(node.read_flags(), 0);
-        for i in 0..4 {
-            assert!(!node.read_flag(i));
-        }
-    }
-
-    #[test]
-    fn set_and_read_individual_flags() {
-        let mut node = NodeId::new();
-        node.set_flag(0, true);
-        assert!(node.read_flag(0));
-        assert!(!node.read_flag(1));
-
-        node.set_flag(2, true);
-        assert!(node.read_flag(0));
-        assert!(node.read_flag(2));
-        assert_eq!(node.read_flags(), 0b0101);
-
-        node.set_flag(0, false);
-        assert!(!node.read_flag(0));
-        assert!(node.read_flag(2));
-    }
-
-    #[test]
-    fn set_and_read_all_flags() {
-        let mut node = NodeId::new();
-        node.set_flags(0b1010);
-        assert!(!node.read_flag(0));
-        assert!(node.read_flag(1));
-        assert!(!node.read_flag(2));
-        assert!(node.read_flag(3));
-        assert_eq!(node.read_flags(), 0b1010);
-    }
-
-    #[test]
-    fn flags_independent_of_depth_and_moves() {
-        let mut node = NodeId::new().child([Some(Down), Some(Right), Some(Down), Some(Left)]);
-        node.set_flags(0b1111);
-
-        assert_eq!(node.depth(), 1);
-        assert_eq!(node.to_string(), "DRDL");
-        assert_eq!(node.read_flags(), 0b1111);
-    }
-
-    #[test]
-    fn flags_not_inherited_by_child() {
-        let mut parent = NodeId::new();
-        parent.set_flag(0, true);
-        let child = parent.child([Some(Up), Some(Up), Some(Up), Some(Up)]);
-        // child copies parent data, so flags are inherited
-        assert!(child.read_flag(0));
-    }
-
-    #[test]
     fn parse_root() {
         assert_eq!("ROOT".parse::<NodeId>().unwrap(), NodeId::new());
         assert_eq!(NodeId::from("ROOT"), NodeId::new());
@@ -405,7 +477,7 @@ mod tests {
 
     #[test]
     fn parse_invalid_char() {
-        assert!("DXDL-DUDU-UUDD-RDDR".parse::<NodeId>().is_err());
+        assert!("DQDL-DUDU-UUDD-RDDR".parse::<NodeId>().is_err());
     }
 
     #[test]
@@ -428,7 +500,31 @@ mod tests {
         let node = NodeId::new()
             .child([Some(Down), Some(Right), Some(Down), Some(Left)])
             .child([Some(Up), Some(Up), Some(Left), Some(Right)]);
-        assert_eq!(node.last_directions(), Some([Up, Up, Left, Right]));
+        assert_eq!(
+            node.last_directions(),
+            Some([Some(Up), Some(Up), Some(Left), Some(Right)])
+        );
+    }
+
+    #[test]
+    fn boundary_crossing_level_12() {
+        // Level 12 starts at bit 25+12*8=121 and ends at bit 129, crossing the u128 boundary.
+        let mut node = NodeId::new();
+        for _ in 0..12 {
+            node = node.child([Some(Up), Some(Up), Some(Up), Some(Up)]);
+        }
+        node = node.child([Some(Down), Some(Right), Some(Left), None]);
+        assert_eq!(node.depth(), 13);
+        assert_eq!(node.last_direction_for(0), Some(Some(Down)));
+        assert_eq!(node.last_direction_for(1), Some(Some(Right)));
+        assert_eq!(node.last_direction_for(2), Some(Some(Left)));
+        assert_eq!(node.last_direction_for(3), Some(None));
+        let parent = node.parent().unwrap();
+        assert_eq!(parent.depth(), 12);
+        assert_eq!(
+            parent.child([Some(Down), Some(Right), Some(Left), None]),
+            node
+        );
     }
 }
 
@@ -457,7 +553,6 @@ mod benchmarks {
             let _ = black_box(node.last_direction_for(0));
             let _ = black_box(node.last_directions());
             let _ = black_box(node.direction_at(2, 1));
-            let _ = black_box(node.read_flags());
             // Walk back up
             while let Some(parent) = black_box(node).parent() {
                 node = parent;

@@ -1,6 +1,6 @@
-use std::time::Duration;
 #[cfg(debug_assertions)]
 use std::time::Instant;
+use std::{rc::Rc, time::Duration};
 
 use crate::{
     OriginalDirection, OriginalGameState,
@@ -9,7 +9,7 @@ use crate::{
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
-            situation::{Situation, SituationSet},
+            situation::{Situation, SituationMatch, SituationSet},
             tree::Tree,
         },
     },
@@ -36,10 +36,41 @@ impl Brain for NewYearNewSnake {
 
         // Start with all directions and simulate
         let mut directions = [true; 4];
+        let situation = Rc::new(
+            Situation::multi_recommending(
+                "
+                W . .
+                W A .
+                W N B
+                ",
+                [Some(Direction::Up), Some(Direction::Up), None, None],
+            )
+            .full_symmetry()
+            .condition(|snakes| {
+                if let [
+                    Snake::Alive { length: a, .. },
+                    Snake::Alive { length: b, .. },
+                    _,
+                    _,
+                ] = snakes
+                {
+                    a <= b
+                } else {
+                    false
+                }
+            }),
+        );
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
+            .fast_track(move |node| {
+                if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
+                    return Some(dirs);
+                } else {
+                    return None;
+                }
+            })
             .max_time(Duration::from_millis(200));
         tree.simulate();
         let result = tree.result();
