@@ -250,14 +250,6 @@ impl NodeId {
         self.write_bits(FLAGS_START, FLAGS_BITS, val as u128);
     }
 
-    pub fn is_fast_tracked(&self) -> bool {
-        self.read_bits(FLAGS_START, 1) != 0
-    }
-
-    pub fn set_fast_tracked(&mut self, val: bool) {
-        self.write_bits(FLAGS_START, 1, val as u128);
-    }
-
     /// Returns the direction of `snake` at `level`.
     /// Outer `None` = level >= depth. Inner `None` = snake went None at or before this level.
     pub fn direction_at(&self, level: u8, snake: u8) -> Option<Option<Direction>> {
@@ -289,7 +281,7 @@ impl Display for NodeId {
                 write!(f, "{}", dir_char(self.direction_at(level, snake).unwrap()))?;
             }
         }
-        let flags = self.flags();
+        let flags = self.read_flags();
         if flags != 0 {
             write!(f, "+[{:07b}]", flags)?;
         }
