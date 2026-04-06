@@ -20,6 +20,10 @@ const HEADER_BITS: u32 = DEPTH_BITS + NONE_START_BITS * SNAKES as u32; // 25
 const TOTAL_BITS: u32 = 256;
 /// Maximum supported tree depth: (256 − 25) / 8 = 28.
 const MAX_DEPTH: u8 = ((TOTAL_BITS - HEADER_BITS) / BITS_PER_LEVEL) as u8;
+/// Spare bits after all level data, used as user flags.
+const FLAGS_BITS: u32 = TOTAL_BITS - HEADER_BITS - MAX_DEPTH as u32 * BITS_PER_LEVEL; // 7
+/// Bit position of the flags field (top of data[1]).
+const FLAGS_START: u32 = TOTAL_BITS - FLAGS_BITS;
 /// Initial data[0] value: depth=0, all none_start = NONE_SENTINEL (bits 5-24 all 1s).
 const NONE_SENTINEL_INITIAL: u128 =
     ((1u128 << (NONE_START_BITS * SNAKES as u32)) - 1) << DEPTH_BITS;
@@ -30,7 +34,7 @@ pub type DirectionVector = [Option<Direction>; SNAKES as usize];
 ///
 /// Layout (LSB first):
 /// ```text
-/// [depth: 5][none_start×4: 20][level 0: 8]...[level 27: 8][spare: 7]
+/// [depth: 5][none_start×4: 20][level 0: 8]...[level 27: 8][flags: 7]
 /// ```
 /// Each level encodes 4 snake directions (2 bits each, real moves only):
 /// ```text
@@ -79,6 +83,8 @@ fn dir_char(dir: Option<Direction>) -> char {
 
 impl NodeId {
     pub const MAX_DEPTH: u8 = MAX_DEPTH;
+    /// Number of flag bits available (7). Valid flag values are `0 ..= (1 << MAX_FLAGS) - 1`.
+    pub const MAX_FLAGS: u32 = FLAGS_BITS;
 
     pub fn new() -> Self {
         // depth=0, all none_start = NONE_SENTINEL (bits 5-24 all 1s), rest zero.
@@ -118,8 +124,7 @@ impl NodeId {
         } else {
             let bits_in_low = 128 - start;
             let low_mask = (1u128 << bits_in_low) - 1;
-            self.data[0] =
-                (self.data[0] & !(low_mask << start)) | ((val & low_mask) << start);
+            self.data[0] = (self.data[0] & !(low_mask << start)) | ((val & low_mask) << start);
             let high_bits = len - bits_in_low;
             let high_mask = (1u128 << high_bits) - 1;
             self.data[1] = (self.data[1] & !high_mask) | (val >> bits_in_low);
@@ -168,7 +173,9 @@ impl NodeId {
                         debug_assert!(
                             ns < depth,
                             "Snake {} none_start {} should be < depth {}",
-                            i, ns, depth
+                            i,
+                            ns,
+                            depth
                         );
                     }
                     // 2-bit slot stays 0 — never read once none_start is set
@@ -231,6 +238,26 @@ impl NodeId {
         Some(directions)
     }
 
+    /// Returns the 7 spare flag bits stored at the top of the node id.
+    #[inline(always)]
+    pub fn read_flags(&self) -> u8 {
+        self.read_bits(FLAGS_START, FLAGS_BITS) as u8
+    }
+
+    /// Overwrites the flag bits. Only the low `MAX_FLAGS` (7) bits of `val` are used.
+    #[inline(always)]
+    pub fn set_flags(&mut self, val: u8) {
+        self.write_bits(FLAGS_START, FLAGS_BITS, val as u128);
+    }
+
+    pub fn is_fast_tracked(&self) -> bool {
+        self.read_bits(FLAGS_START, 1) != 0
+    }
+
+    pub fn set_fast_tracked(&mut self, val: bool) {
+        self.write_bits(FLAGS_START, 1, val as u128);
+    }
+
     /// Returns the direction of `snake` at `level`.
     /// Outer `None` = level >= depth. Inner `None` = snake went None at or before this level.
     pub fn direction_at(&self, level: u8, snake: u8) -> Option<Option<Direction>> {
@@ -240,8 +267,7 @@ impl NodeId {
         if level >= self.none_start(snake) {
             return Some(None);
         }
-        let shift =
-            HEADER_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
+        let shift = HEADER_BITS + level as u32 * BITS_PER_LEVEL + snake as u32 * BITS_PER_SNAKE;
         Some(Some(decode_real_dir(self.read_bits(shift, BITS_PER_SNAKE))))
     }
 }
@@ -262,6 +288,10 @@ impl Display for NodeId {
             for snake in 0..SNAKES as u8 {
                 write!(f, "{}", dir_char(self.direction_at(level, snake).unwrap()))?;
             }
+        }
+        let flags = self.flags();
+        if flags != 0 {
+            write!(f, "+[{:07b}]", flags)?;
         }
         Ok(())
     }
