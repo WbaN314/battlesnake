@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775584646166,
+  "lastUpdate": 1775585503612,
   "repoUrl": "https://github.com/WbaN314/battlesnake",
   "entries": {
     "Rust Benchmark": [
@@ -1325,6 +1325,144 @@ window.BENCHMARK_DATA = {
             "name": "logic::single_gamestate_nodes::tree::benchmarks::bench_tree_simulate_max_nodes",
             "value": 7704829.9,
             "range": "± 816670.48",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "committer": {
+            "email": "sascha.stoll@sap.com",
+            "name": "I530412",
+            "username": "SaschaAtWork"
+          },
+          "distinct": true,
+          "id": "7cc7fede60c152f9e7741482522ae2989ac6fd43",
+          "message": "Improved internal childid storage",
+          "timestamp": "2026-04-07T20:06:37+02:00",
+          "tree_id": "d73df8161936369d46753b1a1be79de5092c1851",
+          "url": "https://github.com/WbaN314/battlesnake/commit/7cc7fede60c152f9e7741482522ae2989ac6fd43"
+        },
+        "date": 1775585502588,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "logic::game::board::benchmarks::bench_remove_snake",
+            "value": 373.59,
+            "range": "± 90.19",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::board::benchmarks::bench_set_field_get_field_via_cell",
+            "value": 10.26,
+            "range": "± 0.03",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_basic_field",
+            "value": 23.62,
+            "range": "± 0.18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::field::benchmarks::bench_bit_field",
+            "value": 6.1,
+            "range": "± 0.15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_local_environment_hash",
+            "value": 45.36,
+            "range": "± 0.88",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_move_heads",
+            "value": 174.18,
+            "range": "± 2.07",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_move_tails",
+            "value": 127.55,
+            "range": "± 3.51",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::game_state::benchmarks::bench_next_state",
+            "value": 198.79,
+            "range": "± 1.15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_generate_and_iterate",
+            "value": 445.11,
+            "range": "± 7.01",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::game::moves::benchmarks::bench_pregenerate_and_iterate",
+            "value": 231.78,
+            "range": "± 13.62",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::node::benchmarks::bench_node_propagate_update_from_child",
+            "value": 172.22,
+            "range": "± 2.03",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::node::benchmarks::bench_node_simulate",
+            "value": 2435.57,
+            "range": "± 23.59",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::node::benchmarks::bench_node_status",
+            "value": 32.28,
+            "range": "± 0.38",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::node::node_id::benchmarks::bench_node_id_tree_walk",
+            "value": 126.27,
+            "range": "± 2.23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::situation::benchmarks::bench_situation_full_symmetry_evaluate",
+            "value": 45.83,
+            "range": "± 0.69",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::situation::benchmarks::bench_situation_full_symmetry_with_condition_evaluate",
+            "value": 44.19,
+            "range": "± 0.43",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::situation::benchmarks::bench_situation_set_evaluate",
+            "value": 125.73,
+            "range": "± 0.65",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::tree::benchmarks::bench_depth_queue_push_pop",
+            "value": 60.91,
+            "range": "± 1.77",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "logic::single_gamestate_nodes::tree::benchmarks::bench_tree_simulate_max_nodes",
+            "value": 7215902.8,
+            "range": "± 1688199.25",
             "unit": "ns/iter"
           }
         ]
