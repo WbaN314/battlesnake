@@ -743,3 +743,65 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod benchmarks {
+    extern crate test;
+    use std::hint::black_box;
+
+    use super::*;
+    use crate::read_game_state;
+
+    fn test_gamestates() -> Vec<GameState<BasicField>> {
+        [
+            "requests/failure_1.json",
+            "requests/failure_3.json",
+            "requests/failure_4.json",
+            "requests/failure_5.json",
+            "requests/example_move_request_2.json",
+            "requests/example_move_request_3.json",
+        ]
+        .iter()
+        .map(|p| {
+            let gamestate = read_game_state(p);
+            GameState::<BasicField>::from(&gamestate)
+        })
+        .collect()
+    }
+
+    #[bench]
+    fn bench_tree_simulate_max_nodes(b: &mut test::Bencher) {
+        let states = test_gamestates();
+        let mut i = 0;
+        b.iter(|| {
+            let mut tree = Tree::new(states[i % states.len()].clone()).max_nodes(10000);
+            i += 1;
+            black_box(tree.simulate())
+        });
+    }
+
+    #[bench]
+    fn bench_depth_queue_push_pop(b: &mut test::Bencher) {
+        let root = NodeId::new();
+        // Pre-build a set of ids at varied depths to push/pop each iteration.
+        use crate::logic::game::direction::Direction::*;
+        let ids: Vec<NodeId> = vec![
+            root,
+            root.child([Some(Up), Some(Down), Some(Left), Some(Right)]),
+            root.child([Some(Down), Some(Up), Some(Right), Some(Left)]),
+            root.child([Some(Left), Some(Right), Some(Up), Some(Down)])
+                .child([Some(Up), Some(Down), Some(Left), Some(Right)]),
+            root.child([Some(Right), Some(Left), Some(Down), Some(Up)])
+                .child([Some(Down), Some(Up), Some(Right), Some(Left)])
+                .child([Some(Left), Some(Right), Some(Up), Some(Down)]),
+        ];
+        let mut i = 0;
+
+        b.iter(|| {
+            let mut q = DepthQueue::new();
+            q.push(black_box(ids[i % ids.len()]));
+            let _ = black_box(q.pop());
+            i += 1;
+        });
+    }
+}

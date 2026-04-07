@@ -413,3 +413,83 @@ mod tests {
         println!("{}", node);
     }
 }
+
+#[cfg(test)]
+mod benchmarks {
+    extern crate test;
+    use std::hint::black_box;
+
+    use super::*;
+    use crate::read_game_state;
+
+    fn test_nodes() -> Vec<Node> {
+        [
+            "requests/failure_1.json",
+            "requests/failure_3.json",
+            "requests/failure_4.json",
+            "requests/failure_5.json",
+            "requests/example_move_request_2.json",
+            "requests/example_move_request_3.json",
+        ]
+        .iter()
+        .map(|p| {
+            let gamestate = read_game_state(p);
+            let state = GameState::<BasicField>::from(&gamestate);
+            Node::new(NodeId::new(), state)
+        })
+        .collect()
+    }
+
+    #[bench]
+    fn bench_node_simulate(b: &mut test::Bencher) {
+        let source_nodes = test_nodes();
+        let mut i = 0;
+        b.iter(|| {
+            // Fresh clone per iteration so each call starts from a clean, unsimulated node.
+            let mut node = source_nodes[i % source_nodes.len()].clone();
+            i += 1;
+            black_box(node.simulate(black_box(None), black_box(None)))
+        });
+    }
+
+    #[bench]
+    fn bench_node_status(b: &mut test::Bencher) {
+        let nodes: Vec<Node> = test_nodes()
+            .into_iter()
+            .map(|mut n| {
+                n.simulate(None, None); // explore one direction
+                n
+            })
+            .collect();
+        let mut i = 0;
+        b.iter(|| {
+            let node = &nodes[i % nodes.len()];
+            i += 1;
+            black_box(node.status())
+        });
+    }
+
+    #[bench]
+    fn bench_node_propagate_update_from_child(b: &mut test::Bencher) {
+        // Build nodes with children so propagate_update_from_child has a real list to scan.
+        let prepared: Vec<(Node, NodeId, NodeStatus)> = test_nodes()
+            .into_iter()
+            .filter_map(|mut parent| {
+                // Simulate one direction to populate a children list.
+                let children = parent.simulate(None, None)?;
+                let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
+                Some((parent, child_id, child_status))
+            })
+            .collect();
+
+        let mut i = 0;
+        b.iter(|| {
+            let (parent, child_id, child_status) = &prepared[i % prepared.len()];
+            i += 1;
+            let mut node = parent.clone();
+            black_box(
+                node.propagate_update_from_child(black_box(*child_id), black_box(*child_status)),
+            )
+        });
+    }
+}
