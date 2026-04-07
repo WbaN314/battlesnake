@@ -15,6 +15,13 @@ use crate::logic::{
 pub mod node_id;
 mod node_stats;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum QueueStatus {
+    Normal,
+    FastTrack,
+    ChildOfFastTrack,
+}
+
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
     AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
@@ -97,8 +104,7 @@ pub struct Node {
     gamestate: GameState<BasicField>,
     children: [Option<Vec<(NodeId, NodeStatus)>>; 4],
     pinned_status: Option<NodeStatus>,
-    fast_track_checked: bool,
-    fast_tracked: bool,
+    queue_status: QueueStatus,
 }
 
 impl Node {
@@ -108,8 +114,7 @@ impl Node {
             gamestate,
             children: [None, None, None, None],
             pinned_status: None,
-            fast_track_checked: false,
-            fast_tracked: false,
+            queue_status: QueueStatus::Normal,
         }
     }
 
@@ -126,12 +131,12 @@ impl Node {
         self.pinned_status = Some(status);
     }
 
-    pub fn set_fast_tracked(&mut self) {
-        self.fast_tracked = true;
+    pub fn set_queue_status(&mut self, queue_status: QueueStatus) {
+        self.queue_status = queue_status;
     }
 
-    pub fn is_fast_tracked(&self) -> bool {
-        self.fast_tracked
+    pub fn read_queue_status(&self) -> QueueStatus {
+        self.queue_status
     }
 
     pub fn id(&self) -> NodeId {
@@ -205,29 +210,9 @@ impl Node {
     pub fn simulate(
         &mut self,
         similarity_distance: Option<u8>,
-        fast_track_fn: Option<&dyn Fn(&Node) -> Option<[Option<Direction>; SNAKES]>>,
+        fast_track_fn: Option<&dyn Fn(&Node) -> bool>,
     ) -> Option<Vec<Node>> {
         // Check fast track once
-        if self.fast_track_checked == false
-            && let Some(fast_track_fn) = fast_track_fn
-        {
-            self.fast_track_checked = true;
-            if let Some(moves) = fast_track_fn(self) {
-                // Determine the direction for our snake from the moves
-                if let Some(dir) = moves[0] {
-                    self.set_fast_tracked();
-                    let mut child_gamestate = self.gamestate.clone();
-                    child_gamestate.next_state(moves);
-                    let child_id = self.id.child(moves);
-                    let mut child = Node::new(child_id, child_gamestate);
-                    child.set_fast_tracked();
-                    let child_status = child.status();
-                    // Register the direction slot so status propagation works
-                    self.children[dir as usize] = Some(vec![(child_id, child_status)]);
-                    return Some(vec![child]);
-                }
-            }
-        }
 
         'moveset: while let Some(move_matrix) = self.next_moveset() {
             let mut children = Vec::new();
@@ -248,7 +233,10 @@ impl Node {
                     }
                 }
 
-                let child = Node::new(child_id, child_gamestate);
+                let mut child = Node::new(child_id, child_gamestate);
+                if self.read_queue_status() == QueueStatus::FastTrack {
+                    child.set_queue_status(QueueStatus::ChildOfFastTrack);
+                }
                 let child_status = child.status();
                 children.push(child);
                 self.children[direction as usize]
@@ -266,9 +254,24 @@ impl Node {
                 }
             }
             debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
+
+            if children.len() == 1 {
+                children
+                    .get_mut(0)
+                    .map(|child| child.set_queue_status(QueueStatus::FastTrack));
+            }
+
+            if let Some(fast_track_fn) = fast_track_fn {
+                for child in children.iter_mut() {
+                    if fast_track_fn(child) {
+                        child.set_queue_status(QueueStatus::FastTrack);
+                    }
+                }
+            }
+
             return Some(children);
         }
-        None
+        return None;
     }
 
     pub fn propagate_update_from_child(

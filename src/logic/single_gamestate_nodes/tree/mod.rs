@@ -13,7 +13,7 @@ mod tree_stats;
 
 use crate::logic::{
     game::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
-    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+    single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
 };
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ pub struct Tree {
     dead_ancestor_pruning: bool,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
-    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[Option<Direction>; SNAKES]>>>,
+    fast_track_fn: Option<Rc<dyn Fn(&Node) -> bool>>,
 }
 
 impl Tree {
@@ -81,10 +81,7 @@ impl Tree {
         self
     }
 
-    pub fn fast_track(
-        mut self,
-        fast_track_fn: impl Fn(&Node) -> Option<[Option<Direction>; SNAKES]> + 'static,
-    ) -> Self {
+    pub fn fast_track(mut self, fast_track_fn: impl Fn(&Node) -> bool + 'static) -> Self {
         self.fast_track_fn = Some(Rc::new(fast_track_fn));
         self
     }
@@ -167,14 +164,17 @@ impl Tree {
         let node = self.nodes.get_mut(&node_id).unwrap();
         let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref());
         let node_status = node.status();
-        let node_is_fast_tracked = node.is_fast_tracked();
+        let node_queue_status = node.read_queue_status();
         self.propagate_status(node_id, node_status);
         match simulation_result {
             Some(children) => {
                 debug!("{} has spawned {} children", node_id, children.len());
                 for child in children {
                     let child_id = child.id();
-                    if child.is_fast_tracked() {
+                    if matches!(
+                        child.read_queue_status(),
+                        QueueStatus::FastTrack | QueueStatus::ChildOfFastTrack
+                    ) {
                         trace!(
                             "Fast Tracked: Adding child {} to the front of queue",
                             child_id
@@ -194,7 +194,10 @@ impl Tree {
                 if let Some(parent_id) = node_id.parent()
                     && matches!(node_status, NodeStatus::DeadIn(_))
                 {
-                    if node_is_fast_tracked {
+                    if matches!(
+                        node_queue_status,
+                        QueueStatus::FastTrack | QueueStatus::ChildOfFastTrack
+                    ) {
                         trace!(
                             "Fast Tracked: Adding parent {} to the front of queue",
                             parent_id
@@ -617,12 +620,10 @@ mod tests {
             |tree| {
                 let situation = situation.clone();
                 tree.fast_track(move |node| {
-                    if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate())
-                    {
-                        return Some(dirs);
-                    } else {
-                        return None;
-                    }
+                    matches!(
+                        situation.check(node.gamestate()),
+                        Some(SituationMatch::Recommend(_))
+                    )
                 })
             },
             |baseline_tree, tree, filename| {
@@ -652,12 +653,10 @@ mod tests {
         .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
-            if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
-                info!("Fast tracking {}", node.id());
-                return Some(dirs);
-            } else {
-                return None;
-            }
+            matches!(
+                situation.check(node.gamestate()),
+                Some(SituationMatch::Recommend(_))
+            )
         })
         .max_time(Duration::from_millis(200));
         tree.simulate();
@@ -691,21 +690,56 @@ mod tests {
             }),
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_1.json")
-            .all_root_directions()
-            .dead_ancestor_pruning()
-            .similarity_pruning(|_| 6)
-            .fast_track(move |node| {
-                if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
-                    return Some(dirs);
-                } else {
-                    return None;
-                }
-            })
-            .max_time(Duration::from_millis(200));
+        let mut tree = create_tree_from_gamestate(
+            "requests/failure_43_going_down_guarantees_getting_killed.json",
+        )
+        .all_root_directions()
+        .dead_ancestor_pruning()
+        .similarity_pruning(|_| 6)
+        .fast_track(move |node| {
+            matches!(
+                situation.check(node.gamestate()),
+                Some(SituationMatch::Recommend(_))
+            )
+        })
+        .max_time(Duration::from_millis(200));
         tree.simulate();
         // println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
+        println!(
+            "{}",
+            tree.nodes.get(&"DUDD-DURR".try_into().unwrap()).unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"DUDD-DURR-DUDR".try_into().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"DUDD-DURR-DUDR-DULR".try_into().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"DUDD-DURR-DUDR-DUDR".try_into().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"DUDD-DURR-DUDR-DUDR-DUDR-DULD".try_into().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"DUDD-DURR-DUDR-DUDR-DUDR-DUDD-DUDL".try_into().unwrap())
+                .unwrap()
+        );
     }
 }

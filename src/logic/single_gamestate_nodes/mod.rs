@@ -65,11 +65,10 @@ impl Brain for NewYearNewSnake {
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
-                if let Some(SituationMatch::Recommend(dirs)) = situation.check(node.gamestate()) {
-                    return Some(dirs);
-                } else {
-                    return None;
-                }
+                matches!(
+                    situation.check(node.gamestate()),
+                    Some(SituationMatch::Recommend(_))
+                )
             })
             .max_time(Duration::from_millis(200));
         tree.simulate();
