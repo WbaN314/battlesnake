@@ -168,14 +168,14 @@ impl Tree {
             for direction_slot in node.children() {
                 if let Some(children_vec) = direction_slot {
                     for (child_id, child_status) in children_vec {
-                        if ALL_PRUNED_STATUSES.contains(child_status)
-                            && !self.nodes.contains_key(child_id)
+                        if ALL_PRUNED_STATUSES.contains(&child_status)
+                            && !self.nodes.contains_key(&child_id)
                         {
                             pruned_by_depth
                                 .entry(child_id.depth())
                                 .or_default()
                                 .entry(format!("{}", child_status))
-                                .or_insert((*child_status, 0))
+                                .or_insert((child_status, 0))
                                 .1 += 1;
                             *virtual_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
                         }

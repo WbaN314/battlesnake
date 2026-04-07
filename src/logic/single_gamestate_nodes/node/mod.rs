@@ -9,7 +9,7 @@ use crate::logic::{
         moves::{MoveMatrix, MoveVector},
         snakes::SNAKES,
     },
-    single_gamestate_nodes::node::node_id::NodeId,
+    single_gamestate_nodes::node::node_id::{DirectionVector, NodeId},
 };
 
 pub mod node_id;
@@ -102,7 +102,7 @@ impl Display for NodeStatus {
 pub struct Node {
     id: NodeId,
     gamestate: GameState<BasicField>,
-    children: [Option<Vec<(NodeId, NodeStatus)>>; 4],
+    children: [Option<Vec<(DirectionVector, NodeStatus)>>; 4],
     pinned_status: Option<NodeStatus>,
     queue_status: QueueStatus,
 }
@@ -203,8 +203,14 @@ impl Node {
         &self.gamestate
     }
 
-    pub fn children(&self) -> &[Option<Vec<(NodeId, NodeStatus)>>; 4] {
-        &self.children
+    pub fn children(&self) -> [Option<Vec<(NodeId, NodeStatus)>>; 4] {
+        self.children.clone().map(|slot| {
+            slot.map(|vec| {
+                vec.into_iter()
+                    .map(|(dv, s)| (self.id.child(dv), s))
+                    .collect()
+            })
+        })
     }
 
     pub fn simulate(
@@ -228,7 +234,7 @@ impl Node {
                     if !similarity_set.insert(hash) {
                         self.children[direction as usize]
                             .as_mut()
-                            .map(|v| v.push((child_id, NodeStatus::PrunedForSimilarity)));
+                            .map(|v| v.push((moves, NodeStatus::PrunedForSimilarity)));
                         continue;
                     }
                 }
@@ -241,7 +247,7 @@ impl Node {
                 children.push(child);
                 self.children[direction as usize]
                     .as_mut()
-                    .map(|child_vec| child_vec.push((child_id, child_status)));
+                    .map(|child_vec| child_vec.push((moves, child_status)));
                 match child_status {
                     NodeStatus::DeadIn(0) => {
                         // Do not return children as this direction is already dead
@@ -281,9 +287,10 @@ impl Node {
     ) -> bool {
         let old_status = self.status();
         let dir = child_id.last_direction_for(0).unwrap().unwrap() as usize;
+        let last_dirs = child_id.last_directions().unwrap();
         if let Some(entry) = self.children[dir]
             .as_mut()
-            .and_then(|v| v.iter_mut().find(|(id, _)| *id == child_id))
+            .and_then(|v| v.iter_mut().find(|(dv, _)| *dv == last_dirs))
         {
             entry.1 = child_status;
         }
@@ -320,8 +327,8 @@ impl Display for Node {
                 Some(children) => {
                     let status = self.direction_status(i.try_into().unwrap());
                     writeln!(f, "  {} {} ({} children)", dir, status, children.len())?;
-                    for (child_id, child_status) in children {
-                        writeln!(f, "    {} {}", child_id, child_status)?;
+                    for (dv, child_status) in children {
+                        writeln!(f, "    {} {}", self.id.child(*dv), child_status)?;
                     }
                 }
             }
