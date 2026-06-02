@@ -5,6 +5,9 @@ pub trait Field: Copy {
     fn food() -> Self;
     fn snake(id: u8, next: Option<Direction>) -> Self;
     fn value(&self) -> BasicField;
+    fn tile(&self) -> [[char; 9]; 5] {
+        self.value().tile()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -29,6 +32,56 @@ impl Field for BasicField {
 
     fn value(&self) -> BasicField {
         *self
+    }
+}
+
+impl BasicField {
+    pub fn tile(&self) -> [[char; 9]; 5] {
+        let mut t = [[' '; 9]; 5];
+        match *self {
+            BasicField::Empty => {
+                t[2][4] = '.';
+            }
+            BasicField::Food => {
+                t[2][4] = 'X';
+            }
+            BasicField::Snake { id, next } => {
+                let lc = (b'a' + id) as char;
+                let uc = (b'A' + id) as char;
+                match next {
+                    None => {
+                        // head: uppercase letter at center + 4 cardinal neighbors
+                        t[2][2] = uc;
+                        t[2][4] = uc;
+                        t[2][6] = uc;
+                        t[1][4] = uc;
+                        t[3][4] = uc;
+                    }
+                    Some(dir) => {
+                        t[2][4] = '+';
+                        match dir {
+                            Direction::Up => {
+                                t[0][4] = lc;
+                                t[1][4] = lc;
+                            }
+                            Direction::Down => {
+                                t[3][4] = lc;
+                                t[4][4] = lc;
+                            }
+                            Direction::Left => {
+                                t[2][3] = lc;
+                                t[2][2] = lc;
+                            }
+                            Direction::Right => {
+                                t[2][5] = lc;
+                                t[2][6] = lc;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        t
     }
 }
 

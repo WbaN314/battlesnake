@@ -328,88 +328,87 @@ where
     T: Field,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let row = [' '; WIDTH as usize * 3 * 2];
-        let mut board = [row; HEIGHT as usize * 3];
+        const BUF_H: usize = 2 + HEIGHT as usize * 3;
+        const BUF_W: usize = 3 + WIDTH as usize * 6;
+        const CHAR_PRIORITY: &[char] = &[
+            'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B',
+            'C', 'D', 'X', '.', '+',
+        ];
 
-        // Write head markers before board
-        for i in 0..SNAKES {
-            let snake = self.snakes.cell(i).get();
-            if let Snake::Alive { head, id, .. } = snake {
-                let id = (id + b'A') as char;
-                let x = head.x;
-                let y = head.y;
-                board[y as usize * 3 + 1][x as usize * 3 * 2] = id;
-                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = id;
-                board[y as usize * 3][x as usize * 3 * 2 + 2] = id;
-                board[y as usize * 3 + 2][x as usize * 3 * 2 + 2] = id;
-                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = id;
+        fn priority_winner(existing: char, incoming: char, priority: &[char]) -> char {
+            if existing == ' ' {
+                return incoming;
+            }
+            let pos_existing = priority.iter().position(|&c| c == existing);
+            let pos_incoming = priority.iter().position(|&c| c == incoming);
+            match (pos_existing, pos_incoming) {
+                (Some(e), Some(i)) => {
+                    if e <= i { existing } else { incoming }
+                }
+                (Some(_), None) => existing,
+                (None, Some(_)) => incoming,
+                (None, None) => incoming,
             }
         }
 
-        // Fill the board with the current state
+        let mut buffer = [[' '; BUF_W]; BUF_H];
+
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                match self.board.cell(x, y).unwrap().get().value() {
-                    BasicField::Empty { .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = '.';
-                    }
-                    BasicField::Food { .. } => {
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = 'X';
-                    }
-                    BasicField::Snake { id, next } => {
-                        let c = (id + b'a') as char;
-                        board[y as usize * 3 + 1][x as usize * 3 * 2 + 2] = '*';
-                        match next {
-                            Some(Direction::Up) => {
-                                board[y as usize * 3 + 2][x as usize * 3 * 2 + 2] = c;
-                                board[y as usize * 3 + 3][x as usize * 3 * 2 + 2] = c;
-                            }
-                            Some(Direction::Down) => {
-                                board[y as usize * 3][x as usize * 3 * 2 + 2] = c;
-                                board[y as usize * 3 - 1][x as usize * 3 * 2 + 2] = c;
-                            }
-                            Some(Direction::Left) => {
-                                board[y as usize * 3 + 1][x as usize * 3 * 2] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 - 2] = c;
-                            }
-                            Some(Direction::Right) => {
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 2 * 2] = c;
-                                board[y as usize * 3 + 1][x as usize * 3 * 2 + 3 * 2] = c;
-                            }
-                            None => {}
+                let tile = self.board.cell(x, y).unwrap().get().tile();
+                let row = (HEIGHT - 1 - y) as usize * 3;
+                let col = x as usize * 6;
+                for tr in 0..5_usize {
+                    for tc in 0..9_usize {
+                        let c = tile[tr][tc];
+                        if c == ' ' {
+                            continue;
+                        }
+                        let br = row + tr;
+                        let bc = col + tc;
+                        if br < BUF_H && bc < BUF_W {
+                            buffer[br][bc] =
+                                priority_winner(buffer[br][bc], c, CHAR_PRIORITY);
                         }
                     }
                 }
             }
         }
 
-        // Write tail markers over board
+        // Second pass: write tail stack digit at each snake's tail center position
         for i in 0..SNAKES {
             let snake = self.snakes.cell(i).get();
             match snake {
                 Snake::Alive { tail, stack, .. } | Snake::Headless { tail, stack, .. } => {
-                    board[tail.y as usize * 3 + 1][tail.x as usize * 3 * 2 + 2] =
-                        (stack + b'0') as char;
+                    let row = (HEIGHT - 1 - tail.y) as usize * 3 + 2;
+                    let col = tail.x as usize * 6 + 4;
+                    let digit = (stack + b'0') as char;
+                    buffer[row][col] = priority_winner(buffer[row][col], digit, CHAR_PRIORITY);
                 }
                 _ => (),
             }
         }
 
-        // Construct the final display string
+        // Add borders
         let bottom =
-            "+---0-----1-----2-----3-----4-----5-----6-----7-----8-----9----10---+\n".to_string();
-        let left: Vec<char> = "|0||1||2||3||4||5||6||7||8||9|01|".chars().collect();
-        let mut output = bottom.clone();
-        for y in (0..board.len()).rev() {
-            output.push(left[y]);
-            output.push(' ');
-            for x in 0..board[0].len() {
-                output.push(board[y][x]);
+            "+---0-----1-----2-----3-----4-----5-----6-----7-----8-----9----10---+\n".chars().collect::<Vec<char>>();
+        let left = "+|0||1||2||3||4||5||6||7||8||9|01|+".chars().collect::<Vec<char>>();
+        for row in 0..BUF_H {
+           buffer[row][0] = left[BUF_H - row - 1];
+           buffer[row][BUF_W - 1] = left[BUF_H - row - 1];
+        }
+        for col in 0..BUF_W {
+            buffer[0][col] = bottom[col];
+            buffer[BUF_H - 1][col] = bottom[col];
+        }
+
+        let mut output = String::new();
+        for row in 0..BUF_H {
+            for col in 0..BUF_W {
+                output.push(buffer[row][col]);
             }
-            output.push(left[y]);
             output.push('\n');
         }
-        output.push_str(&bottom);
 
         let mut other_info = String::from('\n');
         for i in 0..SNAKES {
