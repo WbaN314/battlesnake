@@ -8,6 +8,98 @@ pub static DIRECTIONS: [Direction; 4] = [
     Direction::Right,
 ];
 
+pub struct Directions {
+    bools: [bool; 4],
+}
+
+impl Directions {
+    pub fn new() -> Self {
+        Self { bools: [true; 4] }
+    }
+
+    pub fn reset(&mut self) {
+        self.bools = [true; 4];
+    }
+
+    pub fn get(&self, direction: Direction) -> bool {
+        self.bools[direction as usize]
+    }
+
+    pub fn get_index(&self, index: usize) -> bool {
+        self.bools[index]
+    }
+
+    pub fn set(&mut self, direction: Direction, value: bool) {
+        self.bools[direction as usize] = value;
+    }
+
+    pub fn set_index(&mut self, index: usize, value: bool) {
+        self.bools[index] = value;
+    }
+
+    pub fn exhausted(&self) -> bool {
+        self.iter().next().is_none()
+    }
+
+    pub fn only_one_left(&self) -> Option<Direction> {
+        let mut iter = self.iter();
+        let first = iter.next()?;
+        if iter.next().is_none() {
+            Some(first)
+        } else {
+            None
+        }
+    }
+
+    pub fn iter(&self) -> DirectionsIter {
+        DirectionsIter {
+            bools: self.bools,
+            index: 0,
+        }
+    }
+}
+pub struct DirectionsIter {
+    bools: [bool; 4],
+    index: usize,
+}
+
+impl Iterator for DirectionsIter {
+    type Item = Direction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < 4 {
+            let i = self.index;
+            self.index += 1;
+            if self.bools[i] {
+                return Direction::try_from(i).ok();
+            }
+        }
+        None
+    }
+}
+
+impl IntoIterator for Directions {
+    type Item = Direction;
+    type IntoIter = DirectionsIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DirectionsIter {
+            bools: self.bools,
+            index: 0,
+        }
+    }
+}
+
+impl Display for Directions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let directions: Vec<String> = self
+            .iter()
+            .map(|d| d.to_string())
+            .collect();
+        write!(f, "{}", directions.join(", "))
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Direction {
     Up,
@@ -129,6 +221,17 @@ impl TryFrom<[bool; 4]> for Direction {
             [false, false, true, false] => Ok(Direction::Left),
             [false, false, false, true] => Ok(Direction::Right),
             _ => Err(()),
+        }
+    }
+}
+
+impl From<Direction> for usize {
+    fn from(direction: Direction) -> Self {
+        match direction {
+            Direction::Up => 0,
+            Direction::Down => 1,
+            Direction::Left => 2,
+            Direction::Right => 3,
         }
     }
 }

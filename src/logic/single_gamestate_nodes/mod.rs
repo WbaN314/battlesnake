@@ -5,7 +5,7 @@ use std::{rc::Rc, time::Duration};
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
-        game::{direction::Direction, field::BasicField, game_state::GameState, snake::Snake},
+        game::{direction::{Direction, Directions}, field::BasicField, game_state::GameState, snake::Snake},
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
@@ -35,7 +35,7 @@ impl Brain for NewYearNewSnake {
         println!("{}", gamestate);
 
         // Start with all directions and simulate
-        let mut directions = [true; 4];
+        let mut directions = Directions::new();
         let situation = Rc::new(
             Situation::multi_recommending(
                 "
@@ -83,12 +83,12 @@ impl Brain for NewYearNewSnake {
             .enumerate()
             .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(_)))
         {
-            directions[index] = false;
+            directions.set_index(index, false);
         }
 
         // If all are excluded, include all again
-        if directions.iter().all(|&d| !d) {
-            directions = [true; 4];
+        if directions.exhausted() {
+            directions.reset();
         }
 
         // Evaluate situations and return or avoid direction
@@ -158,7 +158,7 @@ impl Brain for NewYearNewSnake {
         #[cfg(debug_assertions)]
         {
             println!("Time for Situations: {:?}", time.elapsed());
-            println!("Directions after Situations {:?}", directions);
+            println!("Directions after Situations {}", directions);
         }
 
         // Food hunting and general strategies should probably go here
@@ -170,17 +170,16 @@ impl Brain for NewYearNewSnake {
         // Take the best from the allowed directions or default
         directions
             .into_iter()
-            .enumerate()
-            .filter(|(_, allowed)| *allowed)
-            .filter_map(|(index, _)| {
+            .filter_map(|dir| {
+                let index: usize = dir.into();
                 if result[index].is_comparable() {
-                    Some((index, result[index]))
+                    Some((dir, result[index]))
                 } else {
                     None
                 }
             })
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(index, _)| index.try_into().unwrap())
+            .map(|(dir, _)| dir)
             .unwrap_or(Direction::Up)
             .into()
     }
