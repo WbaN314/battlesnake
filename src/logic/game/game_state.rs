@@ -1283,4 +1283,15 @@ mod benchmarks {
             let _ = state.local_environment_hash(black_box(5));
         });
     }
+
+    #[bench]
+    fn bench_flood_fill(b: &mut test::Bencher) {
+        let gamestate = read_game_state("requests/example_move_request.json");
+        let state = GameState::<BasicField>::from(&gamestate);
+        println!("{}", state);
+        b.iter(|| {
+            let mut ff_state: GameState<FloodFillField> = state.clone().into();
+            black_box(&mut ff_state).flood_fill(black_box(Direction::Up));
+        });
+    }
 }
