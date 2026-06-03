@@ -5,7 +5,12 @@ use std::{rc::Rc, time::Duration};
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
-        game::{direction::{Direction, Directions}, field::BasicField, game_state::GameState, snake::Snake},
+        game::{
+            direction::{Direction, Directions},
+            field::BasicField,
+            game_state::GameState,
+            snake::Snake,
+        },
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
@@ -25,75 +30,36 @@ impl NewYearNewSnake {
     pub fn new() -> Self {
         Self
     }
-}
 
-impl Brain for NewYearNewSnake {
-    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
-        let gamestate: GameState<BasicField> = gamestate.into();
-
-        #[cfg(debug_assertions)]
-        println!("{}", gamestate);
-
-        // Start with all directions and simulate
-        let mut directions = Directions::new();
-        let situation = Rc::new(
-            Situation::multi_recommending(
-                "
+    pub fn fast_track_trigger_situation() -> Situation {
+        Situation::multi_recommending(
+            "
                 W . .
                 W A .
                 W N B
                 ",
-                [Some(Direction::Up), Some(Direction::Up), None, None],
-            )
-            .full_symmetry()
-            .condition(|snakes| {
-                if let [
-                    Snake::Alive { length: a, .. },
-                    Snake::Alive { length: b, .. },
-                    _,
-                    _,
-                ] = snakes
-                {
-                    a <= b
-                } else {
-                    false
-                }
-            }),
-        );
-        let mut tree = Tree::new(gamestate.clone())
-            .all_root_directions()
-            .dead_ancestor_pruning()
-            .similarity_pruning(|_| 6)
-            .fast_track(move |node| {
-                matches!(
-                    situation.check(node.gamestate()),
-                    Some(SituationMatch::Recommend(_))
-                )
-            })
-            .max_time(Duration::from_millis(200));
-        tree.simulate();
-        let result = tree.result();
+            [Some(Direction::Up), Some(Direction::Up), None, None],
+        )
+        .full_symmetry()
+        .condition(|snakes| {
+            if let [
+                Snake::Alive { length: a, .. },
+                Snake::Alive { length: b, .. },
+                _,
+                _,
+            ] = snakes
+            {
+                a <= b
+            } else {
+                false
+            }
+        })
+    }
 
+    pub fn special_situation_set() -> SituationSet {
+               // Evaluate situations and return or avoid direction
         #[cfg(debug_assertions)]
-        println!("{}", tree.stats());
-
-        // Exclude DeadIn directions
-        for (index, _) in result
-            .iter()
-            .enumerate()
-            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(_)))
-        {
-            directions.set_index(index, false);
-        }
-
-        // If all are excluded, include all again
-        if directions.exhausted() {
-            directions.reset();
-        }
-
-        // Evaluate situations and return or avoid direction
-        #[cfg(debug_assertions)]
-        let mut time = Instant::now();
+        let time = Instant::now();
         let situation_set = SituationSet::new(vec![
             // Kill by lead
             Situation::recommending(
@@ -146,9 +112,56 @@ impl Brain for NewYearNewSnake {
         #[cfg(debug_assertions)]
         {
             println!("Time for Situations construction: {:?}", time.elapsed());
-            time = Instant::now();
+        }
+        situation_set
+    }
+}
+
+impl Brain for NewYearNewSnake {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
+        let gamestate: GameState<BasicField> = gamestate.into();
+
+        #[cfg(debug_assertions)]
+        println!("{}", gamestate);
+
+        // Start with all directions and simulate
+        let mut directions = Directions::new();
+
+        let mut tree = Tree::new(gamestate.clone())
+            .all_root_directions()
+            .dead_ancestor_pruning()
+            .similarity_pruning(|_| 6)
+            .fast_track(move |node| {
+                matches!(
+                    NewYearNewSnake::fast_track_trigger_situation().check(node.gamestate()),
+                    Some(SituationMatch::Recommend(_))
+                )
+            })
+            .max_time(Duration::from_millis(200));
+        tree.simulate();
+        let result = tree.result();
+
+        #[cfg(debug_assertions)]
+        println!("{}", tree.stats());
+
+        // Exclude DeadIn directions
+        for (index, _) in result
+            .iter()
+            .enumerate()
+            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(_)))
+        {
+            directions.set_index(index, false);
         }
 
+        // If all are excluded, include all again
+        if directions.exhausted() {
+            directions.reset();
+        }
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+        
+        let situation_set = NewYearNewSnake::special_situation_set();
         if let Some(direction) = situation_set.evaluate(&gamestate, &mut directions) {
             #[cfg(debug_assertions)]
             println!("Time for Situations (match): {:?}", time.elapsed());
