@@ -516,12 +516,12 @@ impl GameState<FloodFillField> {
     }
 
     /// Move tails, then flood any just-opened tail cell that is adjacent to
-    /// an already-Filled cell. Returns how many new cells snake 0 gained.
+    /// an already-Filled cell.
     fn move_tails_and_flood_opened(
         &mut self,
         turn: u8,
         frontier: &mut ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
-    ) -> u8 {
+    ) {
         let mut tails: ArrayVec<Coord, { SNAKES as usize }> = ArrayVec::new();
         for id in 0..SNAKES {
             match self.snakes.cell(id).get() {
@@ -536,7 +536,6 @@ impl GameState<FloodFillField> {
 
         self.move_tails();
 
-        let mut own_area_added = 0u8;
         for tail_coord in tails {
             let cell = self.board.cell(tail_coord.x, tail_coord.y).unwrap();
             if !matches!(cell.get(), FloodFillField::Empty) {
@@ -561,15 +560,10 @@ impl GameState<FloodFillField> {
                 for id in 0..SNAKES as usize {
                     if by[id].is_some() {
                         frontier.push((id as u8, tail_coord));
-                        if id == 0 {
-                            own_area_added += 1;
-                        }
                     }
                 }
             }
         }
-
-        own_area_added
     }
 
     fn prepare_flood_fill(
@@ -597,33 +591,43 @@ impl GameState<FloodFillField> {
     fn run_flood_fill(
         &mut self,
         mut frontier: ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
-    ) -> (u8, Option<u8>) {
-        let own_length = self.snake_length(0);
-        let mut own_area = frontier.iter().filter(|(id, _)| *id == 0).count() as u8;
+    ) -> [Option<u8>; SNAKES as usize] {
+        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| self.snake_length(id as u8));
+        let mut areas = [0u8; SNAKES as usize];
+        for &(id, _) in &frontier {
+            areas[id as usize] += 1;
+        }
         let mut turn = 1;
-        let mut not_enough_area_in_turn = None;
+        let mut not_enough_area_in_turn = [None; SNAKES as usize];
 
-        if own_area < own_length.min(turn) {
-            not_enough_area_in_turn = Some(turn);
+        for id in 0..SNAKES as usize {
+            if lengths[id] > 0 && areas[id] < lengths[id].min(turn) {
+                not_enough_area_in_turn[id] = Some(turn);
+            }
         }
 
         loop {
             turn += 1;
             let mut next_frontier = ArrayVec::new();
-            own_area += self.move_tails_and_flood_opened(turn, &mut next_frontier);
+            self.move_tails_and_flood_opened(turn, &mut next_frontier);
+
+            // Count area added by move_tails_and_flood_opened
+            for &(id, _) in &next_frontier {
+                areas[id as usize] += 1;
+            }
 
             for (snake_id, coord) in frontier.drain(..) {
                 for dir in DIRECTIONS {
                     if self.try_mark_flood(coord + dir, snake_id, turn, &mut next_frontier) {
-                        if snake_id == 0 {
-                            own_area += 1;
-                        }
+                        areas[snake_id as usize] += 1;
                     }
                 }
             }
 
-            if not_enough_area_in_turn.is_none() && own_area < own_length.min(turn) {
-                not_enough_area_in_turn = Some(turn);
+            for id in 0..SNAKES as usize {
+                if not_enough_area_in_turn[id].is_none() && lengths[id] > 0 && areas[id] < lengths[id].min(turn) {
+                    not_enough_area_in_turn[id] = Some(turn);
+                }
             }
 
             if next_frontier.is_empty() && !self.has_movable_tails() {
@@ -633,10 +637,10 @@ impl GameState<FloodFillField> {
             frontier = next_frontier;
         }
 
-        (own_area, not_enough_area_in_turn)
+        not_enough_area_in_turn
     }
 
-    fn build_flood_fill_result(&self, not_enough_area_in_turn: Option<u8>) -> FloodFillResult {
+    fn build_flood_fill_result(&self, not_enough_area_in_turn: [Option<u8>; SNAKES as usize]) -> FloodFillResult {
         let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| self.snake_length(id as u8));
         let mut flooded_area = [0; SNAKES as usize];
 
@@ -673,13 +677,14 @@ impl GameState<FloodFillField> {
 
     pub fn flood_fill(&mut self, direction: Direction) -> FloodFillResult {
         let frontier = self.prepare_flood_fill(direction);
-        let (_own_area, not_enough_area_in_turn) = self.run_flood_fill(frontier);
+        let not_enough_area_in_turn = self.run_flood_fill(frontier);
         self.build_flood_fill_result(not_enough_area_in_turn)
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct FloodFillResult {
-    pub not_enough_area_in_turn: Option<u8>,
+    pub not_enough_area_in_turn: [Option<u8>; SNAKES as usize],
     pub flooded_area: [u8; SNAKES as usize],
 }
 
@@ -1185,8 +1190,8 @@ mod tests {
     #[test]
     fn test_flood_fill() {
         let cases = [
-            ("requests/example_move_request.json", Direction::Up),
-            ("requests/example_move_request_2.json", Direction::Up),
+            ("requests/failure_20_for_improved_area_evaluation.json", Direction::Left),
+            ("requests/failure_20_for_improved_area_evaluation.json", Direction::Down),
         ];
 
         for (file, dir) in cases {
@@ -1201,9 +1206,8 @@ mod tests {
 
             let mut ff_state: GameState<FloodFillField> = state.into();
             let frontier = ff_state.prepare_flood_fill(dir);
-            println!("{}", ff_state);
 
-            let (_, not_enough_area_in_turn) = ff_state.run_flood_fill(frontier);
+            let not_enough_area_in_turn = ff_state.run_flood_fill(frontier);
             let result = ff_state.build_flood_fill_result(not_enough_area_in_turn);
 
             println!("{}", ff_state);

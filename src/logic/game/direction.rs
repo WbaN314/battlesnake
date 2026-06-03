@@ -10,15 +10,26 @@ pub static DIRECTIONS: [Direction; 4] = [
 
 pub struct Directions {
     bools: [bool; 4],
+    checkpoint: [bool; 4]
 }
 
 impl Directions {
     pub fn new() -> Self {
-        Self { bools: [true; 4] }
+        Self { bools: [true; 4], checkpoint: [true; 4] }
     }
 
     pub fn reset(&mut self) {
-        self.bools = [true; 4];
+        self.bools = self.checkpoint;
+    }
+
+    pub fn reset_if_exhausted(&mut self) {
+        if self.exhausted() {
+            self.reset();
+        }
+    }
+
+    pub fn set_checkpoint(&mut self) {
+        self.checkpoint = self.bools;
     }
 
     pub fn get(&self, direction: Direction) -> bool {
