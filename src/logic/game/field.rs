@@ -10,6 +10,9 @@ pub trait Field: Copy {
     fn tile(&self) -> [[char; 9]; 5] {
         self.value().tile()
     }
+    fn tile_with_lengths(&self, _lengths: &[u8; SNAKES as usize]) -> [[char; 9]; 5] {
+        self.tile()
+    }
     fn char_priority() -> &'static [char] {
         &[
             'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
@@ -182,16 +185,14 @@ impl Field for FloodFillField {
         ]
     }
 
-    fn tile(&self) -> [[char; 9]; 5] {
+    fn tile_with_lengths(&self, lengths: &[u8; SNAKES as usize]) -> [[char; 9]; 5] {
         match self {
             FloodFillField::Empty => {
-                let mut t = BasicField::Empty.tile();
+                let t = BasicField::Empty.tile();
                 t
-
             }
             FloodFillField::Food => {
-                let mut t = BasicField::Food.tile();
-
+                let t = BasicField::Food.tile();
                 t
             }
             FloodFillField::Snake { id, next } => {
@@ -232,20 +233,34 @@ impl Field for FloodFillField {
                 let mut min_val: Option<u8> = None;
                 let mut min_id: u8 = 0;
                 let mut count_min: u8 = 0;
+                let mut max_len_min_id = None;
+                let mut max_len_min_id_count = 0;
                 for (i, &v) in by.iter().enumerate() {
                     match (v, min_val) {
                         (Some(val), None) => {
                             min_val = Some(val);
                             min_id = i as u8;
                             count_min = 1;
+                            max_len_min_id = Some(i as u8);
+                            max_len_min_id_count = 1;
                         }
                         (Some(val), Some(cur)) => {
                             if val < cur {
                                 min_val = Some(val);
                                 min_id = i as u8;
                                 count_min = 1;
+                                max_len_min_id = Some(i as u8);
+                                max_len_min_id_count = 1;
                             } else if val == cur {
                                 count_min += 1;
+                                if let Some(current) = max_len_min_id {
+                                    if lengths[i] > lengths[current as usize] {
+                                        max_len_min_id = Some(i as u8);
+                                        max_len_min_id_count = 1;
+                                    } else if lengths[i] == lengths[current as usize] {
+                                        max_len_min_id_count += 1;
+                                    }
+                                }
                             }
                         }
                         _ => {}
@@ -269,7 +284,12 @@ impl Field for FloodFillField {
                     }
                     _ => {
                         let mut t = [[' '; 9]; 5];
-                        t[2][4] = '+';
+                        if max_len_min_id_count == 1 {
+                            let c = (b'a' + max_len_min_id.unwrap()) as char;
+                            t[2][4] = c;
+                        } else {
+                            t[2][4] = '+';
+                        }
                         t
                     }
                 }

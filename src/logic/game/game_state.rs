@@ -354,10 +354,18 @@ where
         }
 
         let mut buffer = [['?'; BUF_W]; BUF_H];
+        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| {
+            match self.snakes.cell(id as u8).get() {
+                Snake::Alive { length, .. }
+                | Snake::Headless { length, .. }
+                | Snake::Vanished { length, .. } => length,
+                Snake::Dead { .. } | Snake::NonExistent => 0,
+            }
+        });
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                let tile = self.board.cell(x, y).unwrap().get().tile();
+                let tile = self.board.cell(x, y).unwrap().get().tile_with_lengths(&lengths);
                 let row = (HEIGHT - 1 - y) as usize * 3;
                 let col = x as usize * 6;
                 for tr in 0..5_usize {
