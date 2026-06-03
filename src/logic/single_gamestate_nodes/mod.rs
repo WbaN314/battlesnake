@@ -5,7 +5,7 @@ use std::{rc::Rc, time::Duration};
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
-        game::{
+        general::{
             direction::{Direction, Directions},
             field::{BasicField, FloodFillField},
             game_state::GameState,

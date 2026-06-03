@@ -10,7 +10,7 @@ use log::{debug, trace};
 mod tree_stats;
 
 use crate::logic::{
-    game::{direction::Direction, field::BasicField, game_state::GameState},
+    general::{direction::Direction, field::BasicField, game_state::GameState},
     single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
 };
 
@@ -358,7 +358,7 @@ mod tests {
     use super::*;
     use crate::{
         logic::{
-            game::{direction::DIRECTIONS, snake::Snake},
+            general::{direction::DIRECTIONS, snake::Snake},
             single_gamestate_nodes::situation::{Situation, SituationMatch},
         },
         read_game_state,
@@ -782,7 +782,7 @@ mod benchmarks {
     fn bench_depth_queue_push_pop(b: &mut test::Bencher) {
         let root = NodeId::new();
         // Pre-build a set of ids at varied depths to push/pop each iteration.
-        use crate::logic::game::direction::Direction::*;
+        use crate::logic::general::direction::Direction::*;
         let ids: Vec<NodeId> = vec![
             root,
             root.child([Some(Up), Some(Down), Some(Left), Some(Right)]),

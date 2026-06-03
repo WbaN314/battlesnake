@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
-use crate::logic::game::{direction::Direction, moves::Moves, snakes::SNAKES};
+use crate::logic::general::{direction::Direction, moves::Moves, snakes::SNAKES};
 
 /// Bits reserved for storing the depth (5 bits supports up to 31 depth levels).
 const DEPTH_BITS: u32 = 5;
@@ -345,7 +345,7 @@ impl From<&str> for NodeId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logic::game::direction::Direction::*;
+    use crate::logic::general::direction::Direction::*;
 
     #[test]
     fn new_node_is_root() {
@@ -554,7 +554,7 @@ mod tests {
 mod benchmarks {
     extern crate test;
     use super::*;
-    use crate::logic::game::direction::Direction::*;
+    use crate::logic::general::direction::Direction::*;
     use std::hint::black_box;
 
     #[bench]

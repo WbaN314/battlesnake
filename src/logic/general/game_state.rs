@@ -6,7 +6,7 @@ use super::{
 use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
     logic::{
-        game::{
+        general::{
             board::{Board, HEIGHT, WIDTH},
             coord::Coord,
             direction::{DIRECTIONS, Direction},
@@ -710,7 +710,7 @@ impl From<GameState<BasicField>> for GameState<FloodFillField> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{logic::game::coord::Coord, read_game_state};
+    use crate::{logic::general::coord::Coord, read_game_state};
 
     #[test]
     fn test_memory_size() {

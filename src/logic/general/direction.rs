@@ -1,4 +1,4 @@
-use crate::logic::game::{coord::Coord, moves::MoveVector};
+use crate::logic::general::{coord::Coord, moves::MoveVector};
 use std::fmt::Display;
 
 pub static DIRECTIONS: [Direction; 4] = [

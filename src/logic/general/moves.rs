@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::logic::game::{direction::Direction, snakes::SNAKES};
+use crate::logic::general::{direction::Direction, snakes::SNAKES};
 
 pub type Moves = [Option<Direction>; SNAKES as usize];
 
@@ -218,7 +218,7 @@ impl IntoIterator for MoveMatrix {
 mod tests {
     use super::*;
     use crate::{
-        logic::game::{field::BasicField, game_state::GameState},
+        logic::general::{field::BasicField, game_state::GameState},
         read_game_state,
     };
 
@@ -416,7 +416,7 @@ mod benchmarks {
     use std::hint::black_box;
 
     use crate::{
-        logic::game::{field::BasicField, game_state::GameState},
+        logic::general::{field::BasicField, game_state::GameState},
         read_game_state,
     };
 

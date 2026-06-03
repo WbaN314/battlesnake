@@ -1,4 +1,4 @@
-use crate::{OriginalBattlesnake, logic::game::coord::Coord};
+use crate::{OriginalBattlesnake, logic::general::coord::Coord};
 use core::panic;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

@@ -1,4 +1,4 @@
-use crate::logic::game::field::BasicField;
+use crate::logic::general::field::BasicField;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum SituationField {

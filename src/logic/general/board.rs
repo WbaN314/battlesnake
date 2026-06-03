@@ -1,6 +1,6 @@
 use crate::{
     OriginalBattlesnake, OriginalBoard, OriginalGameState,
-    logic::game::{
+    logic::general::{
         coord::Coord,
         field::{BasicField, Field},
         snake::Snake,
@@ -110,7 +110,7 @@ impl<T: Field> From<OriginalGameState> for Board<T> {
 mod tests {
     use super::*;
     use crate::{
-        logic::game::{direction::Direction, field::BasicField},
+        logic::general::{direction::Direction, field::BasicField},
         read_game_state,
     };
 

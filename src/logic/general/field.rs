@@ -1,4 +1,4 @@
-use crate::logic::game::snakes::SNAKES;
+use crate::logic::general::snakes::SNAKES;
 
 use super::direction::Direction;
 
@@ -310,7 +310,7 @@ impl From<BasicField> for FloodFillField {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::game::direction::DIRECTIONS;
+    use crate::logic::general::direction::DIRECTIONS;
 
     use super::*;
 
@@ -347,7 +347,7 @@ mod tests {
 #[cfg(test)]
 mod benchmarks {
     use super::*;
-    use crate::logic::game::direction::Direction;
+    use crate::logic::general::direction::Direction;
     use std::hint::black_box;
 
     #[bench]

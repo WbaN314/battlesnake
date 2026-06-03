@@ -4,7 +4,7 @@ use log::debug;
 use situation_field::SituationField;
 use std::fmt;
 
-use crate::logic::game::{
+use crate::logic::general::{
     direction::{Direction, Directions},
     field::BasicField,
     game_state::GameState,
@@ -352,7 +352,7 @@ impl Situation {
 mod tests {
     use super::Situation;
     use crate::{
-        logic::game::{
+        logic::general::{
             direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
         },
         read_game_state,
@@ -612,7 +612,7 @@ mod benchmarks {
 
     use super::{Situation, SituationSet};
     use crate::{
-        logic::game::{
+        logic::general::{
             direction::{Direction, Directions}, field::BasicField, game_state::GameState, snake::Snake,
         },
         read_game_state,

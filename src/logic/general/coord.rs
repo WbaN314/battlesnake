@@ -1,4 +1,4 @@
-use crate::{OriginalCoord, logic::game::direction::Direction};
+use crate::{OriginalCoord, logic::general::direction::Direction};
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug, PartialEq)]

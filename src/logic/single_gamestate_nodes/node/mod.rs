@@ -2,7 +2,7 @@ use core::panic;
 use std::{collections::HashSet, fmt::Display};
 
 use crate::logic::{
-    game::{
+    general::{
         direction::{DIRECTIONS, Direction},
         field::BasicField,
         game_state::GameState,

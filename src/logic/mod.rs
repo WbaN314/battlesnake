@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub mod depth_first;
-pub mod game;
+pub mod general;
 pub mod legacy;
 pub mod single_gamestate_nodes;
 

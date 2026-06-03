@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::{collections::HashMap, env};
 
-use crate::logic::{game::direction::Direction, get_move};
+use crate::logic::{general::direction::Direction, get_move};
 
 pub mod logic;
 

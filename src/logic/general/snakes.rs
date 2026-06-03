@@ -48,7 +48,7 @@ impl From<OriginalGameState> for Snakes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logic::game::coord::Coord;
+    use crate::logic::general::coord::Coord;
 
     #[test]
     fn test_memory_size() {

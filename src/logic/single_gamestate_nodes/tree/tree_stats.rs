@@ -8,9 +8,9 @@ use tabled::{
     settings::{Alignment, Style, object::Columns},
 };
 
-use crate::logic::game::direction::DIRECTIONS;
+use crate::logic::general::direction::DIRECTIONS;
 use crate::logic::{
-    game::direction::Direction,
+    general::direction::Direction,
     single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 
@@ -479,7 +479,7 @@ impl TreeStats {
 mod tests {
     use crate::{
         logic::{
-            game::{field::BasicField, game_state::GameState},
+            general::{field::BasicField, game_state::GameState},
             single_gamestate_nodes::{
                 node::NodeStatus,
                 tree::tests::create_tree_from_gamestate,
