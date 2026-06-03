@@ -7,7 +7,6 @@ use crate::logic::{
         field::BasicField,
         game_state::GameState,
         moves::{MoveMatrix, MoveVector},
-        snakes::SNAKES,
     },
     single_gamestate_nodes::node::node_id::{DirectionVector, NodeId},
 };

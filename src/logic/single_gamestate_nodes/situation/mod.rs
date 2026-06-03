@@ -2,14 +2,14 @@ mod situation_field;
 
 use log::debug;
 use situation_field::SituationField;
-use std::{cell::Cell, fmt};
+use std::fmt;
 
 use crate::logic::game::{
     direction::Direction,
     field::BasicField,
     game_state::GameState,
     snake::Snake,
-    snakes::{SNAKES, Snakes},
+    snakes::SNAKES,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]

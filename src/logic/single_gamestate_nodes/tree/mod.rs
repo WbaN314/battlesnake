@@ -1,9 +1,7 @@
-use core::panic;
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
     rc::Rc,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -12,7 +10,7 @@ use log::{debug, trace};
 mod tree_stats;
 
 use crate::logic::{
-    game::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
+    game::{direction::Direction, field::BasicField, game_state::GameState},
     single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
 };
 
