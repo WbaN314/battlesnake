@@ -8,8 +8,9 @@ use crate::{
     logic::{
         game::{
             board::{Board, HEIGHT, WIDTH},
+            coord::Coord,
             direction::{DIRECTIONS, Direction},
-            field::{BasicField, Field},
+            field::{BasicField, Field, FloodFillField},
             moves::MoveVector,
         },
         legacy::shared::e_snakes::SNAKES,
@@ -330,20 +331,21 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         const BUF_H: usize = 2 + HEIGHT as usize * 3;
         const BUF_W: usize = 3 + WIDTH as usize * 6;
-        const CHAR_PRIORITY: &[char] = &[
-            'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B',
-            'C', 'D', 'X', '.', '+',
-        ];
+        let char_priority = T::char_priority();
 
         fn priority_winner(existing: char, incoming: char, priority: &[char]) -> char {
-            if existing == ' ' {
+            if existing == '?' {
                 return incoming;
             }
             let pos_existing = priority.iter().position(|&c| c == existing);
             let pos_incoming = priority.iter().position(|&c| c == incoming);
             match (pos_existing, pos_incoming) {
                 (Some(e), Some(i)) => {
-                    if e <= i { existing } else { incoming }
+                    if e <= i {
+                        existing
+                    } else {
+                        incoming
+                    }
                 }
                 (Some(_), None) => existing,
                 (None, Some(_)) => incoming,
@@ -351,7 +353,7 @@ where
             }
         }
 
-        let mut buffer = [[' '; BUF_W]; BUF_H];
+        let mut buffer = [['?'; BUF_W]; BUF_H];
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -361,14 +363,10 @@ where
                 for tr in 0..5_usize {
                     for tc in 0..9_usize {
                         let c = tile[tr][tc];
-                        if c == ' ' {
-                            continue;
-                        }
                         let br = row + tr;
                         let bc = col + tc;
                         if br < BUF_H && bc < BUF_W {
-                            buffer[br][bc] =
-                                priority_winner(buffer[br][bc], c, CHAR_PRIORITY);
+                            buffer[br][bc] = priority_winner(buffer[br][bc], c, char_priority);
                         }
                     }
                 }
@@ -383,19 +381,22 @@ where
                     let row = (HEIGHT - 1 - tail.y) as usize * 3 + 2;
                     let col = tail.x as usize * 6 + 4;
                     let digit = (stack + b'0') as char;
-                    buffer[row][col] = priority_winner(buffer[row][col], digit, CHAR_PRIORITY);
+                    buffer[row][col] = priority_winner(buffer[row][col], digit, char_priority);
                 }
                 _ => (),
             }
         }
 
         // Add borders
-        let bottom =
-            "+---0-----1-----2-----3-----4-----5-----6-----7-----8-----9----10---+\n".chars().collect::<Vec<char>>();
-        let left = "+|0||1||2||3||4||5||6||7||8||9|01|+".chars().collect::<Vec<char>>();
+        let bottom = "+---0-----1-----2-----3-----4-----5-----6-----7-----8-----9----10---+\n"
+            .chars()
+            .collect::<Vec<char>>();
+        let left = "+|0||1||2||3||4||5||6||7||8||9|01|+"
+            .chars()
+            .collect::<Vec<char>>();
         for row in 0..BUF_H {
-           buffer[row][0] = left[BUF_H - row - 1];
-           buffer[row][BUF_W - 1] = left[BUF_H - row - 1];
+            buffer[row][0] = left[BUF_H - row - 1];
+            buffer[row][BUF_W - 1] = left[BUF_H - row - 1];
         }
         for col in 0..BUF_W {
             buffer[0][col] = bottom[col];
@@ -405,7 +406,8 @@ where
         let mut output = String::new();
         for row in 0..BUF_H {
             for col in 0..BUF_W {
-                output.push(buffer[row][col]);
+                let c = buffer[row][col];
+                output.push(c);
             }
             output.push('\n');
         }
@@ -444,6 +446,251 @@ where
 
         write!(f, "{}", output)?;
         Ok(())
+    }
+}
+
+impl GameState<FloodFillField> {
+    fn try_mark_flood(
+        &self,
+        coord: Coord,
+        snake_id: u8,
+        turn: u8,
+        frontier: &mut ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
+    ) -> bool {
+        let Some(cell) = self.board.cell(coord.x, coord.y) else {
+            return false;
+        };
+
+        match cell.get() {
+            FloodFillField::Empty | FloodFillField::Food => {
+                let mut by = [None; SNAKES as usize];
+                by[snake_id as usize] = Some(turn);
+                cell.set(FloodFillField::Filled { by });
+                frontier.push((snake_id, coord));
+                true
+            }
+            FloodFillField::Filled { mut by } => {
+                if by[snake_id as usize].is_some() {
+                    return false;
+                }
+                let earliest = by.iter().flatten().min().copied().unwrap_or(turn);
+                if turn > earliest {
+                    return false;
+                }
+                // Same-turn arrival: co-own but don't expand from here
+                by[snake_id as usize] = Some(turn);
+                cell.set(FloodFillField::Filled { by });
+                false
+            }
+            FloodFillField::Snake { .. } => false,
+        }
+    }
+
+    fn snake_length(&self, id: u8) -> u8 {
+        match self.snakes.cell(id).get() {
+            Snake::Alive { length, .. }
+            | Snake::Headless { length, .. }
+            | Snake::Vanished { length, .. } => length,
+            Snake::Dead { .. } | Snake::NonExistent => 0,
+        }
+    }
+
+    fn has_movable_tails(&self) -> bool {
+        for id in 0..SNAKES {
+            if matches!(
+                self.snakes.cell(id).get(),
+                Snake::Alive { .. } | Snake::Headless { .. }
+            ) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Move tails, then flood any just-opened tail cell that is adjacent to
+    /// an already-Filled cell. Returns how many new cells snake 0 gained.
+    fn move_tails_and_flood_opened(
+        &mut self,
+        turn: u8,
+        frontier: &mut ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
+    ) -> u8 {
+        let mut tails: ArrayVec<Coord, { SNAKES as usize }> = ArrayVec::new();
+        for id in 0..SNAKES {
+            match self.snakes.cell(id).get() {
+                Snake::Alive { tail, stack, .. } | Snake::Headless { tail, stack, .. }
+                    if stack == 0 =>
+                {
+                    tails.push(tail);
+                }
+                _ => {}
+            }
+        }
+
+        self.move_tails();
+
+        let mut own_area_added = 0u8;
+        for tail_coord in tails {
+            let cell = self.board.cell(tail_coord.x, tail_coord.y).unwrap();
+            if !matches!(cell.get(), FloodFillField::Empty) {
+                continue;
+            }
+            // Collect all snakes that have adjacent Filled cells
+            let mut by = [None; SNAKES as usize];
+            for dir in DIRECTIONS {
+                let neighbor = tail_coord + dir;
+                if let Some(ncell) = self.board.cell(neighbor.x, neighbor.y) {
+                    if let FloodFillField::Filled { by: nby } = ncell.get() {
+                        for id in 0..SNAKES as usize {
+                            if nby[id].is_some() && by[id].is_none() {
+                                by[id] = Some(turn);
+                            }
+                        }
+                    }
+                }
+            }
+            if by.iter().any(|v| v.is_some()) {
+                cell.set(FloodFillField::Filled { by });
+                for id in 0..SNAKES as usize {
+                    if by[id].is_some() {
+                        frontier.push((id as u8, tail_coord));
+                        if id == 0 {
+                            own_area_added += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        own_area_added
+    }
+
+    fn prepare_flood_fill(
+        &mut self,
+        direction: Direction,
+    ) -> ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }> {
+        let mut frontier = ArrayVec::new();
+        self.move_tails();
+
+        if let Snake::Alive { head, .. } = self.snakes.cell(0).get() {
+            let _ = self.try_mark_flood(head + direction, 0, 1, &mut frontier);
+        }
+
+        for id in 1..SNAKES as usize {
+            if let Snake::Alive { head, .. } = self.snakes.cell(id as u8).get() {
+                for dir in DIRECTIONS {
+                    let _ = self.try_mark_flood(head + dir, id as u8, 1, &mut frontier);
+                }
+            }
+        }
+
+        frontier
+    }
+
+    fn run_flood_fill(
+        &mut self,
+        mut frontier: ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
+    ) -> (u8, Option<u8>) {
+        let own_length = self.snake_length(0);
+        let mut own_area = frontier.iter().filter(|(id, _)| *id == 0).count() as u8;
+        let mut turn = 1;
+        let mut not_enough_area_in_turn = None;
+
+        if own_area < own_length.min(turn) {
+            not_enough_area_in_turn = Some(turn);
+        }
+
+        loop {
+            turn += 1;
+            let mut next_frontier = ArrayVec::new();
+            own_area += self.move_tails_and_flood_opened(turn, &mut next_frontier);
+
+            for (snake_id, coord) in frontier.drain(..) {
+                for dir in DIRECTIONS {
+                    if self.try_mark_flood(coord + dir, snake_id, turn, &mut next_frontier) {
+                        if snake_id == 0 {
+                            own_area += 1;
+                        }
+                    }
+                }
+            }
+
+            if not_enough_area_in_turn.is_none() && own_area < own_length.min(turn) {
+                not_enough_area_in_turn = Some(turn);
+            }
+
+            if next_frontier.is_empty() && !self.has_movable_tails() {
+                break;
+            }
+
+            frontier = next_frontier;
+        }
+
+        (own_area, not_enough_area_in_turn)
+    }
+
+    fn build_flood_fill_result(&self, not_enough_area_in_turn: Option<u8>) -> FloodFillResult {
+        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| self.snake_length(id as u8));
+        let mut flooded_area = [0; SNAKES as usize];
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let FloodFillField::Filled { by } = self.board.cell(x, y).unwrap().get() else {
+                    continue;
+                };
+
+                let Some(min_turn) = by.iter().flatten().min().copied() else {
+                    continue;
+                };
+
+                let mut best_length = 0;
+                for id in 0..SNAKES as usize {
+                    if by[id] == Some(min_turn) {
+                        best_length = best_length.max(lengths[id]);
+                    }
+                }
+
+                for id in 0..SNAKES as usize {
+                    if by[id] == Some(min_turn) && lengths[id] == best_length {
+                        flooded_area[id] += 1;
+                    }
+                }
+            }
+        }
+
+        FloodFillResult {
+            not_enough_area_in_turn,
+            flooded_area,
+        }
+    }
+
+    pub fn flood_fill(&mut self, direction: Direction) -> FloodFillResult {
+        let frontier = self.prepare_flood_fill(direction);
+        let (_own_area, not_enough_area_in_turn) = self.run_flood_fill(frontier);
+        self.build_flood_fill_result(not_enough_area_in_turn)
+    }
+}
+
+pub struct FloodFillResult {
+    pub not_enough_area_in_turn: Option<u8>,
+    pub flooded_area: [u8; SNAKES as usize],
+}
+
+impl From<GameState<BasicField>> for GameState<FloodFillField> {
+    fn from(state: GameState<BasicField>) -> Self {
+        let new_board = Board::default();
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let cell = state.board.cell(x, y).unwrap();
+                new_board
+                    .cell(x, y)
+                    .unwrap()
+                    .set(FloodFillField::from(cell.get()));
+            }
+        }
+        GameState {
+            board: new_board,
+            snakes: state.snakes,
+        }
     }
 }
 
@@ -925,6 +1172,43 @@ mod tests {
         println!("Hash: {}", hash_3);
         println!("Hash: {}", hash_4);
         assert_ne!(hash_3, hash_4);
+    }
+
+    #[test]
+    fn test_flood_fill() {
+        let cases = [
+            ("requests/example_move_request.json", Direction::Up),
+            ("requests/example_move_request_2.json", Direction::Up),
+        ];
+
+        for (file, dir) in cases {
+            println!("\n=== {} direction {:?} ===", file, dir);
+            let gamestate = read_game_state(file);
+            let state = GameState::<BasicField>::from_request(
+                &gamestate.board,
+                &gamestate.you,
+                &gamestate.turn,
+            );
+            println!("{}", state);
+
+            let mut ff_state: GameState<FloodFillField> = state.into();
+            let frontier = ff_state.prepare_flood_fill(dir);
+            println!("{}", ff_state);
+
+            let (_, not_enough_area_in_turn) = ff_state.run_flood_fill(frontier);
+            let result = ff_state.build_flood_fill_result(not_enough_area_in_turn);
+
+            println!("{}", ff_state);
+            println!("Flooded area: {:?}", result.flooded_area);
+            println!("Not enough area in turn: {:?}", result.not_enough_area_in_turn);
+
+            let total: u8 = result.flooded_area.iter().sum();
+            assert!(
+                total >= (WIDTH as u8) * (HEIGHT as u8),
+                "{} dir {:?}: only {} cells owned, expected at least {}",
+                file, dir, total, (WIDTH as u8) * (HEIGHT as u8)
+            );
+        }
     }
 
     #[test]

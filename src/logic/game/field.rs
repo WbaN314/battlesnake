@@ -1,3 +1,5 @@
+use crate::logic::game::snakes::SNAKES;
+
 use super::direction::Direction;
 
 pub trait Field: Copy {
@@ -7,6 +9,12 @@ pub trait Field: Copy {
     fn value(&self) -> BasicField;
     fn tile(&self) -> [[char; 9]; 5] {
         self.value().tile()
+    }
+    fn char_priority() -> &'static [char] {
+        &[
+            'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
+            'D', 'X', '.', '+', ' ',
+        ]
     }
 }
 
@@ -69,12 +77,12 @@ impl BasicField {
                                 t[4][4] = lc;
                             }
                             Direction::Left => {
-                                t[2][3] = lc;
                                 t[2][2] = lc;
+                                t[2][0] = lc;
                             }
                             Direction::Right => {
-                                t[2][5] = lc;
                                 t[2][6] = lc;
+                                t[2][8] = lc;
                             }
                         }
                     }
@@ -130,6 +138,152 @@ impl Field for BitField {
                     _ => unreachable!(),
                 },
             },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum FloodFillField {
+    Empty,
+    Food,
+    Snake { id: u8, next: Option<Direction> },
+    Filled { by: [Option<u8>; SNAKES] },
+}
+
+impl Field for FloodFillField {
+    fn empty() -> Self {
+        FloodFillField::Empty
+    }
+
+    fn food() -> Self {
+        FloodFillField::Food
+    }
+
+    fn snake(id: u8, next: Option<Direction>) -> Self {
+        FloodFillField::Snake { id, next }
+    }
+
+    fn value(&self) -> BasicField {
+        match self {
+            FloodFillField::Empty => BasicField::Empty,
+            FloodFillField::Food => BasicField::Food,
+            FloodFillField::Snake { id, next } => BasicField::Snake {
+                id: *id,
+                next: *next,
+            },
+            FloodFillField::Filled { .. } => BasicField::Empty,
+        }
+    }
+
+    fn char_priority() -> &'static [char] {
+        &[
+            ' ', 'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B',
+            'C', 'D', 'X', '.', '+',
+        ]
+    }
+
+    fn tile(&self) -> [[char; 9]; 5] {
+        match self {
+            FloodFillField::Empty => {
+                let mut t = BasicField::Empty.tile();
+                t
+
+            }
+            FloodFillField::Food => {
+                let mut t = BasicField::Food.tile();
+
+                t
+            }
+            FloodFillField::Snake { id, next } => {
+                let mut t = BasicField::Snake {
+                    id: *id,
+                    next: *next,
+                }
+                .tile();
+                if t[1][4] == ' ' {
+                    t[1][4] = '?';
+                }
+                if t[3][4] == ' ' {
+                    t[3][4] = '?';
+                }
+                if t[0][4] == ' ' {
+                    t[0][4] = '?';
+                }
+                if t[4][4] == ' ' {
+                    t[4][4] = '?';
+                }
+                if t[2][0] == ' ' {
+                    t[2][0] = '?';
+                }
+                if t[2][8] == ' ' {
+                    t[2][8] = '?';
+                }
+                if t[2][2] == ' ' {
+                    t[2][2] = '?';
+                }
+                if t[2][6] == ' ' {
+                    t[2][6] = '?';
+                }
+                t
+            }
+            FloodFillField::Filled { by } => {
+                // Find the snake with the minimum distance (Some(n)), ignoring None slots.
+                // Display its letter, '+' if tied, ' ' if all None.
+                let mut min_val: Option<u8> = None;
+                let mut min_id: u8 = 0;
+                let mut count_min: u8 = 0;
+                for (i, &v) in by.iter().enumerate() {
+                    match (v, min_val) {
+                        (Some(val), None) => {
+                            min_val = Some(val);
+                            min_id = i as u8;
+                            count_min = 1;
+                        }
+                        (Some(val), Some(cur)) => {
+                            if val < cur {
+                                min_val = Some(val);
+                                min_id = i as u8;
+                                count_min = 1;
+                            } else if val == cur {
+                                count_min += 1;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                match count_min {
+                    0 => BasicField::Empty.tile(),
+                    1 => {
+                        let c = (b'a' + min_id) as char;
+                        let mut t = [[' '; 9]; 5];
+                        t[0][4] = c;
+                        t[1][4] = c;
+                        t[2][4] = c;
+                        t[3][4] = c;
+                        t[4][4] = c;
+                        t[2][0] = c;
+                        t[2][2] = c;
+                        t[2][6] = c;
+                        t[2][8] = c;
+                        t
+                    }
+                    _ => {
+                        let mut t = [[' '; 9]; 5];
+                        t[2][4] = '+';
+                        t
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl From<BasicField> for FloodFillField {
+    fn from(field: BasicField) -> Self {
+        match field {
+            BasicField::Empty => FloodFillField::Empty,
+            BasicField::Food => FloodFillField::Food,
+            BasicField::Snake { id, next } => FloodFillField::Snake { id, next },
         }
     }
 }
