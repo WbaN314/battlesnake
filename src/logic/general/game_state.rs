@@ -1190,8 +1190,8 @@ mod tests {
     #[test]
     fn test_flood_fill() {
         let cases = [
-            ("requests/failure_20_for_improved_area_evaluation.json", Direction::Left),
-            ("requests/failure_20_for_improved_area_evaluation.json", Direction::Down),
+            ("requests/failure_21_bait_into_trap_with_top_wall.json", Direction::Right),
+            ("requests/failure_21_bait_into_trap_with_top_wall.json", Direction::Up),
         ];
 
         for (file, dir) in cases {

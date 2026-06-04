@@ -115,18 +115,8 @@ impl NewYearNewSnake {
         }
         situation_set
     }
-}
 
-impl Brain for NewYearNewSnake {
-    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
-        let gamestate: GameState<BasicField> = gamestate.into();
-
-        #[cfg(debug_assertions)]
-        println!("{}", gamestate);
-
-        // Start with all directions and simulate
-        let mut directions = Directions::new();
-
+    fn simulation(gamestate: GameState<BasicField>, directions: &mut Directions) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .dead_ancestor_pruning()
@@ -152,37 +142,41 @@ impl Brain for NewYearNewSnake {
         {
             directions.set_index(index, false);
         }
+        result
+    }
+}
 
-        // If all are excluded, include all again
-        if directions.exhausted() {
-            directions.reset();
-        }
+impl Brain for NewYearNewSnake {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
+        let gamestate: GameState<BasicField> = gamestate.into();
 
         #[cfg(debug_assertions)]
-        let time = Instant::now();
+        println!("{}", gamestate);
 
+        let mut directions = Directions::new();
+
+        // Simulation
+        let result= NewYearNewSnake::simulation(gamestate.clone(), &mut directions);
+        directions.reset_if_exhausted();
+
+        // Situations
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
         let situation_set = NewYearNewSnake::special_situation_set();
         if let Some(direction) = situation_set.evaluate(&gamestate, &mut directions) {
             #[cfg(debug_assertions)]
             println!("Time for Situations (match): {:?}", time.elapsed());
             return direction.into();
         }
-
         #[cfg(debug_assertions)]
         {
             println!("Time for Situations: {:?}", time.elapsed());
             println!("Directions after Situations {}", directions);
         }
-
-        // Food hunting and general strategies should probably go here
-        // failure_31_going_right_leads_to_death -> better general board positioning
-        // failure_43_going_down_guarantees_getting_killed -> Single Child priority queue
-        // failure_46_go_for_kill -> Kill propagation in simulation
-        
-        // Area evaluation
-        // failure_20_for_improved_area_evaluation -> NodeID length limit reached in late game DONE
-        let mut flood_fill_results = [None; 4];
+ 
+        // Area
         directions.set_checkpoint();
+        let mut flood_fill_results = [None; 4];
         for direction in directions.iter() {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
@@ -203,6 +197,13 @@ impl Brain for NewYearNewSnake {
             }
         }
         directions.reset_if_exhausted();
+
+
+        
+        // Food hunting and general strategies should probably go here
+        // failure_31_going_right_leads_to_death -> better general board positioning
+        // failure_43_going_down_guarantees_getting_killed -> Single Child priority queue
+        // failure_46_go_for_kill -> Kill propagation in simulation
 
         // Take the best from the allowed directions or default
         directions
