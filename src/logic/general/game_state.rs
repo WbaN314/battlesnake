@@ -354,18 +354,22 @@ where
         }
 
         let mut buffer = [['?'; BUF_W]; BUF_H];
-        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| {
-            match self.snakes.cell(id as u8).get() {
+        let lengths: [u8; SNAKES as usize] =
+            std::array::from_fn(|id| match self.snakes.cell(id as u8).get() {
                 Snake::Alive { length, .. }
                 | Snake::Headless { length, .. }
                 | Snake::Vanished { length, .. } => length,
                 Snake::Dead { .. } | Snake::NonExistent => 0,
-            }
-        });
+            });
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                let tile = self.board.cell(x, y).unwrap().get().tile_with_lengths(&lengths);
+                let tile = self
+                    .board
+                    .cell(x, y)
+                    .unwrap()
+                    .get()
+                    .tile_with_lengths(&lengths);
                 let row = (HEIGHT - 1 - y) as usize * 3;
                 let col = x as usize * 6;
                 for tr in 0..5_usize {
@@ -458,227 +462,235 @@ where
 }
 
 impl GameState<FloodFillField> {
-    fn try_mark_flood(
-        &self,
-        coord: Coord,
-        snake_id: u8,
-        turn: u8,
-        frontier: &mut ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
-    ) -> bool {
-        let Some(cell) = self.board.cell(coord.x, coord.y) else {
-            return false;
-        };
-
-        match cell.get() {
-            FloodFillField::Empty | FloodFillField::Food => {
-                let mut by = [None; SNAKES as usize];
-                by[snake_id as usize] = Some(turn);
-                cell.set(FloodFillField::Filled { by });
-                frontier.push((snake_id, coord));
-                true
-            }
-            FloodFillField::Filled { mut by } => {
-                if by[snake_id as usize].is_some() {
-                    return false;
-                }
-                let earliest = by.iter().flatten().min().copied().unwrap_or(turn);
-                if turn > earliest {
-                    return false;
-                }
-                // Same-turn arrival: co-own but don't expand from here
-                by[snake_id as usize] = Some(turn);
-                cell.set(FloodFillField::Filled { by });
-                false
-            }
-            FloodFillField::Snake { .. } => false,
-        }
-    }
-
-    fn snake_length(&self, id: u8) -> u8 {
-        match self.snakes.cell(id).get() {
-            Snake::Alive { length, .. }
-            | Snake::Headless { length, .. }
-            | Snake::Vanished { length, .. } => length,
-            Snake::Dead { .. } | Snake::NonExistent => 0,
-        }
-    }
-
-    fn has_movable_tails(&self) -> bool {
-        for id in 0..SNAKES {
-            if matches!(
-                self.snakes.cell(id).get(),
-                Snake::Alive { .. } | Snake::Headless { .. }
-            ) {
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Move tails, then flood any just-opened tail cell that is adjacent to
-    /// an already-Filled cell.
-    fn move_tails_and_flood_opened(
-        &mut self,
-        turn: u8,
-        frontier: &mut ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
-    ) {
-        let mut tails: ArrayVec<Coord, { SNAKES as usize }> = ArrayVec::new();
-        for id in 0..SNAKES {
-            match self.snakes.cell(id).get() {
-                Snake::Alive { tail, stack, .. } | Snake::Headless { tail, stack, .. }
-                    if stack == 0 =>
-                {
-                    tails.push(tail);
-                }
-                _ => {}
-            }
-        }
-
+    fn prepare_flood_fill(&mut self, direction: Direction) -> FloodFillResult {
+        let mut result = FloodFillResult::new();
         self.move_tails();
 
-        for tail_coord in tails {
-            let cell = self.board.cell(tail_coord.x, tail_coord.y).unwrap();
-            if !matches!(cell.get(), FloodFillField::Empty) {
-                continue;
+        match self.snakes().cell(0).get() {
+            Snake::Alive { head, .. } => {
+                let new_head = head + direction;
+                match self.board.cell_coord(new_head).map(|f| f.get()) {
+                    Some(field @ FloodFillField::Empty) => {
+                        self.board
+                            .cell_coord(new_head)
+                            .unwrap()
+                            .set(field.fill(0, 1));
+                        result.flooded_area[0] = 1;
+                    }
+                    Some(field @ FloodFillField::Food) => {
+                        self.board
+                            .cell_coord(new_head)
+                            .unwrap()
+                            .set(field.fill(0, 1));
+                        result.flooded_area[0] = 1;
+                        result.food[0] = 1;
+                    }
+                    Some(FloodFillField::Snake { .. }) => {
+                        result.not_enough_area_in_turn[0] = Some(0);
+                    }
+                    _ => (),
+                }
             }
-            // Collect all snakes that have adjacent Filled cells
-            let mut by = [None; SNAKES as usize];
-            for dir in DIRECTIONS {
-                let neighbor = tail_coord + dir;
-                if let Some(ncell) = self.board.cell(neighbor.x, neighbor.y) {
-                    if let FloodFillField::Filled { by: nby } = ncell.get() {
-                        for id in 0..SNAKES as usize {
-                            if nby[id].is_some() && by[id].is_none() {
-                                by[id] = Some(turn);
+            _ => (),
+        }
+
+        for id in 1..SNAKES {
+            match self.snakes().cell(id).get() {
+                Snake::Alive { head, .. } => {
+                    let mut filled_one = false;
+                    for d in DIRECTIONS {
+                        let new_head = head + d;
+                        match self.board.cell_coord(new_head).map(|f| f.get()) {
+                            Some(field @ FloodFillField::Empty) => {
+                                self.board
+                                    .cell_coord(new_head)
+                                    .unwrap()
+                                    .set(field.fill(id, 1));
+                                result.flooded_area[id as usize] += 1;
+                                filled_one = true;
                             }
+                            Some(field @ FloodFillField::Food) => {
+                                self.board
+                                    .cell_coord(new_head)
+                                    .unwrap()
+                                    .set(field.fill(id, 1));
+                                result.flooded_area[id as usize] += 1;
+                                result.food[id as usize] += 1;
+                                filled_one = true;
+                            }
+                            Some(field @ FloodFillField::Filled { .. }) => {
+                                let new_field = field.fill(id, 1);
+                                self.board.cell_coord(new_head).unwrap().set(new_field);
+                                if self.score_filled_field(&mut result, &new_field, id) {
+                                    filled_one = true;
+                                }
+                            }
+                            _ => (),
+                        }
+                        if !filled_one {
+                            result.not_enough_area_in_turn[id as usize] = Some(0);
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        result
+    }
+
+    fn score_filled_field(
+        &self,
+        result: &mut FloodFillResult,
+        new_field: &FloodFillField,
+        id: u8,
+    ) -> bool {
+        let lengths = self.snakes().lengths();
+
+        match new_field {
+            FloodFillField::Filled { by, .. } => {
+                let mut best_length_on_same_turn = 0;
+                for other_id in 0..id {
+                    if by[other_id as usize] == by[id as usize] {
+                        if lengths[other_id as usize] > best_length_on_same_turn {
+                            best_length_on_same_turn = lengths[other_id as usize];
+                        }
+                    }
+                }
+
+                if lengths[id as usize] > best_length_on_same_turn {
+                    result.flooded_area[id as usize] += 1;
+                    if new_field.was_food() {
+                        result.food[id as usize] += 1;
+                    }
+
+                    for other_id in 0..id {
+                        if by[other_id as usize] == by[id as usize]
+                            && lengths[other_id as usize] == best_length_on_same_turn
+                        {
+                            result.flooded_area[other_id as usize] -= 1;
+                            if new_field.was_food() {
+                                result.food[other_id as usize] -= 1;
+                            }
+                        }
+                    }
+                    return true;
+                } else if lengths[id as usize] == best_length_on_same_turn {
+                    result.flooded_area[id as usize] += 1;
+                    if new_field.was_food() {
+                        result.food[id as usize] += 1;
+                    }
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            _ => panic!("Unexpected field type in resolve_conflict"),
+        }
+    }
+
+    fn run_flood_fill(&mut self, result: &mut FloodFillResult) {
+        let lengths = self.snakes().lengths();
+        let mut all_flooded = false;
+        let mut turn = 1;
+        let mut can_ignite_filled = [false; SNAKES as usize];
+        while !all_flooded {
+            turn += 1;
+            all_flooded = true;
+            self.move_tails();
+            for id in 0..SNAKES {
+                if result.flooded_area[id as usize] >= lengths[id as usize] {
+                    can_ignite_filled[id as usize] = true;
+                }
+            }
+            let read_board = self.board.clone();
+            for y in 0..HEIGHT {
+                for x in 0..WIDTH {
+                    match read_board.cell(x, y).unwrap().get() {
+                        field @ FloodFillField::Empty | field @ FloodFillField::Food => {
+                            all_flooded = false;
+                            let mut can_fill = [false; SNAKES as usize];
+                            for d in DIRECTIONS {
+                                let neighbor_coord = Coord::new(x, y) + d;
+                                match read_board.cell_coord(neighbor_coord).map(|f| f.get()) {
+                                    Some(FloodFillField::Filled { hot, .. }) => {
+                                        for id in 0..SNAKES {
+                                            if hot[id as usize] {
+                                                can_fill[id as usize] = true;
+                                            }
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                            let best_length_of_snakes_that_can_fill = (0..SNAKES)
+                                .filter(|other_id| can_fill[*other_id as usize])
+                                .map(|other_id| lengths[other_id as usize])
+                                .max()
+                                .unwrap_or(0);
+                            let mut new_field = field;
+                            for id in 0..SNAKES {
+                                if can_fill[id as usize]
+                                {
+                                    new_field = new_field.fill(id, turn);
+                                    if lengths[id as usize] == best_length_of_snakes_that_can_fill {
+                                        result.flooded_area[id as usize] += 1;
+                                        if new_field.was_food() {
+                                            result.food[id as usize] += 1;
+                                        }
+                                    }
+                                }
+                            }
+                            self.board.cell(x, y).unwrap().set(new_field);
+                        }
+                        FloodFillField::Snake { .. } => all_flooded = false,
+                        field @ FloodFillField::Filled { .. } => {
+                            let mut can_ignite = [false; SNAKES as usize];
+                            for d in DIRECTIONS {
+                                let neighbor_coord = Coord::new(x, y) + d;
+                                match read_board.cell_coord(neighbor_coord).map(|f| f.get()) {
+                                    Some(FloodFillField::Filled {
+                                        hot: neighbor_hot, ..
+                                    }) => {
+                                        for id in 0..SNAKES {
+                                            if neighbor_hot[id as usize] {
+                                                can_ignite[id as usize] = true;
+                                            }
+                                        }
+                                    }
+                                    _ => (),
+                                }
+                            }
+                            let best_length_of_snakes_that_can_ignite = (0..SNAKES)
+                                .filter(|other_id| can_ignite[*other_id as usize])
+                                .map(|other_id| lengths[other_id as usize])
+                                .max()
+                                .unwrap_or(0);
+                            let mut new_field = field.cool();
+                            for id in 0..SNAKES {
+                                if can_ignite[id as usize] && can_ignite_filled[id as usize]
+                                    && lengths[id as usize] == best_length_of_snakes_that_can_ignite
+                                {
+                                    new_field = new_field.ignite(id);
+                                }
+                            }
+                            self.board.cell(x, y).unwrap().set(new_field);
                         }
                     }
                 }
             }
-            if by.iter().any(|v| v.is_some()) {
-                cell.set(FloodFillField::Filled { by });
-                for id in 0..SNAKES as usize {
-                    if by[id].is_some() {
-                        frontier.push((id as u8, tail_coord));
-                    }
+            
+            for id in 0..SNAKES {
+                if result.flooded_area[id as usize] < turn.min(lengths[id as usize]) && result.not_enough_area_in_turn[id as usize].is_none() {
+                    result.not_enough_area_in_turn[id as usize] = Some(turn);
                 }
             }
-        }
-    }
-
-    fn prepare_flood_fill(
-        &mut self,
-        direction: Direction,
-    ) -> ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }> {
-        let mut frontier = ArrayVec::new();
-        self.move_tails();
-
-        if let Snake::Alive { head, .. } = self.snakes.cell(0).get() {
-            let _ = self.try_mark_flood(head + direction, 0, 1, &mut frontier);
-        }
-
-        for id in 1..SNAKES as usize {
-            if let Snake::Alive { head, .. } = self.snakes.cell(id as u8).get() {
-                for dir in DIRECTIONS {
-                    let _ = self.try_mark_flood(head + dir, id as u8, 1, &mut frontier);
-                }
-            }
-        }
-
-        frontier
-    }
-
-    fn run_flood_fill(
-        &mut self,
-        mut frontier: ArrayVec<(u8, Coord), { WIDTH as usize * HEIGHT as usize }>,
-    ) -> [Option<u8>; SNAKES as usize] {
-        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| self.snake_length(id as u8));
-        let mut areas = [0u8; SNAKES as usize];
-        for &(id, _) in &frontier {
-            areas[id as usize] += 1;
-        }
-        let mut turn = 1;
-        let mut not_enough_area_in_turn = [None; SNAKES as usize];
-
-        for id in 0..SNAKES as usize {
-            if lengths[id] > 0 && areas[id] < lengths[id].min(turn) {
-                not_enough_area_in_turn[id] = Some(turn);
-            }
-        }
-
-        loop {
-            turn += 1;
-            let mut next_frontier = ArrayVec::new();
-            self.move_tails_and_flood_opened(turn, &mut next_frontier);
-
-            // Count area added by move_tails_and_flood_opened
-            for &(id, _) in &next_frontier {
-                areas[id as usize] += 1;
-            }
-
-            for (snake_id, coord) in frontier.drain(..) {
-                for dir in DIRECTIONS {
-                    if self.try_mark_flood(coord + dir, snake_id, turn, &mut next_frontier) {
-                        areas[snake_id as usize] += 1;
-                    }
-                }
-            }
-
-            for id in 0..SNAKES as usize {
-                if not_enough_area_in_turn[id].is_none() && lengths[id] > 0 && areas[id] < lengths[id].min(turn) {
-                    not_enough_area_in_turn[id] = Some(turn);
-                }
-            }
-
-            if next_frontier.is_empty() && !self.has_movable_tails() {
-                break;
-            }
-
-            frontier = next_frontier;
-        }
-
-        not_enough_area_in_turn
-    }
-
-    fn build_flood_fill_result(&self, not_enough_area_in_turn: [Option<u8>; SNAKES as usize]) -> FloodFillResult {
-        let lengths: [u8; SNAKES as usize] = std::array::from_fn(|id| self.snake_length(id as u8));
-        let mut flooded_area = [0; SNAKES as usize];
-
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                let FloodFillField::Filled { by } = self.board.cell(x, y).unwrap().get() else {
-                    continue;
-                };
-
-                let Some(min_turn) = by.iter().flatten().min().copied() else {
-                    continue;
-                };
-
-                let mut best_length = 0;
-                for id in 0..SNAKES as usize {
-                    if by[id] == Some(min_turn) {
-                        best_length = best_length.max(lengths[id]);
-                    }
-                }
-
-                for id in 0..SNAKES as usize {
-                    if by[id] == Some(min_turn) && lengths[id] == best_length {
-                        flooded_area[id] += 1;
-                    }
-                }
-            }
-        }
-
-        FloodFillResult {
-            not_enough_area_in_turn,
-            flooded_area,
         }
     }
 
     pub fn flood_fill(&mut self, direction: Direction) -> FloodFillResult {
-        let frontier = self.prepare_flood_fill(direction);
-        let not_enough_area_in_turn = self.run_flood_fill(frontier);
-        self.build_flood_fill_result(not_enough_area_in_turn)
+        let mut result = self.prepare_flood_fill(direction);
+        self.run_flood_fill(&mut result);
+        result
     }
 }
 
@@ -686,6 +698,17 @@ impl GameState<FloodFillField> {
 pub struct FloodFillResult {
     pub not_enough_area_in_turn: [Option<u8>; SNAKES as usize],
     pub flooded_area: [u8; SNAKES as usize],
+    pub food: [u8; SNAKES as usize],
+}
+
+impl FloodFillResult {
+    pub fn new() -> Self {
+        FloodFillResult {
+            not_enough_area_in_turn: [None; SNAKES as usize],
+            flooded_area: [0; SNAKES as usize],
+            food: [0; SNAKES as usize],
+        }
+    }
 }
 
 impl From<GameState<BasicField>> for GameState<FloodFillField> {
@@ -1190,8 +1213,14 @@ mod tests {
     #[test]
     fn test_flood_fill() {
         let cases = [
-            ("requests/failure_21_bait_into_trap_with_top_wall.json", Direction::Right),
-            ("requests/failure_21_bait_into_trap_with_top_wall.json", Direction::Up),
+            (
+                "requests/failure_21_bait_into_trap_with_top_wall.json",
+                Direction::Right,
+            ),
+            (
+                "requests/failure_21_bait_into_trap_with_top_wall.json",
+                Direction::Up,
+            ),
         ];
 
         for (file, dir) in cases {
@@ -1205,20 +1234,21 @@ mod tests {
             println!("{}", state);
 
             let mut ff_state: GameState<FloodFillField> = state.into();
-            let frontier = ff_state.prepare_flood_fill(dir);
-
-            let not_enough_area_in_turn = ff_state.run_flood_fill(frontier);
-            let result = ff_state.build_flood_fill_result(not_enough_area_in_turn);
+           
+            let result = ff_state.flood_fill(dir);
 
             println!("{}", ff_state);
-            println!("Flooded area: {:?}", result.flooded_area);
-            println!("Not enough area in turn: {:?}", result.not_enough_area_in_turn);
+            println!("{:?}", ff_state.board().cell(1, 5).unwrap().get());
+            println!("{:?}", result);
 
             let total: u8 = result.flooded_area.iter().sum();
             assert!(
                 total >= (WIDTH as u8) * (HEIGHT as u8),
                 "{} dir {:?}: only {} cells owned, expected at least {}",
-                file, dir, total, (WIDTH as u8) * (HEIGHT as u8)
+                file,
+                dir,
+                total,
+                (WIDTH as u8) * (HEIGHT as u8)
             );
         }
     }

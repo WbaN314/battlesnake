@@ -145,12 +145,88 @@ impl Field for BitField {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum FloodFillField {
     Empty,
     Food,
-    Snake { id: u8, next: Option<Direction> },
-    Filled { by: [Option<u8>; SNAKES] },
+    Snake {
+        id: u8,
+        next: Option<Direction>,
+    },
+    Filled {
+        by: [Option<u8>; SNAKES],
+        was_food: bool,
+        hot: [bool; SNAKES],
+    },
+}
+
+impl FloodFillField {
+    pub fn fill(self, id: u8, turn: u8) -> Self {
+        match self {
+            Self::Empty => {
+                let mut by = [None; SNAKES];
+                by[id as usize] = Some(turn);
+                let mut hot = [false; SNAKES];
+                hot[id as usize] = true;
+                Self::Filled {
+                    by,
+                    was_food: false,
+                    hot,
+                }
+            }
+            Self::Food => {
+                let mut by = [None; SNAKES];
+                by[id as usize] = Some(turn);
+                let mut hot = [false; SNAKES];
+                hot[id as usize] = true;
+                Self::Filled {
+                    by,
+                    was_food: true,
+                    hot,
+                }
+            }
+            Self::Filled { by, was_food, hot } => {
+                let mut new_by = by;
+                new_by[id as usize] = Some(turn);
+                let mut new_hot = hot;
+                new_hot[id as usize] = true;
+                Self::Filled {
+                    by: new_by,
+                    was_food,
+                    hot: new_hot,
+                }
+            }
+            _ => panic!("Cannot fill a cell that is already occupied by a snake"),
+        }
+    }
+
+    pub fn was_food(&self) -> bool {
+        match self {
+            Self::Filled { was_food, .. } => *was_food,
+            _ => panic!("was_food can only be called on Filled fields"),
+        }
+    }
+
+    pub fn ignite(self, id: u8) -> Self {
+        match self {
+            Self::Filled { by, was_food, hot } => {
+                let mut new_hot = hot;
+                new_hot[id as usize] = true;
+                Self::Filled { by, was_food, hot: new_hot }
+            }
+            _ => panic!("Cannot ignite a cell that is not filled"),
+        }
+    }
+
+    pub fn cool(self) -> Self {
+        match self {
+            Self::Filled { by, was_food, .. } => {
+                let new_hot = [false; SNAKES];
+                Self::Filled { by, was_food, hot: new_hot }
+            }
+            _ => panic!("Cannot cool a cell that is not filled"),
+        }
+    }
 }
 
 impl Field for FloodFillField {
@@ -227,7 +303,7 @@ impl Field for FloodFillField {
                 }
                 t
             }
-            FloodFillField::Filled { by } => {
+            FloodFillField::Filled { by, .. } => {
                 // Find the snake with the minimum distance (Some(n)), ignoring None slots.
                 // Display its letter, '+' if tied, ' ' if all None.
                 let mut min_val: Option<u8> = None;

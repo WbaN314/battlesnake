@@ -37,6 +37,19 @@ impl Snakes {
     pub fn cell(&self, id: u8) -> &Cell<Snake> {
         &self.snakes[id as usize]
     }
+
+    pub fn lengths(&self) -> [u8; SNAKES] {
+        let mut lengths = [0; SNAKES];
+        for i in 0..SNAKES {
+            match self.cell(i as u8).get() {
+                Snake::Alive { length, .. } => lengths[i] = length,
+                Snake::Headless { length, .. } => lengths[i] = length,
+                Snake::Vanished { length, .. } => lengths[i] = length,
+                _ => (),
+            }
+        }
+        lengths
+    }
 }
 
 impl From<OriginalGameState> for Snakes {

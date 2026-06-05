@@ -59,6 +59,10 @@ impl<T: Field> Board<T> {
             .and_then(|row| row.get(x as usize))
     }
 
+    pub fn cell_coord(&self, coord: Coord) -> Option<&Cell<T>> {
+        self.cell(coord.x, coord.y)
+    }
+
     pub fn remove_snake(&self, snake: Snake) {
         match snake {
             Snake::Alive {
