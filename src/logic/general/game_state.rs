@@ -331,36 +331,8 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         const BUF_H: usize = 2 + HEIGHT as usize * 3;
         const BUF_W: usize = 3 + WIDTH as usize * 6;
-        let char_priority = T::char_priority();
 
-        fn priority_winner(existing: char, incoming: char, priority: &[char]) -> char {
-            if existing == '?' {
-                return incoming;
-            }
-            let pos_existing = priority.iter().position(|&c| c == existing);
-            let pos_incoming = priority.iter().position(|&c| c == incoming);
-            match (pos_existing, pos_incoming) {
-                (Some(e), Some(i)) => {
-                    if e <= i {
-                        existing
-                    } else {
-                        incoming
-                    }
-                }
-                (Some(_), None) => existing,
-                (None, Some(_)) => incoming,
-                (None, None) => incoming,
-            }
-        }
-
-        let mut buffer = [['?'; BUF_W]; BUF_H];
-        let lengths: [u8; SNAKES as usize] =
-            std::array::from_fn(|id| match self.snakes.cell(id as u8).get() {
-                Snake::Alive { length, .. }
-                | Snake::Headless { length, .. }
-                | Snake::Vanished { length, .. } => length,
-                Snake::Dead { .. } | Snake::NonExistent => 0,
-            });
+        let mut buffer = [[' '; BUF_W]; BUF_H];
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
@@ -369,16 +341,21 @@ where
                     .cell(x, y)
                     .unwrap()
                     .get()
-                    .tile_with_lengths(&lengths);
-                let row = (HEIGHT - 1 - y) as usize * 3;
-                let col = x as usize * 6;
-                for tr in 0..5_usize {
-                    for tc in 0..9_usize {
+                    .tile(
+                        self.board.cell(x, y + 1).map(|f| f.get()),
+                        self.board.cell(x, y - 1).map(|f| f.get()),
+                        self.board.cell(x - 1, y).map(|f| f.get()),
+                        self.board.cell(x + 1, y).map(|f| f.get()),
+                    );
+                let row = (HEIGHT - 1 - y) as usize * 3 + 1;
+                let col = x as usize * 6 + 2;
+                for tr in 0..3_usize {
+                    for tc in 0..5_usize {
                         let c = tile[tr][tc];
                         let br = row + tr;
                         let bc = col + tc;
                         if br < BUF_H && bc < BUF_W {
-                            buffer[br][bc] = priority_winner(buffer[br][bc], c, char_priority);
+                            buffer[br][bc] = c;
                         }
                     }
                 }
@@ -393,7 +370,7 @@ where
                     let row = (HEIGHT - 1 - tail.y) as usize * 3 + 2;
                     let col = tail.x as usize * 6 + 4;
                     let digit = (stack + b'0') as char;
-                    buffer[row][col] = priority_winner(buffer[row][col], digit, char_priority);
+                    buffer[row][col] = digit;
                 }
                 _ => (),
             }

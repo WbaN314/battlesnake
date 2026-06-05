@@ -7,17 +7,14 @@ pub trait Field: Copy {
     fn food() -> Self;
     fn snake(id: u8, next: Option<Direction>) -> Self;
     fn value(&self) -> BasicField;
-    fn tile(&self) -> [[char; 9]; 5] {
-        self.value().tile()
-    }
-    fn tile_with_lengths(&self, _lengths: &[u8; SNAKES as usize]) -> [[char; 9]; 5] {
-        self.tile()
-    }
-    fn char_priority() -> &'static [char] {
-        &[
-            'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
-            'D', 'X', '.', '+', ' ',
-        ]
+    fn tile(
+        &self,
+        up: Option<Self>,
+        down: Option<Self>,
+        left: Option<Self>,
+        right: Option<Self>,
+    ) -> [[char; 5]; 3] {
+        self.value().tile(up.map(|f| f.value()), down.map(|f| f.value()), left.map(|f| f.value()), right.map(|f| f.value()))
     }
 }
 
@@ -47,14 +44,20 @@ impl Field for BasicField {
 }
 
 impl BasicField {
-    pub fn tile(&self) -> [[char; 9]; 5] {
-        let mut t = [[' '; 9]; 5];
+    pub fn tile(
+        &self,
+        up: Option<Self>,
+        down: Option<Self>,
+        left: Option<Self>,
+        right: Option<Self>,
+    ) -> [[char; 5]; 3] {
+        let mut t = [[' '; 5]; 3];
         match *self {
             BasicField::Empty => {
-                t[2][4] = '.';
+                t[1][2] = '.';
             }
             BasicField::Food => {
-                t[2][4] = 'X';
+                t[1][2] = 'X';
             }
             BasicField::Snake { id, next } => {
                 let lc = (b'a' + id) as char;
@@ -62,32 +65,72 @@ impl BasicField {
                 match next {
                     None => {
                         // head: uppercase letter at center + 4 cardinal neighbors
-                        t[2][2] = uc;
-                        t[2][4] = uc;
-                        t[2][6] = uc;
+                        t[1][0] = uc;
+                        t[1][2] = uc;
                         t[1][4] = uc;
-                        t[3][4] = uc;
+                        t[0][2] = uc;
+                        t[2][2] = uc;
                     }
                     Some(dir) => {
-                        t[2][4] = '+';
+                        t[1][2] = '+';
                         match dir {
                             Direction::Up => {
-                                t[0][4] = lc;
-                                t[1][4] = lc;
+                                t[0][2] = lc;
                             }
                             Direction::Down => {
-                                t[3][4] = lc;
-                                t[4][4] = lc;
+                                t[2][2] = lc;
                             }
                             Direction::Left => {
-                                t[2][2] = lc;
-                                t[2][0] = lc;
+                                t[1][0] = lc;
                             }
                             Direction::Right => {
-                                t[2][6] = lc;
-                                t[2][8] = lc;
+                                t[1][4] = lc;
                             }
                         }
+                    }
+                }
+                if let Some(neighbor) = up {
+                    if matches!(
+                        neighbor.value(),
+                        BasicField::Snake {
+                            next: Some(Direction::Down),
+                            ..
+                        }
+                    ) {
+                        t[0][2] = lc;
+                    }
+                }
+                if let Some(neighbor) = down {
+                    if matches!(
+                        neighbor.value(),
+                        BasicField::Snake {
+                            next: Some(Direction::Up),
+                            ..
+                        }
+                    ) {
+                        t[2][2] = lc;
+                    }
+                }
+                if let Some(neighbor) = left {
+                    if matches!(
+                        neighbor.value(),
+                        BasicField::Snake {
+                            next: Some(Direction::Right),
+                            ..
+                        }
+                    ) {
+                        t[1][0] = lc;
+                    }
+                }
+                if let Some(neighbor) = right {
+                    if matches!(
+                        neighbor.value(),
+                        BasicField::Snake {
+                            next: Some(Direction::Left),
+                            ..
+                        }
+                    ) {
+                        t[1][4] = lc;
                     }
                 }
             }
@@ -212,7 +255,11 @@ impl FloodFillField {
             Self::Filled { by, was_food, hot } => {
                 let mut new_hot = hot;
                 new_hot[id as usize] = true;
-                Self::Filled { by, was_food, hot: new_hot }
+                Self::Filled {
+                    by,
+                    was_food,
+                    hot: new_hot,
+                }
             }
             _ => panic!("Cannot ignite a cell that is not filled"),
         }
@@ -222,7 +269,11 @@ impl FloodFillField {
         match self {
             Self::Filled { by, was_food, .. } => {
                 let new_hot = [false; SNAKES];
-                Self::Filled { by, was_food, hot: new_hot }
+                Self::Filled {
+                    by,
+                    was_food,
+                    hot: new_hot,
+                }
             }
             _ => panic!("Cannot cool a cell that is not filled"),
         }
@@ -254,121 +305,107 @@ impl Field for FloodFillField {
         }
     }
 
-    fn char_priority() -> &'static [char] {
-        &[
-            ' ', 'a', 'b', 'c', 'd', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B',
-            'C', 'D', 'X', '.', '+',
-        ]
-    }
-
-    fn tile_with_lengths(&self, lengths: &[u8; SNAKES as usize]) -> [[char; 9]; 5] {
+    fn tile(
+        &self,
+        up: Option<Self>,
+        down: Option<Self>,
+        left: Option<Self>,
+        right: Option<Self>,
+    ) -> [[char; 5]; 3] {
         match self {
             FloodFillField::Empty => {
-                let t = BasicField::Empty.tile();
+                let t = BasicField::Empty.tile(
+                    up.map(|f| f.value()),
+                    down.map(|f| f.value()),
+                    left.map(|f| f.value()),
+                    right.map(|f| f.value()),
+                );
                 t
             }
             FloodFillField::Food => {
-                let t = BasicField::Food.tile();
+                let t = BasicField::Food.tile(
+                    up.map(|f| f.value()),
+                    down.map(|f| f.value()),
+                    left.map(|f| f.value()),
+                    right.map(|f| f.value()),
+                );
                 t
             }
-            FloodFillField::Snake { id, next } => {
-                let mut t = BasicField::Snake {
-                    id: *id,
-                    next: *next,
-                }
-                .tile();
-                if t[1][4] == ' ' {
-                    t[1][4] = '?';
-                }
-                if t[3][4] == ' ' {
-                    t[3][4] = '?';
-                }
-                if t[0][4] == ' ' {
-                    t[0][4] = '?';
-                }
-                if t[4][4] == ' ' {
-                    t[4][4] = '?';
-                }
-                if t[2][0] == ' ' {
-                    t[2][0] = '?';
-                }
-                if t[2][8] == ' ' {
-                    t[2][8] = '?';
-                }
-                if t[2][2] == ' ' {
-                    t[2][2] = '?';
-                }
-                if t[2][6] == ' ' {
-                    t[2][6] = '?';
-                }
-                t
+            FloodFillField::Snake { id, next } => BasicField::Snake {
+                id: *id,
+                next: *next,
             }
+            .tile(
+                up.map(|f| f.value()),
+                down.map(|f| f.value()),
+                left.map(|f| f.value()),
+                right.map(|f| f.value()),
+            ),
             FloodFillField::Filled { by, .. } => {
-                // Find the snake with the minimum distance (Some(n)), ignoring None slots.
-                // Display its letter, '+' if tied, ' ' if all None.
-                let mut min_val: Option<u8> = None;
-                let mut min_id: u8 = 0;
-                let mut count_min: u8 = 0;
-                let mut max_len_min_id = None;
-                let mut max_len_min_id_count = 0;
-                for (i, &v) in by.iter().enumerate() {
-                    match (v, min_val) {
-                        (Some(val), None) => {
-                            min_val = Some(val);
-                            min_id = i as u8;
-                            count_min = 1;
-                            max_len_min_id = Some(i as u8);
-                            max_len_min_id_count = 1;
+                let mut tile = [[' '; 5]; 3];
+                let lowest = by.iter().filter_map(|&x| x).min().unwrap();
+                let count = by
+                    .iter()
+                    .filter_map(|&x| x)
+                    .filter(|&x| x == lowest)
+                    .count();
+
+                if count > 1 {
+                    tile[1][2] = '+';
+                } else {
+                    let id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                    let lc = (b'a' + id) as char;
+                    let uc = (b'A' + id) as char;
+                    tile[1][2] = uc;
+
+                    if let Some(FloodFillField::Filled { by, .. }) = up {
+                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
+                        let count = by
+                            .iter()
+                            .filter_map(|&x| x)
+                            .filter(|&x| x == lowest)
+                            .count();
+                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                        if count == 1 && this_id == id {
+                            tile[0][2] = lc;
                         }
-                        (Some(val), Some(cur)) => {
-                            if val < cur {
-                                min_val = Some(val);
-                                min_id = i as u8;
-                                count_min = 1;
-                                max_len_min_id = Some(i as u8);
-                                max_len_min_id_count = 1;
-                            } else if val == cur {
-                                count_min += 1;
-                                if let Some(current) = max_len_min_id {
-                                    if lengths[i] > lengths[current as usize] {
-                                        max_len_min_id = Some(i as u8);
-                                        max_len_min_id_count = 1;
-                                    } else if lengths[i] == lengths[current as usize] {
-                                        max_len_min_id_count += 1;
-                                    }
-                                }
-                            }
+                    }
+                    if let Some(FloodFillField::Filled { by, .. }) = down {
+                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
+                        let count = by
+                            .iter()
+                            .filter_map(|&x| x)
+                            .filter(|&x| x == lowest)
+                            .count();
+                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                        if count == 1 && this_id == id {
+                            tile[2][2] = lc;
                         }
-                        _ => {}
+                    }
+                    if let Some(FloodFillField::Filled { by, .. }) = left {
+                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
+                        let count = by
+                            .iter().filter_map(|&x| x)
+                            .filter(|&x| x == lowest)
+                            .count();
+                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                        if count == 1 && this_id == id {
+                            tile[1][0] = lc;
+                        }
+                    }
+                    if let Some(FloodFillField::Filled { by, .. }) = right {
+                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
+                        let count = by
+                            .iter().filter_map(|&x| x)
+                            .filter(|&x| x == lowest)
+                            .count();
+                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                        if count == 1 && this_id == id {
+                            tile[1][4] = lc;
+                        }
                     }
                 }
-                match count_min {
-                    0 => BasicField::Empty.tile(),
-                    1 => {
-                        let c = (b'a' + min_id) as char;
-                        let mut t = [[' '; 9]; 5];
-                        t[0][4] = c;
-                        t[1][4] = c;
-                        t[2][4] = c;
-                        t[3][4] = c;
-                        t[4][4] = c;
-                        t[2][0] = c;
-                        t[2][2] = c;
-                        t[2][6] = c;
-                        t[2][8] = c;
-                        t
-                    }
-                    _ => {
-                        let mut t = [[' '; 9]; 5];
-                        if max_len_min_id_count == 1 {
-                            let c = (b'a' + max_len_min_id.unwrap()) as char;
-                            t[2][4] = c;
-                        } else {
-                            t[2][4] = '+';
-                        }
-                        t
-                    }
-                }
+                tile
             }
         }
     }
