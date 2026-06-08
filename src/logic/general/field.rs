@@ -13,8 +13,15 @@ pub trait Field: Copy {
         down: Option<Self>,
         left: Option<Self>,
         right: Option<Self>,
+        turn: u8,
     ) -> [[char; 5]; 3] {
-        self.value().tile(up.map(|f| f.value()), down.map(|f| f.value()), left.map(|f| f.value()), right.map(|f| f.value()))
+        self.value().tile(
+            up.map(|f| f.value()),
+            down.map(|f| f.value()),
+            left.map(|f| f.value()),
+            right.map(|f| f.value()),
+            turn,
+        )
     }
 }
 
@@ -50,6 +57,7 @@ impl BasicField {
         down: Option<Self>,
         left: Option<Self>,
         right: Option<Self>,
+        turn: u8,
     ) -> [[char; 5]; 3] {
         let mut t = [[' '; 5]; 3];
         match *self {
@@ -190,8 +198,12 @@ impl Field for BitField {
 
 #[derive(Clone, Copy, Debug)]
 pub enum FloodFillField {
-    Empty,
-    Food,
+    Empty {
+        turn: Option<u8>,
+    },
+    Food {
+        turn: Option<u8>,
+    },
     Snake {
         id: u8,
         next: Option<Direction>,
@@ -199,46 +211,36 @@ pub enum FloodFillField {
     Filled {
         by: [Option<u8>; SNAKES],
         was_food: bool,
-        hot: [bool; SNAKES],
+        hot: [Option<u8>; SNAKES],
     },
 }
 
 impl FloodFillField {
     pub fn fill(self, id: u8, turn: u8) -> Self {
         match self {
-            Self::Empty => {
+            Self::Empty { .. } => {
                 let mut by = [None; SNAKES];
                 by[id as usize] = Some(turn);
-                let mut hot = [false; SNAKES];
-                hot[id as usize] = true;
+                let mut hot = [None; SNAKES];
+                hot[id as usize] = Some(turn);
                 Self::Filled {
                     by,
                     was_food: false,
                     hot,
                 }
             }
-            Self::Food => {
+            Self::Food { .. } => {
                 let mut by = [None; SNAKES];
                 by[id as usize] = Some(turn);
-                let mut hot = [false; SNAKES];
-                hot[id as usize] = true;
+                let mut hot = [None; SNAKES];
+                hot[id as usize] = Some(turn);
                 Self::Filled {
                     by,
                     was_food: true,
                     hot,
                 }
             }
-            Self::Filled { by, was_food, hot } => {
-                let mut new_by = by;
-                new_by[id as usize] = Some(turn);
-                let mut new_hot = hot;
-                new_hot[id as usize] = true;
-                Self::Filled {
-                    by: new_by,
-                    was_food,
-                    hot: new_hot,
-                }
-            }
+            field @ Self::Filled { .. } => field.ignite(id, turn),
             _ => panic!("Cannot fill a cell that is already occupied by a snake"),
         }
     }
@@ -250,11 +252,17 @@ impl FloodFillField {
         }
     }
 
-    pub fn ignite(self, id: u8) -> Self {
+    pub fn ignite(self, id: u8, turn: u8) -> Self {
         match self {
             Self::Filled { by, was_food, hot } => {
+                if let Some(existing_turn) = hot[id as usize] {
+                    if turn < existing_turn + 4 || (turn - existing_turn) % 2 != 0 {
+                        return self;
+                    }
+                }
+
                 let mut new_hot = hot;
-                new_hot[id as usize] = true;
+                new_hot[id as usize] = Some(turn);
                 Self::Filled {
                     by,
                     was_food,
@@ -265,28 +273,18 @@ impl FloodFillField {
         }
     }
 
-    pub fn cool(self) -> Self {
-        match self {
-            Self::Filled { by, was_food, .. } => {
-                let new_hot = [false; SNAKES];
-                Self::Filled {
-                    by,
-                    was_food,
-                    hot: new_hot,
-                }
-            }
-            _ => panic!("Cannot cool a cell that is not filled"),
-        }
+    pub fn tail(turn: u8) -> Self {
+        FloodFillField::Empty { turn: Some(turn) }
     }
 }
 
 impl Field for FloodFillField {
     fn empty() -> Self {
-        FloodFillField::Empty
+        FloodFillField::Empty { turn: None }
     }
 
     fn food() -> Self {
-        FloodFillField::Food
+        FloodFillField::Food { turn: None }
     }
 
     fn snake(id: u8, next: Option<Direction>) -> Self {
@@ -295,8 +293,8 @@ impl Field for FloodFillField {
 
     fn value(&self) -> BasicField {
         match self {
-            FloodFillField::Empty => BasicField::Empty,
-            FloodFillField::Food => BasicField::Food,
+            FloodFillField::Empty { .. } => BasicField::Empty,
+            FloodFillField::Food { .. } => BasicField::Food,
             FloodFillField::Snake { id, next } => BasicField::Snake {
                 id: *id,
                 next: *next,
@@ -311,25 +309,40 @@ impl Field for FloodFillField {
         down: Option<Self>,
         left: Option<Self>,
         right: Option<Self>,
+        turn: u8,
     ) -> [[char; 5]; 3] {
         match self {
-            FloodFillField::Empty => {
-                let t = BasicField::Empty.tile(
-                    up.map(|f| f.value()),
-                    down.map(|f| f.value()),
-                    left.map(|f| f.value()),
-                    right.map(|f| f.value()),
-                );
-                t
+            FloodFillField::Empty { turn: stored_turn } => {
+                if *stored_turn == Some(turn) {
+                    let mut t = [[' '; 5]; 3];
+                    t[1][2] = 'T';
+                    t
+                } else {
+                    let t = BasicField::Empty.tile(
+                        up.map(|f| f.value()),
+                        down.map(|f| f.value()),
+                        left.map(|f| f.value()),
+                        right.map(|f| f.value()),
+                        turn,
+                    );
+                    t
+                }    
             }
-            FloodFillField::Food => {
-                let t = BasicField::Food.tile(
-                    up.map(|f| f.value()),
-                    down.map(|f| f.value()),
-                    left.map(|f| f.value()),
-                    right.map(|f| f.value()),
-                );
-                t
+            FloodFillField::Food { turn: stored_turn } => {
+                if *stored_turn == Some(turn) {
+                    let mut t = [[' '; 5]; 3];
+                    t[1][2] = 'T';
+                    t
+                } else {
+                    let t = BasicField::Food.tile(
+                        up.map(|f| f.value()),
+                        down.map(|f| f.value()),
+                        left.map(|f| f.value()),
+                        right.map(|f| f.value()),
+                        turn,
+                    );
+                    t
+                } 
             }
             FloodFillField::Snake { id, next } => BasicField::Snake {
                 id: *id,
@@ -340,8 +353,9 @@ impl Field for FloodFillField {
                 down.map(|f| f.value()),
                 left.map(|f| f.value()),
                 right.map(|f| f.value()),
+                turn,
             ),
-            FloodFillField::Filled { by, .. } => {
+            FloodFillField::Filled { by, hot, .. } => {
                 let mut tile = [[' '; 5]; 3];
                 let lowest = by.iter().filter_map(|&x| x).min().unwrap();
                 let count = by
@@ -356,7 +370,12 @@ impl Field for FloodFillField {
                     let id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
                     let lc = (b'a' + id) as char;
                     let uc = (b'A' + id) as char;
-                    tile[1][2] = uc;
+
+                    if hot[id as usize] == Some(turn) {
+                        tile[1][2] = uc;
+                    } else {
+                        tile[1][2] = lc;
+                    }
 
                     if let Some(FloodFillField::Filled { by, .. }) = up {
                         let lowest = by.iter().filter_map(|&x| x).min().unwrap();
@@ -385,7 +404,8 @@ impl Field for FloodFillField {
                     if let Some(FloodFillField::Filled { by, .. }) = left {
                         let lowest = by.iter().filter_map(|&x| x).min().unwrap();
                         let count = by
-                            .iter().filter_map(|&x| x)
+                            .iter()
+                            .filter_map(|&x| x)
                             .filter(|&x| x == lowest)
                             .count();
                         let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
@@ -396,7 +416,8 @@ impl Field for FloodFillField {
                     if let Some(FloodFillField::Filled { by, .. }) = right {
                         let lowest = by.iter().filter_map(|&x| x).min().unwrap();
                         let count = by
-                            .iter().filter_map(|&x| x)
+                            .iter()
+                            .filter_map(|&x| x)
                             .filter(|&x| x == lowest)
                             .count();
                         let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
@@ -414,8 +435,8 @@ impl Field for FloodFillField {
 impl From<BasicField> for FloodFillField {
     fn from(field: BasicField) -> Self {
         match field {
-            BasicField::Empty => FloodFillField::Empty,
-            BasicField::Food => FloodFillField::Food,
+            BasicField::Empty => FloodFillField::Empty { turn: None },
+            BasicField::Food => FloodFillField::Food { turn: None },
             BasicField::Snake { id, next } => FloodFillField::Snake { id, next },
         }
     }

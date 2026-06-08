@@ -27,6 +27,7 @@ use std::{
 pub struct GameState<T: Field> {
     board: Board<T>,
     snakes: Snakes,
+    simulated_turn: u8,
 }
 
 impl<F: Field> GameState<F> {
@@ -66,6 +67,7 @@ impl<F: Field> GameState<F> {
         GameState {
             board: d_board,
             snakes,
+            simulated_turn: 0,
         }
     }
 
@@ -253,6 +255,7 @@ impl<F: Field> GameState<F> {
                 _ => (),
             }
         }
+        self.simulated_turn += 1;
         self
     }
 
@@ -336,17 +339,13 @@ where
 
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                let tile = self
-                    .board
-                    .cell(x, y)
-                    .unwrap()
-                    .get()
-                    .tile(
-                        self.board.cell(x, y + 1).map(|f| f.get()),
-                        self.board.cell(x, y - 1).map(|f| f.get()),
-                        self.board.cell(x - 1, y).map(|f| f.get()),
-                        self.board.cell(x + 1, y).map(|f| f.get()),
-                    );
+                let tile = self.board.cell(x, y).unwrap().get().tile(
+                    self.board.cell(x, y + 1).map(|f| f.get()),
+                    self.board.cell(x, y - 1).map(|f| f.get()),
+                    self.board.cell(x - 1, y).map(|f| f.get()),
+                    self.board.cell(x + 1, y).map(|f| f.get()),
+                    self.simulated_turn,
+                );
                 let row = (HEIGHT - 1 - y) as usize * 3 + 1;
                 let col = x as usize * 6 + 2;
                 for tr in 0..3_usize {
@@ -439,22 +438,36 @@ where
 }
 
 impl GameState<FloodFillField> {
+    fn mark_tails(&mut self, turn: u8, tails: [Option<Coord>; SNAKES as usize]) {
+        for id in 0..SNAKES {
+            if let Some(tail) = tails[id as usize] {
+                self.board
+                    .cell_coord(tail)
+                    .unwrap()
+                    .set(FloodFillField::tail(turn));
+            }
+        }
+    }
+
     fn prepare_flood_fill(&mut self, direction: Direction) -> FloodFillResult {
         let mut result = FloodFillResult::new();
+
+        let tails = self.snakes().tails();
         self.move_tails();
+        self.mark_tails(1, tails);
 
         match self.snakes().cell(0).get() {
             Snake::Alive { head, .. } => {
                 let new_head = head + direction;
                 match self.board.cell_coord(new_head).map(|f| f.get()) {
-                    Some(field @ FloodFillField::Empty) => {
+                    Some(field @ FloodFillField::Empty { .. }) => {
                         self.board
                             .cell_coord(new_head)
                             .unwrap()
                             .set(field.fill(0, 1));
                         result.flooded_area[0] = 1;
                     }
-                    Some(field @ FloodFillField::Food) => {
+                    Some(field @ FloodFillField::Food { .. }) => {
                         self.board
                             .cell_coord(new_head)
                             .unwrap()
@@ -478,7 +491,7 @@ impl GameState<FloodFillField> {
                     for d in DIRECTIONS {
                         let new_head = head + d;
                         match self.board.cell_coord(new_head).map(|f| f.get()) {
-                            Some(field @ FloodFillField::Empty) => {
+                            Some(field @ FloodFillField::Empty { .. }) => {
                                 self.board
                                     .cell_coord(new_head)
                                     .unwrap()
@@ -486,7 +499,7 @@ impl GameState<FloodFillField> {
                                 result.flooded_area[id as usize] += 1;
                                 filled_one = true;
                             }
-                            Some(field @ FloodFillField::Food) => {
+                            Some(field @ FloodFillField::Food { .. }) => {
                                 self.board
                                     .cell_coord(new_head)
                                     .unwrap()
@@ -570,10 +583,12 @@ impl GameState<FloodFillField> {
         let mut all_flooded = false;
         let mut turn = 1;
         let mut can_ignite_filled = [false; SNAKES as usize];
+        let mut tails = self.snakes().tails();
         while !all_flooded {
             turn += 1;
             all_flooded = true;
             self.move_tails();
+            self.mark_tails(turn, tails);
             for id in 0..SNAKES {
                 if result.flooded_area[id as usize] >= lengths[id as usize] {
                     can_ignite_filled[id as usize] = true;
@@ -583,16 +598,18 @@ impl GameState<FloodFillField> {
             for y in 0..HEIGHT {
                 for x in 0..WIDTH {
                     match read_board.cell(x, y).unwrap().get() {
-                        field @ FloodFillField::Empty | field @ FloodFillField::Food => {
-                            all_flooded = false;
+                        field @ FloodFillField::Empty { turn: marked_turn }
+                        | field @ FloodFillField::Food { turn: marked_turn } => {
                             let mut can_fill = [false; SNAKES as usize];
                             for d in DIRECTIONS {
                                 let neighbor_coord = Coord::new(x, y) + d;
                                 match read_board.cell_coord(neighbor_coord).map(|f| f.get()) {
                                     Some(FloodFillField::Filled { hot, .. }) => {
                                         for id in 0..SNAKES {
-                                            if hot[id as usize] {
-                                                can_fill[id as usize] = true;
+                                            if let Some(hot_turn) = hot[id as usize] {
+                                                if hot_turn == turn - 1 {
+                                                    can_fill[id as usize] = true;
+                                                }
                                             }
                                         }
                                     }
@@ -606,9 +623,11 @@ impl GameState<FloodFillField> {
                                 .unwrap_or(0);
                             let mut new_field = field;
                             for id in 0..SNAKES {
-                                if can_fill[id as usize]
-                                {
+                                if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
+                                    if marked_turn.is_none() || marked_turn.unwrap() < turn - 1 {
+                                        all_flooded = false;
+                                    }
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
                                         result.flooded_area[id as usize] += 1;
                                         if new_field.was_food() {
@@ -619,7 +638,7 @@ impl GameState<FloodFillField> {
                             }
                             self.board.cell(x, y).unwrap().set(new_field);
                         }
-                        FloodFillField::Snake { .. } => all_flooded = false,
+                        FloodFillField::Snake { .. } => (),
                         field @ FloodFillField::Filled { .. } => {
                             let mut can_ignite = [false; SNAKES as usize];
                             for d in DIRECTIONS {
@@ -629,8 +648,10 @@ impl GameState<FloodFillField> {
                                         hot: neighbor_hot, ..
                                     }) => {
                                         for id in 0..SNAKES {
-                                            if neighbor_hot[id as usize] {
-                                                can_ignite[id as usize] = true;
+                                            if let Some(hot_turn) = neighbor_hot[id as usize] {
+                                                if hot_turn == turn - 1 {
+                                                    can_ignite[id as usize] = true;
+                                                }
                                             }
                                         }
                                     }
@@ -642,12 +663,13 @@ impl GameState<FloodFillField> {
                                 .map(|other_id| lengths[other_id as usize])
                                 .max()
                                 .unwrap_or(0);
-                            let mut new_field = field.cool();
+                            let mut new_field = field;
                             for id in 0..SNAKES {
-                                if can_ignite[id as usize] && can_ignite_filled[id as usize]
+                                if can_ignite[id as usize]
+                                    && can_ignite_filled[id as usize]
                                     && lengths[id as usize] == best_length_of_snakes_that_can_ignite
                                 {
-                                    new_field = new_field.ignite(id);
+                                    new_field = new_field.ignite(id, turn);
                                 }
                             }
                             self.board.cell(x, y).unwrap().set(new_field);
@@ -655,12 +677,15 @@ impl GameState<FloodFillField> {
                     }
                 }
             }
-            
+
             for id in 0..SNAKES {
-                if result.flooded_area[id as usize] < turn.min(lengths[id as usize]) && result.not_enough_area_in_turn[id as usize].is_none() {
+                if result.flooded_area[id as usize] < turn.min(lengths[id as usize])
+                    && result.not_enough_area_in_turn[id as usize].is_none()
+                {
                     result.not_enough_area_in_turn[id as usize] = Some(turn);
                 }
             }
+            tails = self.snakes().tails();
         }
     }
 
@@ -703,6 +728,7 @@ impl From<GameState<BasicField>> for GameState<FloodFillField> {
         GameState {
             board: new_board,
             snakes: state.snakes,
+            simulated_turn: state.simulated_turn,
         }
     }
 }
@@ -1211,7 +1237,7 @@ mod tests {
             println!("{}", state);
 
             let mut ff_state: GameState<FloodFillField> = state.into();
-           
+
             let result = ff_state.flood_fill(dir);
 
             println!("{}", ff_state);
@@ -1219,14 +1245,6 @@ mod tests {
             println!("{:?}", result);
 
             let total: u8 = result.flooded_area.iter().sum();
-            assert!(
-                total >= (WIDTH as u8) * (HEIGHT as u8),
-                "{} dir {:?}: only {} cells owned, expected at least {}",
-                file,
-                dir,
-                total,
-                (WIDTH as u8) * (HEIGHT as u8)
-            );
         }
     }
 

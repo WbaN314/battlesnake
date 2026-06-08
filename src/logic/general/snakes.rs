@@ -1,5 +1,5 @@
 use super::snake::Snake;
-use crate::{OriginalBattlesnake, OriginalBoard, OriginalGameState};
+use crate::{OriginalBattlesnake, OriginalBoard, OriginalGameState, logic::general::coord::Coord};
 use std::cell::Cell;
 
 pub const SNAKES: usize = 4;
@@ -49,6 +49,18 @@ impl Snakes {
             }
         }
         lengths
+    }
+
+    pub fn tails(&self) -> [Option<Coord>; SNAKES] {
+        let mut tails = [None; SNAKES];
+        for i in 0..SNAKES {
+            match self.cell(i as u8).get() {
+                Snake::Alive { tail, .. } => tails[i] = Some(tail),
+                Snake::Headless { tail, .. } => tails[i] = Some(tail),
+                _ => (),
+            }
+        }
+        tails
     }
 }
 
