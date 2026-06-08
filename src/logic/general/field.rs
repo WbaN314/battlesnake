@@ -255,16 +255,25 @@ impl FloodFillField {
     pub fn ignite(self, id: u8, turn: u8) -> Self {
         match self {
             Self::Filled { by, was_food, hot } => {
+                let mut new_by = by;
+                if new_by[id as usize].is_none() {
+                    new_by[id as usize] = Some(turn);
+                }
+
                 if let Some(existing_turn) = hot[id as usize] {
                     if turn < existing_turn + 4 || (turn - existing_turn) % 2 != 0 {
-                        return self;
+                        return Self::Filled {
+                            by: new_by,
+                            was_food,
+                            hot,
+                        };
                     }
                 }
 
                 let mut new_hot = hot;
                 new_hot[id as usize] = Some(turn);
                 Self::Filled {
-                    by,
+                    by: new_by,
                     was_food,
                     hot: new_hot,
                 }
