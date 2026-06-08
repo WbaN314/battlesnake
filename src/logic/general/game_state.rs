@@ -740,7 +740,7 @@ mod tests {
 
     #[test]
     fn test_memory_size() {
-        assert_eq!(std::mem::size_of::<GameState<BasicField>>(), 278);
+        assert_eq!(std::mem::size_of::<GameState<BasicField>>(), 279);
     }
 
     #[test]
