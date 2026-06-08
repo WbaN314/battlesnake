@@ -176,25 +176,14 @@ impl Brain for NewYearNewSnake {
  
         // Area
         directions.set_checkpoint();
-        let mut flood_fill_results = [None; 4];
         for direction in directions.iter() {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
-            if result.not_enough_area_in_turn[0].is_some() {
-                directions.set(direction, false);
-            }
-            flood_fill_results[direction as usize] = Some(result);
-        }
-        // Log if another snake has not enough area for an allowed direction
-        #[cfg(debug_assertions)]
-        for direction in directions.iter() {
-            if let Some(result) = &flood_fill_results[direction as usize] {
-                for (id, turn) in result.not_enough_area_in_turn.iter().enumerate().skip(1) {
-                    if let Some(t) = turn {
-                        println!("Not enough area for snake {} going {:?} at turn {}", (id as u8 + b'A') as char, direction, t);
-                    }
-                }
-            }
+             #[cfg(debug_assertions)]
+             {
+                println!("Flood fill for direction {:?} resulted in: {:?}", direction, result);
+                println!("{}", state);
+             }
         }
         directions.reset_if_exhausted();
 

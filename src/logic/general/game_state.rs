@@ -517,9 +517,9 @@ impl GameState<FloodFillField> {
                             }
                             _ => (),
                         }
-                        if !filled_one {
-                            result.not_enough_area_in_turn[id as usize] = Some(0);
-                        }
+                    }
+                    if !filled_one {
+                        result.not_enough_area_in_turn[id as usize] = Some(0);
                     }
                 }
                 _ => (),

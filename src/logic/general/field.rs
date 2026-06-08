@@ -355,7 +355,7 @@ impl Field for FloodFillField {
                 right.map(|f| f.value()),
                 turn,
             ),
-            FloodFillField::Filled { by, hot, .. } => {
+            FloodFillField::Filled { by, hot, was_food } => {
                 let mut tile = [[' '; 5]; 3];
                 let lowest = by.iter().filter_map(|&x| x).min().unwrap();
                 let count = by
@@ -375,6 +375,9 @@ impl Field for FloodFillField {
                         tile[1][2] = uc;
                     } else {
                         tile[1][2] = lc;
+                        if *was_food {
+                            tile[1][2] = 'X';
+                        }
                     }
 
                     if let Some(FloodFillField::Filled { by, .. }) = up {
