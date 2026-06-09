@@ -92,22 +92,7 @@ impl NewYearNewSnake {
                 } else {
                     false
                 }
-            }),
-            // Eat Food
-            Situation::recommending(
-                "
-                X A",
-                Direction::Left,
-            )
-            .full_symmetry(),
-            // Move away from walls
-            Situation::recommending(
-                "
-                W A .
-                ",
-                Direction::Right,
-            )
-            .full_symmetry(),
+            })
         ]);
         #[cfg(debug_assertions)]
         {
@@ -196,6 +181,12 @@ impl Brain for NewYearNewSnake {
              {
                 println!("Flood fill for direction {:?} resulted in: {:?}", direction, result);
                 println!("{}", state);
+             }
+             if result.not_enough_area_in_turn[0].is_some() {
+                directions.set(direction, false);
+             }
+             if result.not_enough_area_in_turn[1..].iter().any(|turn| turn.is_some()) {
+                // TODO: Set preference for this direction because other Snake is probably spaced out
              }
         }
         directions.reset_if_exhausted();
