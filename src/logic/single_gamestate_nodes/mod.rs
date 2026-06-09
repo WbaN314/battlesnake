@@ -117,7 +117,7 @@ impl NewYearNewSnake {
         let result = tree.result();
 
         #[cfg(debug_assertions)]
-        println!("{}", tree.stats());
+        // println!("{}", tree.stats());
 
         directions.set_checkpoint();
         // Exclude DeadIn directions
