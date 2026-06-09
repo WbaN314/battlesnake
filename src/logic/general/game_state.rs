@@ -345,7 +345,7 @@ where
                     self.board.cell(x - 1, y).map(|f| f.get()),
                     self.board.cell(x + 1, y).map(|f| f.get()),
                     self.simulated_turn,
-                    self.snakes().lengths()
+                    self.snakes().lengths(),
                 );
                 let row = (HEIGHT - 1 - y) as usize * 3 + 1;
                 let col = x as usize * 6 + 2;
@@ -626,9 +626,6 @@ impl GameState<FloodFillField> {
                             for id in 0..SNAKES {
                                 if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
-                                    if marked_turn.is_none() || marked_turn.unwrap() < turn - 1 {
-                                        all_flooded = false;
-                                    }
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
                                         result.flooded_area[id as usize] += 1;
                                         if new_field.was_food() {
@@ -636,6 +633,10 @@ impl GameState<FloodFillField> {
                                         }
                                     }
                                 }
+                            }
+                            // Run again if there is at least one floodable field that is not a last round tail field
+                            if marked_turn.is_none() || marked_turn.unwrap() < turn - 1 {
+                                all_flooded = false;
                             }
                             self.board.cell(x, y).unwrap().set(new_field);
                         }
