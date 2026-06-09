@@ -22,9 +22,12 @@ impl Directions {
         self.bools = self.checkpoint;
     }
 
-    pub fn reset_if_exhausted(&mut self) {
-        if self.exhausted() {
+    pub fn reset_if_exhausted(&mut self) -> bool {
+         if self.exhausted() {
             self.reset();
+            true
+        } else {
+            false
         }
     }
 

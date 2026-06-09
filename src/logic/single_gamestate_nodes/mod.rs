@@ -134,6 +134,7 @@ impl NewYearNewSnake {
         #[cfg(debug_assertions)]
         println!("{}", tree.stats());
 
+        directions.set_checkpoint();
         // Exclude DeadIn directions
         for (index, _) in result
             .iter()
@@ -142,6 +143,18 @@ impl NewYearNewSnake {
         {
             directions.set_index(index, false);
         }
+
+        if directions.reset_if_exhausted() {
+            // Exclude DeadIn(0) directions at least
+            for (index, _) in result
+            .iter()
+            .enumerate()
+            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(0)))
+            {
+                directions.set_index(index, false);
+            }
+        }
+
         result
     }
 }
