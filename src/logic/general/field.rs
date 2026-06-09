@@ -14,6 +14,7 @@ pub trait Field: Copy {
         left: Option<Self>,
         right: Option<Self>,
         turn: u8,
+        lengths: [u8; SNAKES],
     ) -> [[char; 5]; 3] {
         self.value().tile(
             up.map(|f| f.value()),
@@ -21,6 +22,7 @@ pub trait Field: Copy {
             left.map(|f| f.value()),
             right.map(|f| f.value()),
             turn,
+            lengths,
         )
     }
 }
@@ -58,6 +60,7 @@ impl BasicField {
         left: Option<Self>,
         right: Option<Self>,
         turn: u8,
+        lengths: [u8; SNAKES],
     ) -> [[char; 5]; 3] {
         let mut t = [[' '; 5]; 3];
         match *self {
@@ -319,6 +322,7 @@ impl Field for FloodFillField {
         left: Option<Self>,
         right: Option<Self>,
         turn: u8,
+        lengths: [u8; SNAKES],
     ) -> [[char; 5]; 3] {
         match self {
             FloodFillField::Empty { turn: stored_turn } => {
@@ -333,6 +337,7 @@ impl Field for FloodFillField {
                         left.map(|f| f.value()),
                         right.map(|f| f.value()),
                         turn,
+                        lengths
                     );
                     t
                 }    
@@ -349,6 +354,7 @@ impl Field for FloodFillField {
                         left.map(|f| f.value()),
                         right.map(|f| f.value()),
                         turn,
+                        lengths
                     );
                     t
                 } 
@@ -363,20 +369,36 @@ impl Field for FloodFillField {
                 left.map(|f| f.value()),
                 right.map(|f| f.value()),
                 turn,
+                lengths
             ),
             FloodFillField::Filled { by, hot, was_food } => {
                 let mut tile = [[' '; 5]; 3];
-                let lowest = by.iter().filter_map(|&x| x).min().unwrap();
-                let count = by
-                    .iter()
-                    .filter_map(|&x| x)
-                    .filter(|&x| x == lowest)
-                    .count();
+                let winner_id = |by: &[Option<u8>; SNAKES]| -> Option<u8> {
+                    let lowest = by.iter().filter_map(|&x| x).min()?;
+                    let longest_lowest = by
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, x)| **x == Some(lowest))
+                        .map(|(i, _)| lengths[i])
+                        .max()
+                        .unwrap();
 
-                if count > 1 {
-                    tile[1][2] = '+';
-                } else {
-                    let id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
+                    let mut winners = by
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, x)| **x == Some(lowest))
+                        .filter(|(i, _)| lengths[*i] == longest_lowest)
+                        .map(|(i, _)| i as u8);
+
+                    let first = winners.next()?;
+                    if winners.next().is_some() {
+                        None
+                    } else {
+                        Some(first)
+                    }
+                };
+
+                if let Some(id) = winner_id(by) {
                     let lc = (b'a' + id) as char;
                     let uc = (b'A' + id) as char;
 
@@ -390,53 +412,27 @@ impl Field for FloodFillField {
                     }
 
                     if let Some(FloodFillField::Filled { by, .. }) = up {
-                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
-                        let count = by
-                            .iter()
-                            .filter_map(|&x| x)
-                            .filter(|&x| x == lowest)
-                            .count();
-                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
-                        if count == 1 && this_id == id {
+                        if winner_id(&by) == Some(id) {
                             tile[0][2] = lc;
                         }
                     }
                     if let Some(FloodFillField::Filled { by, .. }) = down {
-                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
-                        let count = by
-                            .iter()
-                            .filter_map(|&x| x)
-                            .filter(|&x| x == lowest)
-                            .count();
-                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
-                        if count == 1 && this_id == id {
+                        if winner_id(&by) == Some(id) {
                             tile[2][2] = lc;
                         }
                     }
                     if let Some(FloodFillField::Filled { by, .. }) = left {
-                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
-                        let count = by
-                            .iter()
-                            .filter_map(|&x| x)
-                            .filter(|&x| x == lowest)
-                            .count();
-                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
-                        if count == 1 && this_id == id {
+                        if winner_id(&by) == Some(id) {
                             tile[1][0] = lc;
                         }
                     }
                     if let Some(FloodFillField::Filled { by, .. }) = right {
-                        let lowest = by.iter().filter_map(|&x| x).min().unwrap();
-                        let count = by
-                            .iter()
-                            .filter_map(|&x| x)
-                            .filter(|&x| x == lowest)
-                            .count();
-                        let this_id = by.iter().position(|&x| x == Some(lowest)).unwrap() as u8;
-                        if count == 1 && this_id == id {
+                        if winner_id(&by) == Some(id) {
                             tile[1][4] = lc;
                         }
                     }
+                } else {
+                    tile[1][2] = '+';
                 }
                 tile
             }

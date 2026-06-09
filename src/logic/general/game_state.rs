@@ -345,6 +345,7 @@ where
                     self.board.cell(x - 1, y).map(|f| f.get()),
                     self.board.cell(x + 1, y).map(|f| f.get()),
                     self.simulated_turn,
+                    self.snakes().lengths()
                 );
                 let row = (HEIGHT - 1 - y) as usize * 3 + 1;
                 let col = x as usize * 6 + 2;
