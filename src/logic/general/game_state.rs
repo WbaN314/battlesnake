@@ -442,10 +442,16 @@ impl GameState<FloodFillField> {
     fn mark_tails(&mut self, turn: u8, tails: [Option<Coord>; SNAKES as usize]) {
         for id in 0..SNAKES {
             if let Some(tail) = tails[id as usize] {
-                self.board
-                    .cell_coord(tail)
-                    .unwrap()
-                    .set(FloodFillField::tail(turn));
+                if let Some(cell) = self.board.cell_coord(tail) {
+                    // Only mark if the tail cell was actually cleared by move_tails().
+                    // When stack > 0, move_tails() decrements stack without advancing the
+                    // tail, so the cell is still FloodFillField::Snake. Overwriting it
+                    // with an Empty cell would cause the next move_tails() to vanish the
+                    // snake prematurely while its body remains on the board.
+                    if matches!(cell.get(), FloodFillField::Empty { turn: None }) {
+                        cell.set(FloodFillField::tail(turn));
+                    }
+                }
             }
         }
     }

@@ -6,7 +6,8 @@ use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
         general::{
-            direction::{Direction, Directions},
+            direction::{DIRECTIONS, Direction, Directions},
+            evaluation::Evaluation,
             field::{BasicField, FloodFillField},
             game_state::GameState,
             snake::Snake,
@@ -92,7 +93,7 @@ impl NewYearNewSnake {
                 } else {
                     false
                 }
-            })
+            }),
         ]);
         #[cfg(debug_assertions)]
         {
@@ -101,7 +102,10 @@ impl NewYearNewSnake {
         situation_set
     }
 
-    fn simulation(gamestate: GameState<BasicField>, directions: &mut Directions) -> [NodeStatus; 4] {
+    fn simulation(
+        gamestate: GameState<BasicField>,
+        evaluation: &mut Evaluation,
+    ) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .dead_ancestor_pruning()
@@ -119,24 +123,17 @@ impl NewYearNewSnake {
         #[cfg(debug_assertions)]
         // println!("{}", tree.stats());
 
-        directions.set_checkpoint();
         // Exclude DeadIn directions
-        for (index, _) in result
-            .iter()
-            .enumerate()
-            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(_)))
-        {
-            directions.set_index(index, false);
-        }
-
-        if directions.reset_if_exhausted() {
-            // Exclude DeadIn(0) directions at least
-            for (index, _) in result
-            .iter()
-            .enumerate()
-            .filter(|(_, status)| matches!(status, NodeStatus::DeadIn(0)))
-            {
-                directions.set_index(index, false);
+        evaluation.new_section("Simulation");
+        for (index, result) in result.into_iter().enumerate() {
+            match result {
+                NodeStatus::DeadIn(n) => {
+                    evaluation.eliminate(index.try_into().unwrap(), n.min(4))
+                }
+                NodeStatus::AliveFor(n) => {
+                    evaluation.score(index.try_into().unwrap(), n as i32)
+                }
+                _ => {}
             }
         }
 
@@ -147,71 +144,68 @@ impl NewYearNewSnake {
 impl Brain for NewYearNewSnake {
     fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
         let gamestate: GameState<BasicField> = gamestate.into();
+        let mut evaluation = Evaluation::new();
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
 
-        let mut directions = Directions::new();
-
         // Simulation
-        let result= NewYearNewSnake::simulation(gamestate.clone(), &mut directions);
-        directions.reset_if_exhausted();
+        let result = NewYearNewSnake::simulation(gamestate.clone(), &mut evaluation);
+
+        #[cfg(debug_assertions)]
+        {
+            println!("{:?}", result);
+        }
 
         // Situations
         #[cfg(debug_assertions)]
         let time = Instant::now();
         let situation_set = NewYearNewSnake::special_situation_set();
-        if let Some(direction) = situation_set.evaluate(&gamestate, &mut directions) {
-            #[cfg(debug_assertions)]
-            println!("Time for Situations (match): {:?}", time.elapsed());
-            return direction.into();
-        }
+        situation_set.evaluate(&gamestate, &mut evaluation);
+
         #[cfg(debug_assertions)]
         {
             println!("Time for Situations: {:?}", time.elapsed());
-            println!("Directions after Situations {}", directions);
         }
- 
+
         // Area
-        directions.set_checkpoint();
-        for direction in directions.iter() {
+        evaluation.new_section("Capture");
+        for direction in DIRECTIONS {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
-             #[cfg(debug_assertions)]
-             {
-                println!("Flood fill for direction {:?} resulted in: {:?}", direction, result);
+            #[cfg(debug_assertions)]
+            {
+                println!(
+                    "Flood fill for direction {:?} resulted in: {:?}",
+                    direction, result
+                );
                 println!("{}", state);
-             }
-             if result.not_enough_area_in_turn[0].is_some() {
-                directions.set(direction, false);
-             }
-             if result.not_enough_area_in_turn[1..].iter().any(|turn| turn.is_some()) {
-                // TODO: Set preference for this direction because other Snake is probably spaced out
-             }
+            }
+            if let Some(turn) = result.not_enough_area_in_turn[0] {
+                evaluation.eliminate(direction, turn.min(16));
+            }
+            let squeezed_snakes = result.not_enough_area_in_turn[1..]
+                .iter()
+                .filter(|x|x.is_some())
+                .count() as i32;
+            evaluation.score(direction, squeezed_snakes * 100);
+            evaluation.score(direction, result.flooded_area[0] as i32);
+            evaluation.score(direction, result.food[0] as i32 * 10);
         }
-        directions.reset_if_exhausted();
 
-
-        
         // Food hunting and general strategies should probably go here
         // failure_31_going_right_leads_to_death -> better general board positioning
         // failure_43_going_down_guarantees_getting_killed -> Single Child priority queue
         // failure_46_go_for_kill -> Kill propagation in simulation
 
-        // Take the best from the allowed directions or default
-        directions
-            .into_iter()
-            .filter_map(|dir| {
-                let index: usize = dir.into();
-                if result[index].is_comparable() {
-                    Some((dir, result[index]))
-                } else {
-                    None
-                }
-            })
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(dir, _)| dir)
-            .unwrap_or(Direction::Up)
-            .into()
+        let direction = evaluation.result();
+
+        #[cfg(debug_assertions)]
+        {
+            println!("{}", evaluation);
+            println!("Selected direction: {}", direction);
+        }
+
+        direction.into()
     }
 }

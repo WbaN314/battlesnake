@@ -5,11 +5,7 @@ use situation_field::SituationField;
 use std::fmt;
 
 use crate::logic::general::{
-    direction::{Direction, Directions},
-    field::BasicField,
-    game_state::GameState,
-    snake::Snake,
-    snakes::SNAKES,
+    direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::SNAKES
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -225,21 +221,17 @@ impl SituationSet {
     pub fn evaluate(
         &self,
         gamestate: &GameState<BasicField>,
-        directions: &mut Directions,
+        evaluation: &mut Evaluation,
     ) -> Option<Direction> {
+        evaluation.new_section("Situations");
         for situation in &self.situations {
             match situation.check(gamestate) {
-                Some(SituationMatch::Recommend([Some(direction), ..]))
-                    if directions.get(direction) =>
+                Some(SituationMatch::Recommend([Some(direction), ..])) =>
                 {
-                    return Some(direction);
+                    evaluation.score(direction, 100);
                 }
                 Some(SituationMatch::Avoid([Some(direction), ..])) => {
-                    directions.set(direction, false);
-                    // If only one direction remains, return it
-                    if let Some(only) = directions.only_one_left() {
-                        return Some(only);
-                    }
+                    evaluation.eliminate(direction, 0);
                 }
                 _ => {}
             }
@@ -613,7 +605,7 @@ mod benchmarks {
     use super::{Situation, SituationSet};
     use crate::{
         logic::general::{
-            direction::{Direction, Directions}, field::BasicField, game_state::GameState, snake::Snake,
+            direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake
         },
         read_game_state,
     };
@@ -746,7 +738,8 @@ mod benchmarks {
             let state = &states[i % states.len()];
             i += 1;
             let mut directions = black_box(Directions::new());
-            black_box(situation_set.evaluate(black_box(state), &mut directions))
+            let mut evaluation = black_box(Evaluation::new());
+            black_box(situation_set.evaluate(black_box(state), &mut evaluation))
         });
     }
 }
