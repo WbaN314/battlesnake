@@ -38,6 +38,8 @@ impl NewYearNewSnake {
                 W N B
                 ",
             [Some(Direction::Up), Some(Direction::Up), None, None],
+            0,
+            "Fast Track",
         )
         .full_symmetry()
         .condition(|snakes| {
@@ -61,11 +63,22 @@ impl NewYearNewSnake {
             // Kill by lead
             Situation::recommending(
                 "
+                X A
+                ",
+                Direction::Left,
+                60,
+                "Grab Food",
+            )
+            .full_symmetry(),
+            Situation::recommending(
+                "
                 W N *
                 W B N
                 W . A
                 ",
                 Direction::Down,
+                100,
+                "Kill by Lead",
             )
             .full_symmetry(),
             // Kill by follow
@@ -75,6 +88,8 @@ impl NewYearNewSnake {
                 W N A
                 ",
                 Direction::Up,
+                100,
+                "Kill by Follow",
             )
             .full_symmetry()
             .condition(|snakes| {

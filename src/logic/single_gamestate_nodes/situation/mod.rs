@@ -5,7 +5,7 @@ use situation_field::SituationField;
 use std::fmt;
 
 use crate::logic::general::{
-    direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::SNAKES
+    direction::{Direction}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::SNAKES
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -228,7 +228,7 @@ impl SituationSet {
             match situation.check(gamestate) {
                 Some(SituationMatch::Recommend([Some(direction), ..])) =>
                 {
-                    evaluation.score(direction, 100, "Recommend");
+                    evaluation.score(direction, situation.score, situation.detail.clone());
                 }
                 Some(SituationMatch::Avoid([Some(direction), ..])) => {
                     evaluation.eliminate(direction, 0);
@@ -243,35 +243,52 @@ impl SituationSet {
 pub struct Situation {
     patterns: Vec<SituationPattern>,
     condition: Option<fn([Snake; 4]) -> bool>,
+    score: i32,
+    detail: String,
 }
 
 impl Situation {
-    pub fn recommending(str: &str, direction: Direction) -> Self {
+    pub fn recommending(str: &str, direction: Direction, score: i32, detail: impl Into<String>) -> Self {
         Self::build(
             str,
             SituationMatch::Recommend([Some(direction), None, None, None]),
+            score,
+            detail,
         )
     }
 
-    pub fn avoiding(str: &str, direction: Direction) -> Self {
+    pub fn avoiding(str: &str, direction: Direction, detail: impl Into<String>) -> Self {
         Self::build(
             str,
             SituationMatch::Avoid([Some(direction), None, None, None]),
+            0,
+            detail,
         )
     }
 
-    pub fn multi_recommending(str: &str, directions: [Option<Direction>; SNAKES]) -> Self {
-        Self::build(str, SituationMatch::Recommend(directions))
+    pub fn multi_recommending(
+        str: &str,
+        directions: [Option<Direction>; SNAKES],
+        score: i32,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self::build(str, SituationMatch::Recommend(directions), score, detail)
     }
 
-    pub fn multi_avoiding(str: &str, directions: [Option<Direction>; SNAKES]) -> Self {
-        Self::build(str, SituationMatch::Avoid(directions))
+    pub fn multi_avoiding(
+        str: &str,
+        directions: [Option<Direction>; SNAKES],
+        detail: impl Into<String>,
+    ) -> Self {
+        Self::build(str, SituationMatch::Avoid(directions), 0, detail)
     }
 
-    fn build(str: &str, result: SituationMatch) -> Self {
+    fn build(str: &str, result: SituationMatch, score: i32, detail: impl Into<String>) -> Self {
         Self {
             patterns: vec![SituationPattern::parse(str, result)],
             condition: None,
+            score,
+            detail: detail.into(),
         }
     }
 
@@ -342,10 +359,11 @@ impl Situation {
 
 #[cfg(test)]
 mod tests {
-    use super::Situation;
+    use super::{Situation, SituationSet};
     use crate::{
         logic::general::{
-            direction::Direction, field::BasicField, game_state::GameState, snake::Snake,
+            direction::Direction, evaluation::Evaluation, field::BasicField, game_state::GameState,
+            snake::Snake,
         },
         read_game_state,
     };
@@ -363,6 +381,8 @@ mod tests {
             N N .
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_some());
 
@@ -373,6 +393,8 @@ mod tests {
             N N N
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_none());
 
@@ -383,6 +405,8 @@ mod tests {
             N . .
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_some());
 
@@ -393,6 +417,8 @@ mod tests {
             N .
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_some());
 
@@ -403,6 +429,8 @@ mod tests {
             N N N
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_some());
 
@@ -413,6 +441,8 @@ mod tests {
             N B N
             ",
             Direction::Up,
+            100,
+            "Test",
         );
         assert!(situation.check(&state).is_some());
     }
@@ -425,6 +455,8 @@ mod tests {
             . N .
             ",
             Direction::Up,
+            100,
+            "Test",
         )
         .rotational();
 
@@ -471,6 +503,8 @@ mod tests {
             N A .
             ",
             Direction::Right,
+            100,
+            "Test",
         )
         .mirrored();
 
@@ -509,6 +543,8 @@ mod tests {
             . . .
             ",
             Direction::Right,
+            100,
+            "Test",
         )
         .full_symmetry();
 
@@ -547,12 +583,12 @@ mod tests {
 
         // Pattern matches but condition fails (3 > 3 is false) → no match
         let situation =
-            Situation::recommending(pattern, Direction::Up).condition(own_longer_than_b);
+            Situation::recommending(pattern, Direction::Up, 100, "Test").condition(own_longer_than_b);
         assert!(situation.check(&state).is_none());
 
         // Pattern matches and condition passes (3 >= 3 is true) → match
         let situation =
-            Situation::recommending(pattern, Direction::Up).condition(own_not_shorter_than_b);
+            Situation::recommending(pattern, Direction::Up, 100, "Test").condition(own_not_shorter_than_b);
         assert!(situation.check(&state).is_some());
     }
 
@@ -574,6 +610,8 @@ mod tests {
             B * *
             ",
             dirs,
+            100,
+            "Test",
         );
 
         let result = situation.check(&state);
@@ -595,6 +633,28 @@ mod tests {
             }
             other => panic!("expected Recommend, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_evaluate_uses_situation_score_and_detail() {
+        let gamestate = read_game_state("requests/test_move_request_2.json");
+        let state = GameState::<BasicField>::from(&gamestate);
+        let situation_set = SituationSet::new(vec![Situation::recommending(
+            "
+            . . .
+            . A .
+            N N .
+            ",
+            Direction::Up,
+            37,
+            "Custom Detail",
+        )]);
+        let mut evaluation = Evaluation::new();
+
+        situation_set.evaluate(&state, &mut evaluation);
+
+        assert_eq!(evaluation.result(), Direction::Up);
+        assert!(format!("{}", evaluation).contains("Custom Detail"));
     }
 }
 
@@ -636,6 +696,8 @@ mod benchmarks {
             W . A
             ",
             Direction::Down,
+            100,
+            "Benchmark",
         )
         .full_symmetry();
 
@@ -656,6 +718,8 @@ mod benchmarks {
             W N A
             ",
             Direction::Up,
+            100,
+            "Benchmark",
         )
         .full_symmetry()
         .condition(|snakes| {
@@ -692,6 +756,8 @@ mod benchmarks {
                 W . A
                 ",
                 Direction::Down,
+                100,
+                "Kill by lead",
             )
             .full_symmetry(),
             // Kill by follow
@@ -701,6 +767,8 @@ mod benchmarks {
                 W N A
                 ",
                 Direction::Up,
+                100,
+                "Kill by follow",
             )
             .full_symmetry()
             .condition(|snakes| {
@@ -721,6 +789,8 @@ mod benchmarks {
                 "
                 X A",
                 Direction::Left,
+                100,
+                "Eat Food",
             )
             .full_symmetry(),
             // Move away from walls
@@ -729,6 +799,8 @@ mod benchmarks {
                 W A .
                 ",
                 Direction::Right,
+                100,
+                "Move away from walls",
             )
             .full_symmetry(),
         ]);

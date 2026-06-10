@@ -598,6 +598,8 @@ mod tests {
                 W N B
                 ",
                 [Some(Direction::Up), Some(Direction::Up), None, None],
+                0,
+                "Fast Track",
             )
             .full_symmetry()
             .condition(|snakes| {
@@ -671,6 +673,8 @@ mod tests {
                 W N B
                 ",
                 [Some(Direction::Up), Some(Direction::Up), None, None],
+                0,
+                "Fast Track",
             )
             .full_symmetry()
             .condition(|snakes| {
