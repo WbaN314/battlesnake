@@ -185,6 +185,8 @@ impl Brain for GamestateNodesSnake {
         let direction = evaluation.result();
 
         warn!("{}", evaluation);
+        #[cfg(debug_assertions)]
+        println!("{}", evaluation);
 
         direction.into()
     }

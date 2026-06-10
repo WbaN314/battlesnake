@@ -376,3 +376,21 @@ fn failure_53_go_for_kill() {
     let chosen_move = get_move_from_json_file("failure_53_go_for_kill.json");
     assert_eq!(chosen_move, OriginalDirection::Left);
 }
+
+#[test]
+fn failure_54_grab_food() {
+    let chosen_move = get_move_from_json_file("failure_54_grab_food.json");
+    assert_eq!(chosen_move, OriginalDirection::Right);
+}
+
+#[test]
+fn failure_55() {
+    let chosen_move = get_move_from_json_file("failure_55.json");
+    assert_ne!(chosen_move, OriginalDirection::Right);
+}
+
+#[test]
+fn failure_56() {
+    let chosen_move = get_move_from_json_file("failure_56.json");
+    assert_eq!(chosen_move, OriginalDirection::Left);
+}
