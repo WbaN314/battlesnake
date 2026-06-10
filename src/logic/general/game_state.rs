@@ -640,8 +640,9 @@ impl GameState<FloodFillField> {
                                     }
                                 }
                             }
-                            // Run again if there is at least one floodable field that is not a last round tail field
-                            if marked_turn.is_none() || marked_turn.unwrap() < turn - 1 {
+                            if can_fill.iter().any(|can| *can)
+                                && (marked_turn.is_none() || marked_turn.unwrap() < turn - 1)
+                            {
                                 all_flooded = false;
                             }
                             self.board.cell(x, y).unwrap().set(new_field);
