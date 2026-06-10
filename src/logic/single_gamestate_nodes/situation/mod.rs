@@ -228,7 +228,7 @@ impl SituationSet {
             match situation.check(gamestate) {
                 Some(SituationMatch::Recommend([Some(direction), ..])) =>
                 {
-                    evaluation.score(direction, 100);
+                    evaluation.score(direction, 100, "Recommend");
                 }
                 Some(SituationMatch::Avoid([Some(direction), ..])) => {
                     evaluation.eliminate(direction, 0);

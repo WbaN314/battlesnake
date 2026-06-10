@@ -1,5 +1,3 @@
-#[cfg(debug_assertions)]
-use std::time::Instant;
 use std::{rc::Rc, time::Duration};
 
 use crate::{
@@ -59,8 +57,6 @@ impl NewYearNewSnake {
 
     pub fn special_situation_set() -> SituationSet {
         // Evaluate situations and return or avoid direction
-        #[cfg(debug_assertions)]
-        let time = Instant::now();
         let situation_set = SituationSet::new(vec![
             // Kill by lead
             Situation::recommending(
@@ -95,10 +91,6 @@ impl NewYearNewSnake {
                 }
             }),
         ]);
-        #[cfg(debug_assertions)]
-        {
-            println!("Time for Situations construction: {:?}", time.elapsed());
-        }
         situation_set
     }
 
@@ -131,7 +123,7 @@ impl NewYearNewSnake {
                     evaluation.eliminate(index.try_into().unwrap(), n.min(4))
                 }
                 NodeStatus::AliveFor(n) => {
-                    evaluation.score(index.try_into().unwrap(), n as i32)
+                    evaluation.score(index.try_into().unwrap(), n as i32, "Alive For")
                 }
                 _ => {}
             }
@@ -150,37 +142,17 @@ impl Brain for NewYearNewSnake {
         println!("{}", gamestate);
 
         // Simulation
-        let result = NewYearNewSnake::simulation(gamestate.clone(), &mut evaluation);
-
-        #[cfg(debug_assertions)]
-        {
-            println!("{:?}", result);
-        }
+        NewYearNewSnake::simulation(gamestate.clone(), &mut evaluation);
 
         // Situations
-        #[cfg(debug_assertions)]
-        let time = Instant::now();
         let situation_set = NewYearNewSnake::special_situation_set();
         situation_set.evaluate(&gamestate, &mut evaluation);
-
-        #[cfg(debug_assertions)]
-        {
-            println!("Time for Situations: {:?}", time.elapsed());
-        }
 
         // Area
         evaluation.new_section("Capture");
         for direction in DIRECTIONS {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
-            #[cfg(debug_assertions)]
-            {
-                println!(
-                    "Flood fill for direction {:?} resulted in: {:?}",
-                    direction, result
-                );
-                println!("{}", state);
-            }
             if let Some(turn) = result.not_enough_area_in_turn[0] {
                 evaluation.eliminate(direction, turn.min(16));
             }
@@ -188,9 +160,9 @@ impl Brain for NewYearNewSnake {
                 .iter()
                 .filter(|x|x.is_some())
                 .count() as i32;
-            evaluation.score(direction, squeezed_snakes * 100);
-            evaluation.score(direction, result.flooded_area[0] as i32);
-            evaluation.score(direction, result.food[0] as i32 * 10);
+            evaluation.score(direction, squeezed_snakes * 100, "Squeezed Snakes");
+            evaluation.score(direction, result.flooded_area[0] as i32, "Flooded Area");
+            evaluation.score(direction, result.food[0] as i32 * 10, "Reachable Food");
         }
 
         // Food hunting and general strategies should probably go here

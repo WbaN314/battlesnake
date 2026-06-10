@@ -21,15 +21,17 @@ impl Evaluation {
         self.sections.push(EvaluationSection {
             name: name.to_string(),
             elimination_priority: [None; 4],
-            scores: [0; 4],
+            score_details: std::array::from_fn(|_| Vec::new()),
         });
     }
 
-    pub fn score(&mut self, direction: Direction, score: i32) {
-        self.sections
-            .last_mut()
-            .unwrap()
-            .scores[direction as usize] += score;
+    pub fn score(&mut self, direction: Direction, score: i32, detail: impl Into<String>) {
+        if score == 0 {
+            return;
+        }
+        let section = self.sections.last_mut().unwrap();
+        let index = direction as usize;
+        section.score_details[index].push((score, detail.into()));
     }
 
     pub fn eliminate(&mut self, direction: Direction, priority: u8) {
@@ -101,8 +103,8 @@ impl Evaluation {
     fn total_scores(&self) -> [i32; 4] {
         let mut totals = [0; 4];
         for section in &self.sections {
-            for (i, score) in section.scores.iter().enumerate() {
-                totals[i] += score;
+            for (i, details) in section.score_details.iter().enumerate() {
+                totals[i] += details.iter().map(|(score, _)| *score).sum::<i32>();
             }
         }
         totals
@@ -113,7 +115,7 @@ impl Evaluation {
 struct EvaluationSection {
     name: String,
     elimination_priority: [Option<u8>; 4],
-    scores: [i32; 4],
+    score_details: [Vec<(i32, String)>; 4],
 }
 
 impl Display for Evaluation {
@@ -157,12 +159,56 @@ impl Display for Evaluation {
         let mut score_rows: Vec<(String, Vec<String>)> = self
             .sections
             .iter()
-            .map(|section| {
-                let cells = DIRECTIONS
+            .flat_map(|section| {
+                let section_has_scores = section
+                    .score_details
                     .iter()
-                    .map(|direction| section.scores[*direction as usize].to_string())
+                    .any(|details| !details.is_empty());
+                if !section_has_scores {
+                    return Vec::new();
+                }
+
+                let mut rows: Vec<(String, Vec<String>)> = Vec::new();
+
+                let section_total_cells = DIRECTIONS
+                    .iter()
+                    .map(|direction| {
+                        let index = *direction as usize;
+                        section.score_details[index]
+                            .iter()
+                            .map(|(score, _)| *score)
+                            .sum::<i32>()
+                            .to_string()
+                    })
                     .collect();
-                (section.name.clone(), cells)
+                rows.push((section.name.clone(), section_total_cells));
+
+                let mut detail_labels: Vec<String> = Vec::new();
+                for details in &section.score_details {
+                    for (_, detail) in details {
+                        if !detail_labels.iter().any(|label| label == detail) {
+                            detail_labels.push(detail.clone());
+                        }
+                    }
+                }
+
+                for detail_label in detail_labels {
+                    let detail_cells = DIRECTIONS
+                        .iter()
+                        .map(|direction| {
+                            let index = *direction as usize;
+                            let value = section.score_details[index]
+                                .iter()
+                                .filter(|(_, detail)| detail == &detail_label)
+                                .map(|(score, _)| *score)
+                                .sum::<i32>();
+                            value.to_string()
+                        })
+                        .collect();
+                    rows.push((format!("  - {}", detail_label), detail_cells));
+                }
+
+                rows
             })
             .collect();
 
@@ -172,6 +218,19 @@ impl Display for Evaluation {
             DIRECTIONS
                 .iter()
                 .map(|direction| totals[*direction as usize].to_string())
+                .collect(),
+        ));
+        score_rows.push((
+            "AVAILABLE".to_string(),
+            DIRECTIONS
+                .iter()
+                .map(|direction| {
+                    if available_directions[*direction as usize] {
+                        "Y".to_string()
+                    } else {
+                        "N".to_string()
+                    }
+                })
                 .collect(),
         ));
 
