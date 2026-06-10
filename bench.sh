@@ -1,10 +1,13 @@
 #!/bin/bash
 # Usage: ./bench.sh [-n NUM_GAMES|-NUM_GAMES] [-w] snake1 snake2 [snake3 snake4]
+# Usage: ./bench.sh [-n NUM_GAMES|-NUM_GAMES] [-w] [-l] snake1 snake2 [snake3 snake4]
 # Example: ./bench.sh -n 100 gamestate_nodes depth_first breadth_first simple_tree_search
 # Example: ./bench.sh -w depth_first
+# Example: ./bench.sh -l gamestate_nodes depth_first
 
 N_GAMES=0
 WATCH=0
+LOG=0
 SNAKES=()
 
 while [[ $# -gt 0 ]]; do
@@ -12,6 +15,7 @@ while [[ $# -gt 0 ]]; do
         -[0-9]*) N_GAMES=${1#-}; shift ;;
         -n) N_GAMES=$2; shift 2 ;;
         -w) WATCH=1; shift ;;
+            -l) LOG=1; shift ;;
         *) SNAKES+=("$1"); shift ;;
     esac
 done
@@ -64,9 +68,14 @@ for ((i=0; i<${#SNAKES[@]}; i++)); do
         echo "Cleared stale process on :$port"
     fi
 
-    PORT=$port VARIANT=$variant ./target/release/battlesnake_game_of_chicken >/dev/null 2>&1 &
+    if [ "$LOG" -eq 1 ] && [ "$i" -eq 0 ]; then
+        PORT=$port VARIANT=$variant ./target/release/battlesnake_game_of_chicken > snake_server_1.log 2>&1 &
+        echo "Started $name on :$port (PID $!) - logs: snake_server_1.log"
+    else
+        PORT=$port VARIANT=$variant ./target/release/battlesnake_game_of_chicken >/dev/null 2>&1 &
+        echo "Started $name on :$port (PID $!)"
+    fi
     SERVER_PIDS+=("$!")
-    echo "Started $name on :$port (PID $!)"
 
     BATTLESNAKE_ARGS+=(--name "$name" --url "http://localhost:$port")
     SNAKE_NAMES+=("$name")

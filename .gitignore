@@ -2,3 +2,4 @@
 *.rs.swp
 .DS_store
 winners_tally.txt
+snake_server_1.log
