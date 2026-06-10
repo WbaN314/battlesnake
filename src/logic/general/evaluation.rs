@@ -148,9 +148,9 @@ impl Display for Evaluation {
                 .iter()
                 .map(|direction| {
                     if available_directions[*direction as usize] {
-                        "Y".to_string()
+                        "X".to_string()
                     } else {
-                        "N".to_string()
+                        "".to_string()
                     }
                 })
                 .collect(),
@@ -226,9 +226,24 @@ impl Display for Evaluation {
                 .iter()
                 .map(|direction| {
                     if available_directions[*direction as usize] {
-                        "Y".to_string()
+                        "X".to_string()
                     } else {
-                        "N".to_string()
+                        "".to_string()
+                    }
+                })
+                .collect(),
+        ));
+
+        let picked_direction = self.result();
+        score_rows.push((
+            "PICKED".to_string(),
+            DIRECTIONS
+                .iter()
+                .map(|direction| {
+                    if *direction == picked_direction {
+                        "X".to_string()
+                    } else {
+                        "".to_string()
                     }
                 })
                 .collect(),
