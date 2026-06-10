@@ -1,10 +1,12 @@
-use std::{rc::Rc, time::Duration};
+use std::{time::Duration};
+
+use log::{warn};
 
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
         general::{
-            direction::{DIRECTIONS, Direction, Directions},
+            direction::{DIRECTIONS, Direction},
             evaluation::Evaluation,
             field::{BasicField, FloodFillField},
             game_state::GameState,
@@ -127,16 +129,11 @@ impl GamestateNodesSnake {
         tree.simulate();
         let result = tree.result();
 
-        #[cfg(debug_assertions)]
-        // println!("{}", tree.stats());
-
         // Exclude DeadIn directions
         evaluation.new_section("Simulation");
         for (index, result) in result.into_iter().enumerate() {
             match result {
-                NodeStatus::DeadIn(n) => {
-                    evaluation.eliminate(index.try_into().unwrap(), n.min(4))
-                }
+                NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n.min(4)),
                 NodeStatus::AliveFor(n) => {
                     evaluation.score(index.try_into().unwrap(), n as i32, "Alive For")
                 }
@@ -173,7 +170,7 @@ impl Brain for GamestateNodesSnake {
             }
             let squeezed_snakes = result.not_enough_area_in_turn[1..]
                 .iter()
-                .filter(|x|x.is_some())
+                .filter(|x| x.is_some())
                 .count() as i32;
             evaluation.score(direction, squeezed_snakes * 100, "Squeezed Snakes");
             evaluation.score(direction, result.flooded_area[0] as i32, "Flooded Area");
@@ -187,11 +184,7 @@ impl Brain for GamestateNodesSnake {
 
         let direction = evaluation.result();
 
-        #[cfg(debug_assertions)]
-        {
-            println!("{}", evaluation);
-            println!("Selected direction: {}", direction);
-        }
+        warn!("{}", evaluation);
 
         direction.into()
     }
