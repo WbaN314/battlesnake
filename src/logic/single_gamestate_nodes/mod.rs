@@ -19,13 +19,13 @@ use crate::{
     },
 };
 
-pub struct NewYearNewSnake;
+pub struct GamestateNodesSnake;
 
 mod node;
 mod situation;
 mod tree;
 
-impl NewYearNewSnake {
+impl GamestateNodesSnake {
     pub fn new() -> Self {
         Self
     }
@@ -119,7 +119,7 @@ impl NewYearNewSnake {
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
                 matches!(
-                    NewYearNewSnake::fast_track_trigger_situation().check(node.gamestate()),
+                    GamestateNodesSnake::fast_track_trigger_situation().check(node.gamestate()),
                     Some(SituationMatch::Recommend(_))
                 )
             })
@@ -148,7 +148,7 @@ impl NewYearNewSnake {
     }
 }
 
-impl Brain for NewYearNewSnake {
+impl Brain for GamestateNodesSnake {
     fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
@@ -157,10 +157,10 @@ impl Brain for NewYearNewSnake {
         println!("{}", gamestate);
 
         // Simulation
-        NewYearNewSnake::simulation(gamestate.clone(), &mut evaluation);
+        GamestateNodesSnake::simulation(gamestate.clone(), &mut evaluation);
 
         // Situations
-        let situation_set = NewYearNewSnake::special_situation_set();
+        let situation_set = GamestateNodesSnake::special_situation_set();
         situation_set.evaluate(&gamestate, &mut evaluation);
 
         // Area

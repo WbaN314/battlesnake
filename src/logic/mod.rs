@@ -67,7 +67,9 @@ pub fn get_move(gamestate: &OriginalGameState, variant: String) -> OriginalDirec
         "simple_tree_search" => Box::new(legacy::simple_tree_search::SimpleTreeSearchSnake::new()),
         "breadth_first" => Box::new(legacy::breadth_first::BreadthFirstSnake::new()),
         "depth_first" => Box::new(depth_first::DepthFirstSnake::new()),
-        "single_gamestate_nodes" => Box::new(single_gamestate_nodes::NewYearNewSnake::new()),
+        "gamestate_nodes" => {
+            Box::new(single_gamestate_nodes::GamestateNodesSnake::new())
+        }
         _ => panic!("No VARIANT given for snake"),
     };
     brain.logic(gamestate)

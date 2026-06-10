@@ -1,25 +1,24 @@
-#!/bin/zsh
-# Usage: ./bench.sh [-n NUM_GAMES] [-w] [-d DELAY_MS] snake1 snake2 [snake3 snake4]
-# Example: ./bench.sh -n 100 single_gamestate_nodes depth_first breadth_first simple_tree_search
-# Example: ./bench.sh -w -d 200  depth_first
+#!/bin/bash
+# Usage: ./bench.sh [-n NUM_GAMES|-NUM_GAMES] [-w] snake1 snake2 [snake3 snake4]
+# Example: ./bench.sh -n 100 gamestate_nodes depth_first breadth_first simple_tree_search
+# Example: ./bench.sh -w depth_first
 
 N_GAMES=0
 WATCH=0
-DELAY=0
 SNAKES=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -[0-9]*) N_GAMES=${1#-}; shift ;;
         -n) N_GAMES=$2; shift 2 ;;
         -w) WATCH=1; shift ;;
-        -d) DELAY=$2; shift 2 ;;
         *) SNAKES+=("$1"); shift ;;
     esac
 done
 
 if [ ${#SNAKES[@]} -lt 2 ]; then
-    echo "Usage: $0 [-n NUM_GAMES] [-w] [-d DELAY_MS] snake1 snake2 [snake3 snake4]"
-    echo "Variants: depth_first breadth_first simple_tree_search simple_hungry new_year_new_snake"
+    echo "Usage: $0 [-n NUM_GAMES|-NUM_GAMES] [-w] snake1 snake2 [snake3 snake4]"
+    echo "Variants: depth_first breadth_first simple_tree_search simple_hungry gamestate_nodes"
     exit 1
 fi
 
@@ -51,12 +50,12 @@ trap 'exit 130' INT TERM
 echo "Building..."
 cargo build --release 2>&1 | grep -E "^(error|warning: unused|Compiling|Finished)" || true
 
-# Start servers (zsh arrays are 1-indexed, so SNAKES[1] is the first element)
+# Start servers
 BATTLESNAKE_ARGS=()
 SNAKE_NAMES=()
 for ((i=0; i<${#SNAKES[@]}; i++)); do
     port=$((BASE_PORT + i))
-    variant="${SNAKES[$((i+1))]}"
+    variant="${SNAKES[$i]}"
     name="${variant}_$((i+1))"
 
     existing=$(lsof -t -i:"${port}" 2>/dev/null || true)
@@ -66,7 +65,7 @@ for ((i=0; i<${#SNAKES[@]}; i++)); do
     fi
 
     PORT=$port VARIANT=$variant ./target/release/battlesnake_game_of_chicken >/dev/null 2>&1 &
-    SERVER_PIDS+=($!)
+    SERVER_PIDS+=("$!")
     echo "Started $name on :$port (PID $!)"
 
     BATTLESNAKE_ARGS+=(--name "$name" --url "http://localhost:$port")
@@ -76,9 +75,9 @@ done
 sleep 1
 
 # Tally
-typeset -A wins
+declare -A wins
 for name in "${SNAKE_NAMES[@]}"; do
-    wins[$name]=0
+    wins["$name"]=0
 done
 total=0
 tally_lines=0
@@ -92,7 +91,7 @@ print_tally() {
     printf "  %-28s %6s  %6s\n" "Snake" "Wins" "Win%"; ((lines++))
     printf "  %-28s %6s  %6s\n" "----------------------------" "------" "------"; ((lines++))
     for name in "${SNAKE_NAMES[@]}"; do
-        w=${wins[$name]}
+        w=${wins["$name"]}
         pct=$(awk -v w="$w" -v t="$total" 'BEGIN { printf "%.1f", (t > 0) ? w * 100 / t : 0 }')
         printf "  %-28s %6d  %5s%%\n" "$name" "$w" "$pct"; ((lines++))
     done
@@ -105,7 +104,6 @@ print_tally() {
 }
 
 PLAY_FLAGS=()
-[ "$DELAY" -gt 0 ] && PLAY_FLAGS+=(-d "$DELAY")
 [ "$WATCH" -eq 1 ] && PLAY_FLAGS+=(-v -c)
 
 echo ""
@@ -123,8 +121,8 @@ while true; do
     fi
 
     if [ -n "$winner" ]; then
-        if (( ${+wins[$winner]} )); then
-            wins[$winner]=$((wins[$winner] + 1))
+        if [[ -v wins["$winner"] ]]; then
+            wins["$winner"]=$((wins["$winner"] + 1))
         fi
         total=$((total + 1))
         print_tally
