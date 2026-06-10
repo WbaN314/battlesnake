@@ -1,9 +1,9 @@
 #!/bin/bash
 # Usage: ./bench.sh [-n NUM_GAMES|-NUM_GAMES] [-w] snake1 snake2 [snake3 snake4]
 # Usage: ./bench.sh [-n NUM_GAMES|-NUM_GAMES] [-w] [-l] snake1 snake2 [snake3 snake4]
-# Example: ./bench.sh -n 100 gamestate_nodes depth_first breadth_first simple_tree_search
+# Example: ./bench.sh -n 100 single_gamestate_nodes depth_first breadth_first simple_tree_search
 # Example: ./bench.sh -w depth_first
-# Example: ./bench.sh -l gamestate_nodes depth_first
+# Example: ./bench.sh -l single_gamestate_nodes depth_first
 
 N_GAMES=0
 WATCH=0
@@ -22,7 +22,7 @@ done
 
 if [ ${#SNAKES[@]} -lt 2 ]; then
     echo "Usage: $0 [-n NUM_GAMES|-NUM_GAMES] [-w] snake1 snake2 [snake3 snake4]"
-    echo "Variants: depth_first breadth_first simple_tree_search simple_hungry gamestate_nodes"
+    echo "Variants: depth_first breadth_first simple_tree_search simple_hungry single_gamestate_nodes"
     exit 1
 fi
 

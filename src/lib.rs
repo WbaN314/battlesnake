@@ -166,6 +166,6 @@ pub fn get_move_from_json_file(path: &str) -> OriginalDirection {
 
     get_move(
         &gamestate,
-        env::var("VARIANT").unwrap_or("gamestate_nodes".to_string()),
+        env::var("VARIANT").unwrap_or("single_gamestate_nodes".to_string()),
     )
 }
