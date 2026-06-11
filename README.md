@@ -27,6 +27,25 @@ VARIANT=breadth_first cargo test
 
 https://wban314.github.io/battlesnake/dev/bench
 
+## Automated Testing from Game Logs
+
+Run games with logging enabled, then analyze lost games to find decisions that would differ with more thinking time. Differing states are saved as regression tests.
+
+```bash
+# 1. Run games with logging (first snake's logs split into game_logs/game_N.log or game_N_lost.log)
+cargo run --release --bin run_local_simulation -- -10 -l single_gamestate_nodes depth_first breadth_first simple_hungry
+
+# 2. Analyze lost games (default: 10s re-evaluation timeout, 20 turns back)
+cargo run --release --bin analyze_local_simulation
+
+# With custom log directory, timeout (ms) and max turns back per game:
+cargo run --release --bin analyze_local_simulation -- game_logs 5000 10
+
+# 3. Run the generated regression tests
+cargo run --release --bin run_generated_tests
+```
+
+
 ## Flamegraph
 Use to find hot spots with the benchmarks. For example:
 

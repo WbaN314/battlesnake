@@ -3,3 +3,4 @@
 .DS_store
 winners_tally.txt
 snake_server_1.log
+game_logs/

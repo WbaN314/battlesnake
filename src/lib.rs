@@ -169,3 +169,23 @@ pub fn get_move_from_json_file(path: &str) -> OriginalDirection {
         env::var("VARIANT").unwrap_or("single_gamestate_nodes".to_string()),
     )
 }
+
+pub fn get_move_from_json_file_with_timeout(path: &str, timeout_ms: u64) -> OriginalDirection {
+    let gamestate = read_game_state(&(DIR.to_string() + path));
+
+    unsafe {
+        env::set_var("MODE", "test");
+        env::set_var("SIMULATION_TIME_MS", timeout_ms.to_string());
+    }
+
+    let result = get_move(
+        &gamestate,
+        env::var("VARIANT").unwrap_or("single_gamestate_nodes".to_string()),
+    );
+
+    unsafe {
+        env::remove_var("SIMULATION_TIME_MS");
+    }
+
+    result
+}

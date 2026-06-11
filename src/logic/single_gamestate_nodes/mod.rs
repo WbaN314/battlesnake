@@ -1,6 +1,6 @@
-use std::{time::Duration};
+use std::{env, time::Duration};
 
-use log::{warn};
+use log::{info, warn};
 
 use crate::{
     OriginalDirection, OriginalGameState,
@@ -26,6 +26,22 @@ pub struct GamestateNodesSnake;
 mod node;
 mod situation;
 mod tree;
+
+struct EnvironmentConfig {
+    simulation_time: Duration,
+}
+
+impl EnvironmentConfig {
+    fn read() -> Self {
+        let simulation_time = Duration::from_millis(
+            env::var("SIMULATION_TIME_MS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(200),
+        );
+        Self { simulation_time }
+    }
+}
 
 impl GamestateNodesSnake {
     pub fn new() -> Self {
@@ -114,6 +130,7 @@ impl GamestateNodesSnake {
     fn simulation(
         gamestate: GameState<BasicField>,
         evaluation: &mut Evaluation,
+        env_config: &EnvironmentConfig,
     ) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
@@ -125,7 +142,7 @@ impl GamestateNodesSnake {
                     Some(SituationMatch::Recommend(_))
                 )
             })
-            .max_time(Duration::from_millis(200));
+            .max_time(env_config.simulation_time);
         tree.simulate();
         let result = tree.result();
 
@@ -133,7 +150,7 @@ impl GamestateNodesSnake {
         evaluation.new_section("Simulation");
         for (index, result) in result.into_iter().enumerate() {
             match result {
-                NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n.min(4)),
+                NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n),
                 NodeStatus::AliveFor(n) => {
                     evaluation.score(index.try_into().unwrap(), n as i32, "Alive For")
                 }
@@ -143,10 +160,9 @@ impl GamestateNodesSnake {
 
         result
     }
-}
 
-impl Brain for GamestateNodesSnake {
-    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
+    pub fn logic_with_evaluation_result(&self, gamestate: &OriginalGameState) -> (OriginalDirection, String) {
+        let env_config = EnvironmentConfig::read();
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
 
@@ -154,7 +170,7 @@ impl Brain for GamestateNodesSnake {
         println!("{}", gamestate);
 
         // Simulation
-        GamestateNodesSnake::simulation(gamestate.clone(), &mut evaluation);
+        GamestateNodesSnake::simulation(gamestate.clone(), &mut evaluation, &env_config);
 
         // Situations
         let situation_set = GamestateNodesSnake::special_situation_set();
@@ -183,11 +199,17 @@ impl Brain for GamestateNodesSnake {
         // failure_46_go_for_kill -> Kill propagation in simulation
 
         let direction = evaluation.result();
+        let eval_string = evaluation.to_string();
+        if env::var("LOG_EVAL").is_ok() {
+            warn!("{eval_string}");
+        }
 
-        warn!("{}", evaluation);
-        #[cfg(debug_assertions)]
-        println!("{}", evaluation);
+        (direction.into(), eval_string)
+    }
+}
 
-        direction.into()
+impl Brain for GamestateNodesSnake {
+    fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
+        self.logic_with_evaluation_result(gamestate).0
     }
 }

@@ -74,3 +74,8 @@ pub fn get_move(gamestate: &OriginalGameState, variant: String) -> OriginalDirec
     };
     brain.logic(gamestate)
 }
+
+pub fn get_move_with_evaluation(gamestate: &OriginalGameState) -> (OriginalDirection, String) {
+    let brain = single_gamestate_nodes::GamestateNodesSnake::new();
+    brain.logic_with_evaluation_result(gamestate)
+}

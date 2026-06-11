@@ -2,6 +2,8 @@
 extern crate rocket;
 
 use battlesnake_game_of_chicken_lib::{logic, OriginalGameState};
+use battlesnake_game_of_chicken_lib::logic::general::field::BasicField;
+use battlesnake_game_of_chicken_lib::logic::general::game_state::GameState;
 use log::{info, warn};
 use rocket::fairing::AdHoc;
 use rocket::http::Status;
@@ -31,16 +33,28 @@ fn handle_move(mut move_req: Json<OriginalGameState>) -> Json<Value> {
     // Log request
     let r = move_req.into_inner();
     warn!(
-        "ID {} Turn {} -> {}",
+        "ID {} Turn {} Request -> {}",
         r.game.id,
         r.turn,
         serde_json::to_string(&r).unwrap()
     );
 
+    let board_state = GameState::<BasicField>::from(&r);
+    if env::var("LOG_BOARD").is_ok() {
+        warn!("ID {} Turn {} Board\n{}", r.game.id, r.turn, board_state);
+    }
+
     let variant = env::var("VARIANT").unwrap_or(String::from("breadth_first"));
 
     move_req = Json(r);
     let response = logic::get_move(&move_req, variant);
+
+    warn!(
+        "ID {} Turn {} Result -> {}",
+        move_req.game.id,
+        move_req.turn,
+        response
+    );
 
     Json(json!({ "move": response }))
 }

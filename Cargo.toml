@@ -13,6 +13,18 @@ A simple Battlesnake written in Rust
 name = "battlesnake_game_of_chicken_lib"
 path = "src/lib.rs"
 
+[[bin]]
+name = "analyze_local_simulation"
+path = "src/bin/analyze_local_simulation.rs"
+
+[[bin]]
+name = "run_local_simulation"
+path = "src/bin/run_local_simulation.rs"
+
+[[bin]]
+name = "run_generated_tests"
+path = "src/bin/run_generated_tests.rs"
+
 [dependencies]
 rocket = { version = "0.5.0", features = ["json"] }
 serde = { version = "1.0.117", features = ["derive"] }
