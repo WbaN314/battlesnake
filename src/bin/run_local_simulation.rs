@@ -54,6 +54,7 @@ fn main() {
 
     // Start servers
     if log {
+        let _ = fs::remove_dir_all("game_logs");
         fs::create_dir_all("game_logs").unwrap();
     }
     for (idx, variant) in snakes.iter().enumerate() {
