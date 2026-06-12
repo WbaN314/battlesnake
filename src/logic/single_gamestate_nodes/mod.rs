@@ -190,7 +190,27 @@ impl GamestateNodesSnake {
                 .count() as i32;
             evaluation.score(direction, squeezed_snakes * 100, "Squeezed Snakes");
             evaluation.score(direction, result.flooded_area[0] as i32, "Flooded Area");
-            evaluation.score(direction, result.food[0].len() as i32 * 10, "Reachable Food");
+
+            for &(coord, turn) in &result.food[0] {
+                if turn == 1  {
+                    evaluation.score(direction, 60, "Food");
+                }
+                if turn == 2 {
+                    evaluation.score(direction, 40, "Food");
+                }
+                if turn == 3 {
+                    evaluation.score(direction, 30, "Food");
+                }
+                if turn == 4 {
+                    evaluation.score(direction, 20, "Food");
+                }
+                if turn == 5 {
+                    evaluation.score(direction, 10, "Food");
+                }
+                else {
+                    evaluation.score(direction, 5.max(15 - turn as i32), "Food");
+                }
+            }
         }
 
         // Food hunting and general strategies should probably go here
