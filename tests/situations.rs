@@ -392,5 +392,6 @@ fn failure_55() {
 #[test]
 fn failure_56() {
     let chosen_move = get_move_from_json_file("failure_56.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
+    assert_ne!(chosen_move, OriginalDirection::Left);
+    assert_ne!(chosen_move, OriginalDirection::Up);
 }
