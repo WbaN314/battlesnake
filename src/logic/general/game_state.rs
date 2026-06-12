@@ -480,7 +480,7 @@ impl GameState<FloodFillField> {
                             .unwrap()
                             .set(field.fill(0, 1));
                         result.flooded_area[0] = 1;
-                        result.food[0] = 1;
+                        result.food[0].push((new_head, 1));
                     }
                     Some(FloodFillField::Snake { .. }) => {
                         result.not_enough_area_in_turn[0] = Some(0);
@@ -512,13 +512,13 @@ impl GameState<FloodFillField> {
                                     .unwrap()
                                     .set(field.fill(id, 1));
                                 result.flooded_area[id as usize] += 1;
-                                result.food[id as usize] += 1;
+                                result.food[id as usize].push((new_head, 1));
                                 filled_one = true;
                             }
                             Some(field @ FloodFillField::Filled { .. }) => {
                                 let new_field = field.fill(id, 1);
                                 self.board.cell_coord(new_head).unwrap().set(new_field);
-                                if self.score_filled_field(&mut result, &new_field, id) {
+                                if self.score_filled_field(&mut result, &new_field, id, new_head, 1) {
                                     filled_one = true;
                                 }
                             }
@@ -540,6 +540,8 @@ impl GameState<FloodFillField> {
         result: &mut FloodFillResult,
         new_field: &FloodFillField,
         id: u8,
+        coord: Coord,
+        turn: u8,
     ) -> bool {
         let lengths = self.snakes().lengths();
 
@@ -557,7 +559,7 @@ impl GameState<FloodFillField> {
                 if lengths[id as usize] > best_length_on_same_turn {
                     result.flooded_area[id as usize] += 1;
                     if new_field.was_food() {
-                        result.food[id as usize] += 1;
+                        result.food[id as usize].push((coord, turn));
                     }
 
                     for other_id in 0..id {
@@ -566,7 +568,7 @@ impl GameState<FloodFillField> {
                         {
                             result.flooded_area[other_id as usize] -= 1;
                             if new_field.was_food() {
-                                result.food[other_id as usize] -= 1;
+                                result.food[other_id as usize].retain(|&(c, _)| c != coord);
                             }
                         }
                     }
@@ -574,7 +576,7 @@ impl GameState<FloodFillField> {
                 } else if lengths[id as usize] == best_length_on_same_turn {
                     result.flooded_area[id as usize] += 1;
                     if new_field.was_food() {
-                        result.food[id as usize] += 1;
+                        result.food[id as usize].push((coord, turn));
                     }
                     return true;
                 } else {
@@ -635,7 +637,7 @@ impl GameState<FloodFillField> {
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
                                         result.flooded_area[id as usize] += 1;
                                         if new_field.was_food() {
-                                            result.food[id as usize] += 1;
+                                            result.food[id as usize].push((Coord::new(x, y), turn));
                                         }
                                     }
                                 }
@@ -705,11 +707,11 @@ impl GameState<FloodFillField> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FloodFillResult {
     pub not_enough_area_in_turn: [Option<u8>; SNAKES as usize],
     pub flooded_area: [u8; SNAKES as usize],
-    pub food: [u8; SNAKES as usize],
+    pub food: [Vec<(Coord, u8)>; SNAKES as usize],
 }
 
 impl FloodFillResult {
@@ -717,7 +719,7 @@ impl FloodFillResult {
         FloodFillResult {
             not_enough_area_in_turn: [None; SNAKES as usize],
             flooded_area: [0; SNAKES as usize],
-            food: [0; SNAKES as usize],
+            food: std::array::from_fn(|_| Vec::new()),
         }
     }
 }
