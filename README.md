@@ -29,11 +29,14 @@ https://wban314.github.io/battlesnake/dev/bench
 
 ## Automated Testing from Game Logs
 
-Run games with logging enabled, then analyze lost games to find decisions that would differ with more thinking time. Differing states are saved as regression tests.
+Run games with logging, analyze lost games to find decisions that would differ with more thinking time, save as regression tests.
 
 ```bash
 # 1. Run games with logging (first snake's logs split into game_logs/game_N.log or game_N_lost.log)
-cargo run --release --bin run_local_simulation -- -10 -l single_gamestate_nodes depth_first breadth_first simple_hungry
+cargo run --release --bin run_local_simulation -- -10 -l single_gamestate_nodes depth_first
+
+# Append :<git-ref> to any variant to build it from that tag or commit
+cargo run --release --bin run_local_simulation -- -100 single_gamestate_nodes single_gamestate_nodes:v2025-06-15
 
 # 2. Analyze lost games (default: 10s re-evaluation timeout, 20 turns back)
 cargo run --release --bin analyze_local_simulation

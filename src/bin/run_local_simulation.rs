@@ -2,7 +2,59 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+
+struct SnakeSpec {
+    variant: String,
+    git_ref: Option<String>,
+    /// Directory of the binary to use (None = current ./target/release)
+    binary_dir: Option<String>,
+}
+
+impl SnakeSpec {
+    fn parse(s: &str) -> Self {
+        if let Some((variant, git_ref)) = s.split_once(':') {
+            let safe: String = git_ref
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            SnakeSpec {
+                variant: variant.to_string(),
+                git_ref: Some(git_ref.to_string()),
+                binary_dir: Some(format!("/tmp/battlesnake_ref_{}", safe)),
+            }
+        } else {
+            SnakeSpec {
+                variant: s.to_string(),
+                git_ref: None,
+                binary_dir: None,
+            }
+        }
+    }
+
+    fn binary_path(&self) -> PathBuf {
+        match &self.binary_dir {
+            Some(dir) => PathBuf::from(format!("{}/release/battlesnake_game_of_chicken", dir)),
+            None => PathBuf::from("./target/release/battlesnake_game_of_chicken"),
+        }
+    }
+
+    /// Display name shown in stats (e.g. "single_gamestate_nodes:v1" or "depth_first")
+    fn display_name(&self, idx: usize) -> String {
+        let base = match &self.git_ref {
+            Some(r) => format!("{}:{}", self.variant, r),
+            None => self.variant.clone(),
+        };
+        format!("{}_{}", base, idx + 1)
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -10,7 +62,7 @@ fn main() {
     let mut n_games: usize = 0;
     let mut watch = false;
     let mut log = false;
-    let mut snakes: Vec<String> = Vec::new();
+    let mut raw_snakes: Vec<String> = Vec::new();
 
     let mut i = 1;
     while i < args.len() {
@@ -24,27 +76,81 @@ fn main() {
             arg if arg.starts_with('-') && arg[1..].chars().all(|c| c.is_ascii_digit()) => {
                 n_games = arg[1..].parse().unwrap();
             }
-            other => snakes.push(other.to_string()),
+            other => raw_snakes.push(other.to_string()),
         }
         i += 1;
     }
 
-    if snakes.len() < 2 {
+    if raw_snakes.len() < 2 {
         eprintln!("Usage: run_local_simulation [-n NUM_GAMES|-NUM_GAMES] [-w] [-l] snake1 snake2 [snake3 snake4]");
         eprintln!("Variants: depth_first breadth_first simple_tree_search simple_hungry single_gamestate_nodes");
+        eprintln!("Append :<git-ref> to build that snake from a specific tag/commit:");
+        eprintln!("  single_gamestate_nodes:v2025-06-01  depth_first:abc1234");
         std::process::exit(1);
     }
 
-    // Build release binary
-    eprintln!("Building...");
-    let build_status = Command::new("cargo")
-        .args(["build", "--release"])
-        .stderr(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .status()
-        .expect("Failed to run cargo build");
-    if !build_status.success() {
-        std::process::exit(1);
+    let snakes: Vec<SnakeSpec> = raw_snakes.iter().map(|s| SnakeSpec::parse(s)).collect();
+
+    // Build current version (covers all snakes without a git_ref)
+    let needs_current = snakes.iter().any(|s| s.git_ref.is_none());
+    if needs_current {
+        eprintln!("Building current version...");
+        let status = Command::new("cargo")
+            .args(["build", "--release"])
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .status()
+            .expect("Failed to run cargo build");
+        if !status.success() {
+            std::process::exit(1);
+        }
+    }
+
+    // Build each unique git ref
+    let mut worktrees: Vec<String> = Vec::new();
+    let mut built_refs: HashMap<String, bool> = HashMap::new();
+    for snake in &snakes {
+        if let (Some(git_ref), Some(binary_dir)) = (&snake.git_ref, &snake.binary_dir) {
+            if built_refs.contains_key(git_ref) {
+                continue;
+            }
+            built_refs.insert(git_ref.clone(), true);
+
+            let safe_ref = binary_dir
+                .trim_start_matches("/tmp/battlesnake_ref_");
+            let worktree_path = format!(".wt_{}", safe_ref);
+
+            eprintln!("Setting up worktree for '{}'...", git_ref);
+            let _ = Command::new("git")
+                .args(["worktree", "remove", "--force", &worktree_path])
+                .output();
+            let wt_status = Command::new("git")
+                .args(["worktree", "add", "--detach", &worktree_path, git_ref])
+                .status()
+                .expect("Failed to run git worktree add");
+            if !wt_status.success() {
+                eprintln!("Failed to create worktree for '{}'. Available refs:", git_ref);
+                eprintln!("  git tag -l          (tags)");
+                eprintln!("  git log --oneline -10  (recent commits)");
+                cleanup_all_worktrees(&worktrees);
+                std::process::exit(1);
+            }
+            worktrees.push(worktree_path.clone());
+
+            eprintln!("Building '{}' in {}...", git_ref, worktree_path);
+            fs::create_dir_all(binary_dir).unwrap();
+            let build_status = Command::new("cargo")
+                .args(["build", "--release", "--target-dir", binary_dir])
+                .current_dir(&worktree_path)
+                .stderr(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .status()
+                .expect("Failed to build git ref");
+            if !build_status.success() {
+                cleanup_all_worktrees(&worktrees);
+                std::process::exit(1);
+            }
+        }
     }
 
     let base_port: u16 = 8001;
@@ -52,24 +158,23 @@ fn main() {
     let mut battlesnake_args: Vec<String> = Vec::new();
     let mut snake_names: Vec<String> = Vec::new();
 
-    // Start servers
     if log {
         let _ = fs::remove_dir_all("game_logs");
         fs::create_dir_all("game_logs").unwrap();
     }
-    for (idx, variant) in snakes.iter().enumerate() {
+    for (idx, snake) in snakes.iter().enumerate() {
         let port = base_port + idx as u16;
-        let name = format!("{}_{}", variant, idx + 1);
+        let name = snake.display_name(idx);
 
-        // Kill anything on that port
         kill_port(port);
 
+        let binary = snake.binary_path();
         let child = if log && idx == 0 {
             let log_file =
-                std::fs::File::create("game_logs/.server.log").expect("Cannot create log file");
-            Command::new("./target/release/battlesnake_game_of_chicken")
+                fs::File::create("game_logs/.server.log").expect("Cannot create log file");
+            Command::new(&binary)
                 .env("PORT", port.to_string())
-                .env("VARIANT", variant)
+                .env("VARIANT", &snake.variant)
                 .env("LOG_BOARD", "1")
                 .env("LOG_EVAL", "1")
                 .stdout(log_file.try_clone().unwrap())
@@ -77,9 +182,9 @@ fn main() {
                 .spawn()
                 .expect("Failed to start server")
         } else {
-            Command::new("./target/release/battlesnake_game_of_chicken")
+            Command::new(&binary)
                 .env("PORT", port.to_string())
-                .env("VARIANT", variant)
+                .env("VARIANT", &snake.variant)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -91,11 +196,7 @@ fn main() {
             name,
             port,
             child.id(),
-            if log && idx == 0 {
-                " (logging)"
-            } else {
-                ""
-            }
+            if log && idx == 0 { " (logging)" } else { "" }
         );
 
         server_pids.push(child);
@@ -108,18 +209,14 @@ fn main() {
         snake_names.push(name);
     }
 
-    // Wait for servers to start
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    // Tally
     let mut wins: HashMap<String, usize> = HashMap::new();
     for name in &snake_names {
         wins.insert(name.clone(), 0);
     }
     let mut draws: usize = 0;
     let mut total: usize = 0;
-
-    // Per-game log tracking
     let mut log_position: u64 = 0;
 
     let mut play_flags: Vec<String> = Vec::new();
@@ -143,7 +240,6 @@ fn main() {
             eprint!("{}", combined);
         }
 
-        // Parse game info from stderr
         let mut winner_name: Option<String> = None;
         let mut turns = String::from("?");
         let mut seed = String::from("?");
@@ -154,7 +250,6 @@ fn main() {
                 if let Some(w) = before.split_whitespace().last() {
                     winner_name = Some(w.to_string());
                 }
-                // "Game completed after NN turns."
                 if let Some(after_pos) = line.find("after ") {
                     let rest = &line[after_pos + 6..];
                     if let Some(sp) = rest.find(' ') {
@@ -162,7 +257,6 @@ fn main() {
                     }
                 }
             } else if line.contains("Game completed") && !line.contains("was the winner") {
-                // Draw - "Game completed after NN turns."
                 if let Some(after_pos) = line.find("after ") {
                     let rest = &line[after_pos + 6..];
                     if let Some(sp) = rest.find(' ') {
@@ -175,7 +269,6 @@ fn main() {
             }
         }
 
-        // Print per-game result
         match &winner_name {
             Some(w) => {
                 if let Some(count) = wins.get_mut(w.as_str()) {
@@ -197,7 +290,6 @@ fn main() {
             }
         }
 
-        // Write per-game log file
         if log {
             let first_snake_won = winner_name.as_ref() == Some(&snake_names[0]);
             if let Ok(mut file) = fs::File::open("game_logs/.server.log") {
@@ -216,14 +308,8 @@ fn main() {
         }
 
         eprintln!();
-        eprintln!(
-            "  {:<28} {:>6}  {:>6}",
-            "Snake", "Wins", "Win%"
-        );
-        eprintln!(
-            "  {:<28} {:>6}  {:>6}",
-            "----------------------------", "------", "------"
-        );
+        eprintln!("  {:<34} {:>6}  {:>6}", "Snake", "Wins", "Win%");
+        eprintln!("  {:<34} {:>6}  {:>6}", "----------------------------------", "------", "------");
         for name in &snake_names {
             let w = wins[name];
             let pct = if total > 0 {
@@ -231,11 +317,11 @@ fn main() {
             } else {
                 0.0
             };
-            eprintln!("  {:<28} {:>6}  {:>5.1}%", name, w, pct);
+            eprintln!("  {:<34} {:>6}  {:>5.1}%", name, w, pct);
         }
         if draws > 0 {
             let pct = draws as f64 * 100.0 / total as f64;
-            eprintln!("  {:<28} {:>6}  {:>5.1}%", "draws", draws, pct);
+            eprintln!("  {:<34} {:>6}  {:>5.1}%", "draws", draws, pct);
         }
         eprintln!("  Games played: {}", total);
         if n_games > 0 {
@@ -247,19 +333,33 @@ fn main() {
         }
     }
 
-    // Cleanup
     eprintln!("\nStopping servers...");
     for mut child in server_pids {
         let _ = child.kill();
         let _ = child.wait();
     }
-    // Sweep ports
     for (idx, _) in snakes.iter().enumerate() {
         kill_port(base_port + idx as u16);
     }
-    // Clean up temp server log
     let _ = fs::remove_file("game_logs/.server.log");
+
+    cleanup_all_worktrees(&worktrees);
     eprintln!("Done.");
+}
+
+fn cleanup_all_worktrees(worktrees: &[String]) {
+    for wt in worktrees {
+        eprintln!("Removing worktree {}...", wt);
+        let status = Command::new("git")
+            .args(["worktree", "remove", "--force", wt])
+            .status();
+        if status.map(|s| !s.success()).unwrap_or(true) {
+            eprintln!(
+                "Warning: could not remove worktree. Clean up manually:\n  git worktree remove --force {}",
+                wt
+            );
+        }
+    }
 }
 
 fn kill_port(port: u16) {
