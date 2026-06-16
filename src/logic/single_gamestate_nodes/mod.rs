@@ -161,7 +161,10 @@ impl GamestateNodesSnake {
         result
     }
 
-    pub fn logic_with_evaluation_result(&self, gamestate: &OriginalGameState) -> (OriginalDirection, String) {
+    pub fn logic_with_evaluation_result(
+        &self,
+        gamestate: &OriginalGameState,
+    ) -> (OriginalDirection, String) {
         let env_config = EnvironmentConfig::read();
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
@@ -195,7 +198,7 @@ impl GamestateNodesSnake {
             evaluation.score(direction, result.flooded_area[0] as i32, "Flooded Area");
 
             for &(coord, turn) in &result.food[0] {
-                if turn == 1  {
+                if turn == 1 {
                     evaluation.score(direction, 60, "Food");
                 }
                 if turn == 2 {
@@ -209,8 +212,7 @@ impl GamestateNodesSnake {
                 }
                 if turn == 5 {
                     evaluation.score(direction, 10, "Food");
-                }
-                else {
+                } else {
                     evaluation.score(direction, 5.max(15 - turn as i32), "Food");
                 }
             }
@@ -223,9 +225,7 @@ impl GamestateNodesSnake {
 
         let direction = evaluation.result();
         let eval_string = evaluation.to_string();
-        if env::var("LOG_EVAL").is_ok() {
-            warn!("{eval_string}");
-        }
+
         #[cfg(debug_assertions)]
         println!("{}", eval_string);
 
@@ -235,6 +235,13 @@ impl GamestateNodesSnake {
 
 impl Brain for GamestateNodesSnake {
     fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
-        self.logic_with_evaluation_result(gamestate).0
+        let (direction, eval_string) = self.logic_with_evaluation_result(gamestate);
+        if env::var("LOG_EVAL").is_ok() {
+            warn!(
+                "ID {} Turn {} Evaluation -> {}",
+                gamestate.game.id, gamestate.turn, eval_string
+            );
+        }
+        direction
     }
 }
