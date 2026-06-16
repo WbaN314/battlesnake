@@ -1,5 +1,6 @@
 use crate::logic::general::direction::{Direction, DIRECTIONS};
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use serde_json;
 use tabled::{
     builder::Builder,
     settings::{Alignment, Style, object::Columns},
@@ -7,13 +8,20 @@ use tabled::{
 
 pub struct Evaluation {
     sections: Vec<EvaluationSection>,
+    one_line: bool,
 }
 
 impl Evaluation {
     pub fn new() -> Self {
         Self {
             sections: Vec::new(),
+            one_line: false,
         }
+    }
+
+    pub fn one_line(mut self) -> Self {
+        self.one_line = true;
+        self
     }
 
     pub fn new_section(&mut self, name: &str) {
@@ -122,6 +130,55 @@ impl Display for Evaluation {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.sections.is_empty() {
             return writeln!(f, "Evaluation (no sections)");
+        }
+
+        if self.one_line {
+            let totals = self.total_scores();
+            let directions = self.directions_after_elimination();
+            let picked = self.result();
+            let sections: serde_json::Value = self
+                .sections
+                .iter()
+                .map(|s| {
+                    let scores: serde_json::Value = DIRECTIONS
+                        .iter()
+                        .map(|d| {
+                            let i = *d as usize;
+                            let total: i32 = s.score_details[i].iter().map(|(v, _)| *v).sum();
+                            let details: serde_json::Value = s.score_details[i]
+                                .iter()
+                                .map(|(v, label)| serde_json::json!({label: v}))
+                                .collect();
+                            (d.to_string(), serde_json::json!({"total": total, "details": details}))
+                        })
+                        .collect();
+                    let elims: serde_json::Value = DIRECTIONS
+                        .iter()
+                        .filter_map(|d| {
+                            s.elimination_priority[*d as usize]
+                                .map(|p| (d.to_string(), serde_json::json!(p)))
+                        })
+                        .collect();
+                    (s.name.clone(), serde_json::json!({"scores": scores, "eliminations": elims}))
+                })
+                .collect();
+            let summary: serde_json::Value = DIRECTIONS
+                .iter()
+                .map(|d| {
+                    let i = *d as usize;
+                    (d.to_string(), serde_json::json!({
+                        "total": totals[i],
+                        "available": directions[i],
+                        "picked": *d == picked,
+                    }))
+                })
+                .collect();
+            let json = serde_json::json!({
+                "picked": picked.to_string(),
+                "summary": summary,
+                "sections": sections,
+            });
+            return writeln!(f, "{}", json);
         }
 
         let direction_headers: Vec<String> = DIRECTIONS.iter().map(ToString::to_string).collect();

@@ -165,6 +165,9 @@ impl GamestateNodesSnake {
         let env_config = EnvironmentConfig::read();
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
+        if env::var("LOG_EVAL").is_ok() {
+            evaluation = evaluation.one_line();
+        }
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
@@ -223,6 +226,8 @@ impl GamestateNodesSnake {
         if env::var("LOG_EVAL").is_ok() {
             warn!("{eval_string}");
         }
+        #[cfg(debug_assertions)]
+        println!("{}", eval_string);
 
         (direction.into(), eval_string)
     }
