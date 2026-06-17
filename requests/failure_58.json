@@ -1,0 +1,186 @@
+{
+    "game": {
+        "id": "fdad07b7-29e2-496a-a16e-fb184d367dfb",
+        "ruleset": {
+            "name": "standard",
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 0,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 6,
+                "y": 10
+            },
+            {
+                "x": 0,
+                "y": 4
+            },
+            {
+                "x": 10,
+                "y": 4
+            },
+            {
+                "x": 4,
+                "y": 0
+            },
+            {
+                "x": 5,
+                "y": 5
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_8p8wBXX6kvqHvmwg9vkWgPyQ",
+                "name": "Vaporsnake",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 9
+                },
+                "length": 3,
+                "latency": "",
+                "shout": ""
+            },
+            {
+                "id": "gs_g6vPr39K7rMM4wcTY3kTfWmW",
+                "name": "Super Adaptable",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 5
+                    },
+                    {
+                        "x": 1,
+                        "y": 5
+                    },
+                    {
+                        "x": 1,
+                        "y": 5
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 5
+                },
+                "length": 3,
+                "latency": "",
+                "shout": ""
+            },
+            {
+                "id": "gs_VwpQdM6tKhjh4hWBy4Rv3FVY",
+                "name": "Game of Chicken",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 9,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 5
+                    }
+                ],
+                "head": {
+                    "x": 9,
+                    "y": 5
+                },
+                "length": 3,
+                "latency": "",
+                "shout": ""
+            },
+            {
+                "id": "gs_KyTkBM4jq6hKxxYhKmCyXbvV",
+                "name": "vercel",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 1
+                },
+                "length": 3,
+                "latency": "",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_VwpQdM6tKhjh4hWBy4Rv3FVY",
+        "name": "Game of Chicken",
+        "health": 100,
+        "body": [
+            {
+                "x": 9,
+                "y": 5
+            },
+            {
+                "x": 9,
+                "y": 5
+            },
+            {
+                "x": 9,
+                "y": 5
+            }
+        ],
+        "head": {
+            "x": 9,
+            "y": 5
+        },
+        "length": 3,
+        "latency": "",
+        "shout": ""
+    }
+}

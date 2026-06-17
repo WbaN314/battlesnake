@@ -630,13 +630,19 @@ impl GameState<FloodFillField> {
                                 .map(|other_id| lengths[other_id as usize])
                                 .max()
                                 .unwrap_or(0);
+                            let number_of_best_length_snakes_that_can_fill = (0..SNAKES)
+                                .filter(|other_id| {
+                                    can_fill[*other_id as usize]
+                                        && lengths[*other_id as usize] == best_length_of_snakes_that_can_fill
+                                })
+                                .count();
                             let mut new_field = field;
                             for id in 0..SNAKES {
                                 if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
                                         result.flooded_area[id as usize] += 1;
-                                        if new_field.was_food() {
+                                        if new_field.was_food() && number_of_best_length_snakes_that_can_fill == 1 {
                                             result.food[id as usize].push((Coord::new(x, y), turn));
                                         }
                                     }

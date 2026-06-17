@@ -401,3 +401,10 @@ fn failure_57() {
     let chosen_move = get_move_from_json_file("failure_57.json");
     assert_eq!(chosen_move, OriginalDirection::Up);
 }
+
+#[test]
+fn failure_58() {
+    let chosen_move = get_move_from_json_file("failure_58.json");
+    assert_ne!(chosen_move, OriginalDirection::Up);
+    assert_ne!(chosen_move, OriginalDirection::Left);
+}
