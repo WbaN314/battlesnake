@@ -598,7 +598,7 @@ mod tests {
                 W N B
                 ",
                 [Some(Direction::Up), Some(Direction::Up), None, None],
-                0,
+                0.0,
                 "Fast Track",
             )
             .full_symmetry()
@@ -673,7 +673,7 @@ mod tests {
                 W N B
                 ",
                 [Some(Direction::Up), Some(Direction::Up), None, None],
-                0,
+                0.0,
                 "Fast Track",
             )
             .full_symmetry()

@@ -33,8 +33,8 @@ impl Evaluation {
         });
     }
 
-    pub fn score(&mut self, direction: Direction, score: i32, detail: impl Into<String>) {
-        if score == 0 {
+    pub fn score(&mut self, direction: Direction, score: f64, detail: impl Into<String>) {
+        if score == 0.0 {
             return;
         }
         let section = self.sections.last_mut().unwrap();
@@ -108,11 +108,11 @@ impl Evaluation {
         Direction::Up
     }
 
-    fn total_scores(&self) -> [i32; 4] {
-        let mut totals = [0; 4];
+    fn total_scores(&self) -> [f64; 4] {
+        let mut totals = [0.0; 4];
         for section in &self.sections {
             for (i, details) in section.score_details.iter().enumerate() {
-                totals[i] += details.iter().map(|(score, _)| *score).sum::<i32>();
+                totals[i] += details.iter().map(|(score, _)| *score).sum::<f64>();
             }
         }
         totals
@@ -123,7 +123,7 @@ impl Evaluation {
 struct EvaluationSection {
     name: String,
     elimination_priority: [Option<u8>; 4],
-    score_details: [Vec<(i32, String)>; 4],
+    score_details: [Vec<(f64, String)>; 4],
 }
 
 impl Display for Evaluation {
@@ -144,7 +144,7 @@ impl Display for Evaluation {
                         .iter()
                         .map(|d| {
                             let i = *d as usize;
-                            let total: i32 = s.score_details[i].iter().map(|(v, _)| *v).sum();
+                            let total: f64 = s.score_details[i].iter().map(|(v, _)| *v).sum();
                             let details: serde_json::Value = s.score_details[i]
                                 .iter()
                                 .map(|(v, label)| serde_json::json!({label: v}))
@@ -234,7 +234,7 @@ impl Display for Evaluation {
                         section.score_details[index]
                             .iter()
                             .map(|(score, _)| *score)
-                            .sum::<i32>()
+                            .sum::<f64>()
                             .to_string()
                     })
                     .collect();
@@ -258,7 +258,7 @@ impl Display for Evaluation {
                                 .iter()
                                 .filter(|(_, detail)| detail == &detail_label)
                                 .map(|(score, _)| *score)
-                                .sum::<i32>();
+                                .sum::<f64>();
                             value.to_string()
                         })
                         .collect();

@@ -56,7 +56,7 @@ impl GamestateNodesSnake {
                 W N B
                 ",
             [Some(Direction::Up), Some(Direction::Up), None, None],
-            0,
+            0.0,
             "Fast Track",
         )
         .full_symmetry()
@@ -84,7 +84,7 @@ impl GamestateNodesSnake {
                 X A
                 ",
                 Direction::Left,
-                60,
+                60.0,
                 "Grab Food",
             )
             .full_symmetry(),
@@ -95,7 +95,7 @@ impl GamestateNodesSnake {
                 W . A
                 ",
                 Direction::Down,
-                100,
+                100.0,
                 "Kill by Lead",
             )
             .full_symmetry(),
@@ -106,7 +106,7 @@ impl GamestateNodesSnake {
                 W N A
                 ",
                 Direction::Up,
-                100,
+                100.0,
                 "Kill by Follow",
             )
             .full_symmetry()
@@ -152,7 +152,7 @@ impl GamestateNodesSnake {
             match result {
                 NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n),
                 NodeStatus::AliveFor(n) => {
-                    evaluation.score(index.try_into().unwrap(), n as i32, "Alive For")
+                    evaluation.score(index.try_into().unwrap(), n as f64, "Alive For")
                 }
                 _ => {}
             }
@@ -193,35 +193,45 @@ impl GamestateNodesSnake {
             let squeezed_snakes = result.not_enough_area_in_turn[1..]
                 .iter()
                 .filter(|x| x.is_some())
-                .count() as i32;
-            evaluation.score(direction, squeezed_snakes * 100, "Squeezed Snakes");
-            evaluation.score(direction, result.flooded_area[0] as i32, "Flooded Area");
+                .count() as f64;
+            evaluation.score(direction, squeezed_snakes * 100.0, "Squeezed Snakes");
 
+            let number_of_alive_snakes = gamestate.snakes().clone().into_iter().filter(|s| matches!(s.get(), Snake::Alive { .. })).count();
+            let number_of_alive_snakes_multiplier = match number_of_alive_snakes {
+                4 => 0.5,
+                2 => 2.0,
+                _ => 1.0,
+            };
+            evaluation.score(direction, result.flooded_area[0] as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
+
+            let length_multiplier=match gamestate.snakes().length_gap_to_longest_other_snake() {
+                gap if gap < 0 => 2.0,
+                gap if gap == 0 => 1.5,
+                gap if gap > 2 => 0.5,
+                _ => 1.0,
+            };
             for &(coord, turn) in &result.food[0] {
                 if turn == 1 {
-                    evaluation.score(direction, 60, "Food");
+                    evaluation.score(direction, 60.0 * length_multiplier, format!("Food x {}", length_multiplier));
                 }
                 if turn == 2 {
-                    evaluation.score(direction, 40, "Food");
+                    evaluation.score(direction, 40.0 * length_multiplier, format!("Food x {}", length_multiplier));
                 }
                 if turn == 3 {
-                    evaluation.score(direction, 30, "Food");
+                    evaluation.score(direction, 30.0 * length_multiplier, format!("Food x {}", length_multiplier));
                 }
                 if turn == 4 {
-                    evaluation.score(direction, 20, "Food");
+                    evaluation.score(direction, 20.0 * length_multiplier, format!("Food x {}", length_multiplier));
                 }
                 if turn == 5 {
-                    evaluation.score(direction, 10, "Food");
+                    evaluation.score(direction, 10.0 * length_multiplier, format!("Food x {}", length_multiplier));
                 } else {
-                    evaluation.score(direction, 5.max(15 - turn as i32), "Food");
+                    evaluation.score(direction, 5_f64.max(15.0 - turn as f64) * length_multiplier, format!("Food x {}", length_multiplier));
                 }
             }
         }
 
-        // Food hunting and general strategies should probably go here
-        // failure_31_going_right_leads_to_death -> better general board positioning
-        // failure_43_going_down_guarantees_getting_killed -> Single Child priority queue
-        // failure_46_go_for_kill -> Kill propagation in simulation
+        
 
         let direction = evaluation.result();
         let eval_string = evaluation.to_string();

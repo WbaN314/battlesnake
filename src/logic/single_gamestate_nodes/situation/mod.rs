@@ -243,12 +243,12 @@ impl SituationSet {
 pub struct Situation {
     patterns: Vec<SituationPattern>,
     condition: Option<fn([Snake; 4]) -> bool>,
-    score: i32,
+    score: f64,
     detail: String,
 }
 
 impl Situation {
-    pub fn recommending(str: &str, direction: Direction, score: i32, detail: impl Into<String>) -> Self {
+    pub fn recommending(str: &str, direction: Direction, score: f64, detail: impl Into<String>) -> Self {
         Self::build(
             str,
             SituationMatch::Recommend([Some(direction), None, None, None]),
@@ -261,7 +261,7 @@ impl Situation {
         Self::build(
             str,
             SituationMatch::Avoid([Some(direction), None, None, None]),
-            0,
+            0.0,
             detail,
         )
     }
@@ -269,7 +269,7 @@ impl Situation {
     pub fn multi_recommending(
         str: &str,
         directions: [Option<Direction>; SNAKES],
-        score: i32,
+        score: f64,
         detail: impl Into<String>,
     ) -> Self {
         Self::build(str, SituationMatch::Recommend(directions), score, detail)
@@ -280,10 +280,10 @@ impl Situation {
         directions: [Option<Direction>; SNAKES],
         detail: impl Into<String>,
     ) -> Self {
-        Self::build(str, SituationMatch::Avoid(directions), 0, detail)
+        Self::build(str, SituationMatch::Avoid(directions), 0.0, detail)
     }
 
-    fn build(str: &str, result: SituationMatch, score: i32, detail: impl Into<String>) -> Self {
+    fn build(str: &str, result: SituationMatch, score: f64, detail: impl Into<String>) -> Self {
         Self {
             patterns: vec![SituationPattern::parse(str, result)],
             condition: None,
@@ -381,7 +381,7 @@ mod tests {
             N N .
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_some());
@@ -393,7 +393,7 @@ mod tests {
             N N N
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_none());
@@ -405,7 +405,7 @@ mod tests {
             N . .
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_some());
@@ -417,7 +417,7 @@ mod tests {
             N .
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_some());
@@ -429,7 +429,7 @@ mod tests {
             N N N
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_some());
@@ -441,7 +441,7 @@ mod tests {
             N B N
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         );
         assert!(situation.check(&state).is_some());
@@ -455,7 +455,7 @@ mod tests {
             . N .
             ",
             Direction::Up,
-            100,
+            100.0,
             "Test",
         )
         .rotational();
@@ -503,7 +503,7 @@ mod tests {
             N A .
             ",
             Direction::Right,
-            100,
+            100.0,
             "Test",
         )
         .mirrored();
@@ -543,7 +543,7 @@ mod tests {
             . . .
             ",
             Direction::Right,
-            100,
+            100.0,
             "Test",
         )
         .full_symmetry();
@@ -583,12 +583,12 @@ mod tests {
 
         // Pattern matches but condition fails (3 > 3 is false) → no match
         let situation =
-            Situation::recommending(pattern, Direction::Up, 100, "Test").condition(own_longer_than_b);
+            Situation::recommending(pattern, Direction::Up, 100.0, "Test").condition(own_longer_than_b);
         assert!(situation.check(&state).is_none());
 
         // Pattern matches and condition passes (3 >= 3 is true) → match
         let situation =
-            Situation::recommending(pattern, Direction::Up, 100, "Test").condition(own_not_shorter_than_b);
+            Situation::recommending(pattern, Direction::Up, 100.0, "Test").condition(own_not_shorter_than_b);
         assert!(situation.check(&state).is_some());
     }
 
@@ -610,7 +610,7 @@ mod tests {
             B * *
             ",
             dirs,
-            100,
+            100.0,
             "Test",
         );
 
@@ -646,7 +646,7 @@ mod tests {
             N N .
             ",
             Direction::Up,
-            37,
+            37.0,
             "Custom Detail",
         )]);
         let mut evaluation = Evaluation::new();
@@ -696,7 +696,7 @@ mod benchmarks {
             W . A
             ",
             Direction::Down,
-            100,
+            100.0,
             "Benchmark",
         )
         .full_symmetry();
@@ -718,7 +718,7 @@ mod benchmarks {
             W N A
             ",
             Direction::Up,
-            100,
+            100.0,
             "Benchmark",
         )
         .full_symmetry()
@@ -756,7 +756,7 @@ mod benchmarks {
                 W . A
                 ",
                 Direction::Down,
-                100,
+                100.0,
                 "Kill by lead",
             )
             .full_symmetry(),
@@ -767,7 +767,7 @@ mod benchmarks {
                 W N A
                 ",
                 Direction::Up,
-                100,
+                100.0,
                 "Kill by follow",
             )
             .full_symmetry()
@@ -789,7 +789,7 @@ mod benchmarks {
                 "
                 X A",
                 Direction::Left,
-                100,
+                100.0,
                 "Eat Food",
             )
             .full_symmetry(),
@@ -799,7 +799,7 @@ mod benchmarks {
                 W A .
                 ",
                 Direction::Right,
-                100,
+                100.0,
                 "Move away from walls",
             )
             .full_symmetry(),

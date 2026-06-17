@@ -62,6 +62,25 @@ impl Snakes {
         }
         tails
     }
+
+    pub fn length_gap_to_longest_other_snake(&self) -> i8 {
+        let lengths = self.lengths();
+        let my_length = lengths[0];
+        let longest_other_length = (1..SNAKES)
+            .map(|id| lengths[id as usize])
+            .max()
+            .unwrap_or(0);
+        my_length as i8 - longest_other_length as i8
+    }
+}
+
+impl IntoIterator for Snakes {
+    type Item = Cell<Snake>;
+    type IntoIter = std::array::IntoIter<Self::Item, SNAKES>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.snakes.into_iter()
+    }
 }
 
 impl From<OriginalGameState> for Snakes {
