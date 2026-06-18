@@ -602,16 +602,9 @@ mod tests {
                 "Fast Track",
             )
             .condition(|snakes| {
-                if let [
-                    Snake::Alive { length: a, .. },
-                    Snake::Alive { length: b, .. },
-                    _,
-                    _,
-                ] = snakes
-                {
-                    a <= b
-                } else {
-                    false
+                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                    _ => false,
                 }
             }),
         );
@@ -676,16 +669,9 @@ mod tests {
                 "Fast Track",
             )
             .condition(|snakes| {
-                if let [
-                    Snake::Alive { length: a, .. },
-                    Snake::Alive { length: b, .. },
-                    _,
-                    _,
-                ] = snakes
-                {
-                    a <= b
-                } else {
-                    false
+                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                    _ => false,
                 }
             }),
         );

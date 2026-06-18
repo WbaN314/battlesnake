@@ -5,7 +5,7 @@ use situation_field::SituationField;
 use std::fmt;
 
 use crate::logic::general::{
-    direction::{Direction}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::SNAKES
+    direction::{Direction}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::{Snakes, SNAKES}
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -214,7 +214,7 @@ impl SituationSet {
 
 pub struct Situation {
     patterns: Vec<SituationPattern>,
-    condition: Option<fn([Snake; 4]) -> bool>,
+    condition: Option<fn(Snakes) -> bool>,
     score: f64,
     detail: String,
 }
@@ -286,7 +286,7 @@ impl Situation {
         self.patterns.iter().find_map(|p| {
             let (result, label_ids) = p.check(gamestate)?;
             if let Some(condition) = self.condition {
-                // Build ordered Snakes: slot 0 = own snake (A), slots 1/2/3 = B/C/D matched IDs.
+                // Build label-ordered Snakes: slot 0 = own snake (A), slots 1/2/3 = B/C/D matched IDs.
                 // Unmatched labels get NonExistent.
                 let src = gamestate.snakes();
                 let mut ordered = [Snake::NonExistent; 4];
@@ -296,7 +296,7 @@ impl Situation {
                         ordered[slot + 1] = src.cell(*id).get();
                     }
                 }
-                if !condition(ordered) {
+                if !condition(Snakes::from_label_order(ordered)) {
                     return None;
                 }
             }
@@ -307,7 +307,7 @@ impl Situation {
         })
     }
 
-    pub fn condition(mut self, condition: fn([Snake; 4]) -> bool) -> Self {
+    pub fn condition(mut self, condition: fn(Snakes) -> bool) -> Self {
         self.condition = Some(condition);
         self
     }
@@ -319,7 +319,7 @@ mod tests {
     use crate::{
         logic::general::{
             direction::Direction, evaluation::Evaluation, field::BasicField, game_state::GameState,
-            snake::Snake,
+            snake::Snake, snakes::Snakes,
         },
         read_game_state,
     };
@@ -415,15 +415,15 @@ mod tests {
             N B N
         ";
 
-        fn own_longer_than_b(snakes: [Snake; 4]) -> bool {
-            match (snakes[0], snakes[1]) {
+        fn own_longer_than_b(snakes: Snakes) -> bool {
+            match (snakes.cell(0).get(), snakes.cell(1).get()) {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
                 _ => false,
             }
         }
 
-        fn own_not_shorter_than_b(snakes: [Snake; 4]) -> bool {
-            match (snakes[0], snakes[1]) {
+        fn own_not_shorter_than_b(snakes: Snakes) -> bool {
+            match (snakes.cell(0).get(), snakes.cell(1).get()) {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a >= b,
                 _ => false,
             }
@@ -512,7 +512,7 @@ mod benchmarks {
     use super::{Situation, SituationSet};
     use crate::{
         logic::general::{
-            direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake
+            direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::Snakes
         },
         read_game_state,
     };
@@ -568,16 +568,9 @@ mod benchmarks {
             "Benchmark",
         )
         .condition(|snakes| {
-            if let [
-                Snake::Alive { length: a, .. },
-                Snake::Alive { length: b, .. },
-                _,
-                _,
-            ] = snakes
-            {
-                a > b
-            } else {
-                false
+            match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
             }
         });
 
@@ -615,16 +608,9 @@ mod benchmarks {
                 "Kill by follow",
             )
             .condition(|snakes| {
-                if let [
-                    Snake::Alive { length: a, .. },
-                    Snake::Alive { length: b, .. },
-                    _,
-                    _,
-                ] = snakes
-                {
-                    a > b
-                } else {
-                    false
+                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
                 }
             }),
             // Eat Food

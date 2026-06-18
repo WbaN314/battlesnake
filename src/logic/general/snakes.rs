@@ -34,6 +34,14 @@ impl Snakes {
         Snakes { snakes }
     }
 
+    // Builds a Snakes from a label-ordered array [A, B, C, D].
+    // Slot 0 = own snake (A), slot 1 = snake at label B, etc.
+    pub fn from_label_order(ordered: [Snake; SNAKES]) -> Self {
+        Snakes {
+            snakes: ordered.map(Cell::new),
+        }
+    }
+
     pub fn cell(&self, id: u8) -> &Cell<Snake> {
         &self.snakes[id as usize]
     }

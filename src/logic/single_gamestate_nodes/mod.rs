@@ -21,11 +21,11 @@ use crate::{
     },
 };
 
-pub struct GamestateNodesSnake;
-
 mod node;
 mod situation;
 mod tree;
+
+pub struct GamestateNodesSnake;
 
 struct EnvironmentConfig {
     simulation_time: Duration,
@@ -60,16 +60,9 @@ impl GamestateNodesSnake {
             "Fast Track",
         )
         .condition(|snakes| {
-            if let [
-                Snake::Alive { length: a, .. },
-                Snake::Alive { length: b, .. },
-                _,
-                _,
-            ] = snakes
-            {
-                a <= b
-            } else {
-                false
+            match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                _ => false,
             }
         })
     }
@@ -92,7 +85,9 @@ impl GamestateNodesSnake {
                 Direction::Left,
                 60.0,
                 "Grab Food",
-            ),
+            ).condition(|snakes| {
+                snakes.length_gap_to_longest_other_snake() <= 2
+            }),
             Situation::recommending(
                 "
                 W N *
@@ -114,16 +109,9 @@ impl GamestateNodesSnake {
                 "Kill by Follow",
             )
             .condition(|snakes| {
-                if let [
-                    Snake::Alive { length: a, .. },
-                    Snake::Alive { length: b, .. },
-                    _,
-                    _,
-                ] = snakes
-                {
-                    a > b
-                } else {
-                    false
+                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
                 }
             }),
         ]);
@@ -199,14 +187,15 @@ impl GamestateNodesSnake {
             let number_of_alive_snakes = gamestate.snakes().clone().into_iter().filter(|s| matches!(s.get(), Snake::Alive { .. })).count();
             let number_of_alive_snakes_multiplier = match number_of_alive_snakes {
                 4 => 0.5,
-                2 => 3.0,
+                2 => 2.0,
                 _ => 1.0,
             };
             evaluation.score(direction, result.flooded_area[0] as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
 
             let length_multiplier=match gamestate.snakes().length_gap_to_longest_other_snake() {
                 gap if gap < 0 => 2.0,
-                gap if gap == 0 => 1.5,
+                gap if gap == 1 => 3.0,
+                gap if gap == 0 => 3.0,
                 gap if gap > 8 => 0.1,
                 gap if gap > 2 => 0.5,
                 _ => 1.0,
