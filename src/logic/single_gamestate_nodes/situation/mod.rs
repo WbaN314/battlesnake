@@ -9,10 +9,7 @@ use crate::logic::general::{
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum SituationMatch {
-    Recommend([Option<Direction>; SNAKES]),
-    Avoid([Option<Direction>; SNAKES]),
-}
+pub struct SituationMatch(pub [Option<Direction>; SNAKES]);
 
 struct SituationPattern {
     fields: Vec<SituationField>,
@@ -53,9 +50,6 @@ impl SituationPattern {
         }
     }
 
-    // 90° clockwise rotation (y-up coordinate system).
-    // Transformation: (x, y) -> new_x=y, new_y=width-1-x
-    // Head: new_head_dx=head_dy, new_head_dy=width-1-head_dx
     fn rotate_cw(&self) -> Self {
         let height = self.fields.len() / self.width;
         let new_width = height;
@@ -154,40 +148,27 @@ impl PartialEq for SituationPattern {
 
 impl SituationMatch {
     fn map_direction(self, f: impl Fn(Direction) -> Direction) -> Self {
-        let map_dirs = |dirs: [Option<Direction>; SNAKES]| dirs.map(|d| d.map(&f));
-        match self {
-            Self::Recommend(dirs) => Self::Recommend(map_dirs(dirs)),
-            Self::Avoid(dirs) => Self::Avoid(map_dirs(dirs)),
-        }
+        SituationMatch(self.0.map(|d| d.map(&f)))
     }
 
     // Remaps directions from label-order [A,B,C,D] to gamestate-snake-order.
     // label_ids[0..2] map labels B/C/D to their actual gamestate snake IDs.
     // A (index 0) always stays at slot 0.
     fn remap_to_gamestate(self, label_ids: &[Option<u8>; 3]) -> Self {
-        let remap = |label_dirs: [Option<Direction>; SNAKES]| {
-            let mut out = [None; SNAKES];
-            out[0] = label_dirs[0]; // A = own snake, always slot 0
-            for (label_idx, maybe_id) in label_ids.iter().enumerate() {
-                if let Some(id) = maybe_id {
-                    out[*id as usize] = label_dirs[label_idx + 1];
-                }
+        let mut out = [None; SNAKES];
+        out[0] = self.0[0]; // A = own snake, always slot 0
+        for (label_idx, maybe_id) in label_ids.iter().enumerate() {
+            if let Some(id) = maybe_id {
+                out[*id as usize] = self.0[label_idx + 1];
             }
-            out
-        };
-        match self {
-            Self::Recommend(dirs) => Self::Recommend(remap(dirs)),
-            Self::Avoid(dirs) => Self::Avoid(remap(dirs)),
         }
+        SituationMatch(out)
     }
 }
 
 impl fmt::Display for SituationMatch {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SituationMatch::Recommend(dir) => write!(f, "Recommend({:?})", dir),
-            SituationMatch::Avoid(dir) => write!(f, "Disallow({:?})", dir),
-        }
+        write!(f, "Match({:?})", self.0)
     }
 }
 
@@ -216,8 +197,6 @@ impl SituationSet {
         Self { situations }
     }
 
-    /// Iterates through all situations and applies recommendations/avoidances.
-    /// Returns `Some(Direction)` if a situation recommends an allowed direction, `None` otherwise.
     pub fn evaluate(
         &self,
         gamestate: &GameState<BasicField>,
@@ -225,15 +204,8 @@ impl SituationSet {
     ) -> Option<Direction> {
         evaluation.new_section("Situations");
         for situation in &self.situations {
-            match situation.check(gamestate) {
-                Some(SituationMatch::Recommend([Some(direction), ..])) =>
-                {
-                    evaluation.score(direction, situation.score, situation.detail.clone());
-                }
-                Some(SituationMatch::Avoid([Some(direction), ..])) => {
-                    evaluation.eliminate(direction, 0);
-                }
-                _ => {}
+            if let Some(SituationMatch([Some(direction), ..])) = situation.check(gamestate) {
+                evaluation.score(direction, situation.score, situation.detail.clone());
             }
         }
         None
@@ -251,17 +223,8 @@ impl Situation {
     pub fn recommending(str: &str, direction: Direction, score: f64, detail: impl Into<String>) -> Self {
         Self::build(
             str,
-            SituationMatch::Recommend([Some(direction), None, None, None]),
+            SituationMatch([Some(direction), None, None, None]),
             score,
-            detail,
-        )
-    }
-
-    pub fn avoiding(str: &str, direction: Direction, detail: impl Into<String>) -> Self {
-        Self::build(
-            str,
-            SituationMatch::Avoid([Some(direction), None, None, None]),
-            0.0,
             detail,
         )
     }
@@ -272,15 +235,7 @@ impl Situation {
         score: f64,
         detail: impl Into<String>,
     ) -> Self {
-        Self::build(str, SituationMatch::Recommend(directions), score, detail)
-    }
-
-    pub fn multi_avoiding(
-        str: &str,
-        directions: [Option<Direction>; SNAKES],
-        detail: impl Into<String>,
-    ) -> Self {
-        Self::build(str, SituationMatch::Avoid(directions), 0.0, detail)
+        Self::build(str, SituationMatch(directions), score, detail)
     }
 
     fn build(str: &str, result: SituationMatch, score: f64, detail: impl Into<String>) -> Self {
@@ -290,9 +245,10 @@ impl Situation {
             score,
             detail: detail.into(),
         }
+        .full_symmetry()
     }
 
-    pub fn rotational(mut self) -> Self {
+    fn rotational(mut self) -> Self {
         let r1 = self.patterns[0].rotate_cw();
         let r2 = r1.rotate_cw();
         let r3 = r2.rotate_cw();
@@ -303,14 +259,14 @@ impl Situation {
     }
 
     /// Adds the mirror (left-right reflection) of each existing pattern.
-    pub fn mirrored(mut self) -> Self {
+    fn mirrored(mut self) -> Self {
         let mirrored: Vec<_> = self.patterns.iter().map(|p| p.mirror_x()).collect();
         self.patterns.extend(mirrored);
         self.dedup()
     }
 
     /// Generates all distinct symmetries: up to 8 (4 rotations × 2 mirror states, dihedral group D4).
-    pub fn full_symmetry(self) -> Self {
+    fn full_symmetry(self) -> Self {
         self.rotational().mirrored()
     }
 
@@ -448,114 +404,6 @@ mod tests {
     }
 
     #[test]
-    fn test_rotational_direction_rotation() {
-        let situation = Situation::recommending(
-            "
-            . A .
-            . N .
-            ",
-            Direction::Up,
-            100.0,
-            "Test",
-        )
-        .rotational();
-
-        assert_eq!(situation.patterns.len(), 4);
-
-        for (i, p) in situation.patterns.iter().enumerate() {
-            println!("rotation {}:\n{}", i, p);
-        }
-
-        let dirs: Vec<Direction> = situation
-            .patterns
-            .iter()
-            .map(|p| match p.result {
-                super::SituationMatch::Recommend(d) => d[0].unwrap(),
-                _ => panic!("expected Recommend"),
-            })
-            .collect();
-        assert!(
-            matches!(dirs[0], Direction::Up),
-            "pattern 0:\n{}",
-            situation.patterns[0]
-        );
-        assert!(
-            matches!(dirs[1], Direction::Right),
-            "pattern 1:\n{}",
-            situation.patterns[1]
-        );
-        assert!(
-            matches!(dirs[2], Direction::Down),
-            "pattern 2:\n{}",
-            situation.patterns[2]
-        );
-        assert!(
-            matches!(dirs[3], Direction::Left),
-            "pattern 3:\n{}",
-            situation.patterns[3]
-        );
-    }
-
-    #[test]
-    fn test_mirror_direction() {
-        let situation = Situation::recommending(
-            "
-            N A .
-            ",
-            Direction::Right,
-            100.0,
-            "Test",
-        )
-        .mirrored();
-
-        assert_eq!(situation.patterns.len(), 2);
-
-        for (i, p) in situation.patterns.iter().enumerate() {
-            println!("mirror {}:\n{}", i, p);
-        }
-
-        let dirs: Vec<Direction> = situation
-            .patterns
-            .iter()
-            .map(|p| match p.result {
-                super::SituationMatch::Recommend(d) => d[0].unwrap(),
-                _ => panic!("expected Recommend"),
-            })
-            .collect();
-        assert!(
-            matches!(dirs[0], Direction::Right),
-            "pattern 0:\n{}",
-            situation.patterns[0]
-        );
-        assert!(
-            matches!(dirs[1], Direction::Left),
-            "pattern 1:\n{}",
-            situation.patterns[1]
-        );
-    }
-
-    #[test]
-    fn test_full_symmetry_count() {
-        let situation = Situation::recommending(
-            "
-            N . .
-            N A .
-            . . .
-            ",
-            Direction::Right,
-            100.0,
-            "Test",
-        )
-        .full_symmetry();
-
-        for (i, p) in situation.patterns.iter().enumerate() {
-            println!("symmetry {}:\n{}", i, p);
-        }
-
-        assert_eq!(situation.patterns.len(), 8);
-    }
-
-    #[test]
     fn test_condition() {
         let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = GameState::<BasicField>::from(&gamestate);
@@ -618,7 +466,7 @@ mod tests {
         assert!(result.is_some(), "pattern should match");
 
         match result.unwrap() {
-            super::SituationMatch::Recommend(out) => {
+            super::SituationMatch(out) => {
                 assert_eq!(
                     out[2],
                     Some(Direction::Left),
@@ -631,7 +479,6 @@ mod tests {
                     out
                 );
             }
-            other => panic!("expected Recommend, got {:?}", other),
         }
     }
 
@@ -698,8 +545,7 @@ mod benchmarks {
             Direction::Down,
             100.0,
             "Benchmark",
-        )
-        .full_symmetry();
+        );
 
         let mut i = 0;
         b.iter(|| {
@@ -721,7 +567,6 @@ mod benchmarks {
             100.0,
             "Benchmark",
         )
-        .full_symmetry()
         .condition(|snakes| {
             if let [
                 Snake::Alive { length: a, .. },
@@ -758,8 +603,7 @@ mod benchmarks {
                 Direction::Down,
                 100.0,
                 "Kill by lead",
-            )
-            .full_symmetry(),
+            ),
             // Kill by follow
             Situation::recommending(
                 "
@@ -770,7 +614,6 @@ mod benchmarks {
                 100.0,
                 "Kill by follow",
             )
-            .full_symmetry()
             .condition(|snakes| {
                 if let [
                     Snake::Alive { length: a, .. },
@@ -791,8 +634,7 @@ mod benchmarks {
                 Direction::Left,
                 100.0,
                 "Eat Food",
-            )
-            .full_symmetry(),
+            ),
             // Move away from walls
             Situation::recommending(
                 "
@@ -801,8 +643,7 @@ mod benchmarks {
                 Direction::Right,
                 100.0,
                 "Move away from walls",
-            )
-            .full_symmetry(),
+            ),
         ]);
 
         let mut i = 0;

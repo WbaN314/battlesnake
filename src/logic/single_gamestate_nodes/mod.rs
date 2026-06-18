@@ -15,7 +15,7 @@ use crate::{
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
             node::NodeStatus,
-            situation::{Situation, SituationMatch, SituationSet},
+            situation::{Situation, SituationSet},
             tree::Tree,
         },
     },
@@ -59,7 +59,6 @@ impl GamestateNodesSnake {
             0.0,
             "Fast Track",
         )
-        .full_symmetry()
         .condition(|snakes| {
             if let [
                 Snake::Alive { length: a, .. },
@@ -78,7 +77,14 @@ impl GamestateNodesSnake {
     pub fn special_situation_set() -> SituationSet {
         // Evaluate situations and return or avoid direction
         let situation_set = SituationSet::new(vec![
-            // Kill by lead
+            Situation::recommending(
+                "
+                W . A
+                ",
+                Direction::Left,
+                -50.0,
+                "Avoid Next to Wall",
+            ),
             Situation::recommending(
                 "
                 X A
@@ -86,8 +92,7 @@ impl GamestateNodesSnake {
                 Direction::Left,
                 60.0,
                 "Grab Food",
-            )
-            .full_symmetry(),
+            ),
             Situation::recommending(
                 "
                 W N *
@@ -97,8 +102,7 @@ impl GamestateNodesSnake {
                 Direction::Down,
                 100.0,
                 "Kill by Lead",
-            )
-            .full_symmetry(),
+            ),
             // Kill by follow
             Situation::recommending(
                 "
@@ -109,7 +113,6 @@ impl GamestateNodesSnake {
                 100.0,
                 "Kill by Follow",
             )
-            .full_symmetry()
             .condition(|snakes| {
                 if let [
                     Snake::Alive { length: a, .. },
@@ -137,10 +140,7 @@ impl GamestateNodesSnake {
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
-                matches!(
-                    GamestateNodesSnake::fast_track_trigger_situation().check(node.gamestate()),
-                    Some(SituationMatch::Recommend(_))
-                )
+                GamestateNodesSnake::fast_track_trigger_situation().check(node.gamestate()).is_some()
             })
             .max_time(env_config.simulation_time);
         tree.simulate();
@@ -230,8 +230,6 @@ impl GamestateNodesSnake {
                 }
             }
         }
-
-        
 
         let direction = evaluation.result();
         let eval_string = evaluation.to_string();

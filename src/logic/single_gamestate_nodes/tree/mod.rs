@@ -359,7 +359,7 @@ mod tests {
     use crate::{
         logic::{
             general::{direction::DIRECTIONS, snake::Snake},
-            single_gamestate_nodes::situation::{Situation, SituationMatch},
+            single_gamestate_nodes::situation::Situation,
         },
         read_game_state,
     };
@@ -601,7 +601,6 @@ mod tests {
                 0.0,
                 "Fast Track",
             )
-            .full_symmetry()
             .condition(|snakes| {
                 if let [
                     Snake::Alive { length: a, .. },
@@ -622,7 +621,7 @@ mod tests {
                 tree.fast_track(move |node| {
                     matches!(
                         situation.check(node.gamestate()),
-                        Some(SituationMatch::Recommend(_))
+                        Some(_)
                     )
                 })
             },
@@ -655,7 +654,7 @@ mod tests {
         .fast_track(move |node| {
             matches!(
                 situation.check(node.gamestate()),
-                Some(SituationMatch::Recommend(_))
+                Some(_)
             )
         })
         .max_time(Duration::from_millis(200));
@@ -676,7 +675,6 @@ mod tests {
                 0.0,
                 "Fast Track",
             )
-            .full_symmetry()
             .condition(|snakes| {
                 if let [
                     Snake::Alive { length: a, .. },
@@ -701,7 +699,7 @@ mod tests {
         .fast_track(move |node| {
             matches!(
                 situation.check(node.gamestate()),
-                Some(SituationMatch::Recommend(_))
+                Some(_)
             )
         })
         .max_time(Duration::from_millis(200));
