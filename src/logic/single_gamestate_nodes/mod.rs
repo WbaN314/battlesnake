@@ -188,7 +188,7 @@ impl GamestateNodesSnake {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
             if let Some(turn) = result.not_enough_area_in_turn[0] {
-                evaluation.eliminate(direction, turn.min(16));
+                evaluation.score(direction, 0.max(10 - turn as i8) as f64 * -10.0, "Not Enough Area");
             }
             let squeezed_snakes = result.not_enough_area_in_turn[1..]
                 .iter()
@@ -199,7 +199,7 @@ impl GamestateNodesSnake {
             let number_of_alive_snakes = gamestate.snakes().clone().into_iter().filter(|s| matches!(s.get(), Snake::Alive { .. })).count();
             let number_of_alive_snakes_multiplier = match number_of_alive_snakes {
                 4 => 0.5,
-                2 => 2.0,
+                2 => 3.0,
                 _ => 1.0,
             };
             evaluation.score(direction, result.flooded_area[0] as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
@@ -207,6 +207,7 @@ impl GamestateNodesSnake {
             let length_multiplier=match gamestate.snakes().length_gap_to_longest_other_snake() {
                 gap if gap < 0 => 2.0,
                 gap if gap == 0 => 1.5,
+                gap if gap > 8 => 0.1,
                 gap if gap > 2 => 0.5,
                 _ => 1.0,
             };
