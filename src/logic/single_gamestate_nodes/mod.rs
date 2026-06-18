@@ -140,7 +140,7 @@ impl GamestateNodesSnake {
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
-                GamestateNodesSnake::fast_track_trigger_situation().check(node.gamestate()).is_some()
+                Self::fast_track_trigger_situation().check(node.gamestate()).is_some()
             })
             .max_time(env_config.simulation_time);
         tree.simulate();
