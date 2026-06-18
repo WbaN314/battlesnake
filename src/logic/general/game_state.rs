@@ -472,14 +472,14 @@ impl GameState<FloodFillField> {
                             .cell_coord(new_head)
                             .unwrap()
                             .set(field.fill(0, 1));
-                        result.flooded_area[0] = 1;
+                        result.flooded_area[0].push((new_head, 1));
                     }
                     Some(field @ FloodFillField::Food { .. }) => {
                         self.board
                             .cell_coord(new_head)
                             .unwrap()
                             .set(field.fill(0, 1));
-                        result.flooded_area[0] = 1;
+                        result.flooded_area[0].push((new_head, 1));
                         result.food[0].push((new_head, 1));
                     }
                     Some(FloodFillField::Snake { .. }) => {
@@ -503,7 +503,7 @@ impl GameState<FloodFillField> {
                                     .cell_coord(new_head)
                                     .unwrap()
                                     .set(field.fill(id, 1));
-                                result.flooded_area[id as usize] += 1;
+                                result.flooded_area[id as usize].push((new_head, 1));
                                 filled_one = true;
                             }
                             Some(field @ FloodFillField::Food { .. }) => {
@@ -511,7 +511,7 @@ impl GameState<FloodFillField> {
                                     .cell_coord(new_head)
                                     .unwrap()
                                     .set(field.fill(id, 1));
-                                result.flooded_area[id as usize] += 1;
+                                result.flooded_area[id as usize].push((new_head, 1));
                                 result.food[id as usize].push((new_head, 1));
                                 filled_one = true;
                             }
@@ -557,7 +557,7 @@ impl GameState<FloodFillField> {
                 }
 
                 if lengths[id as usize] > best_length_on_same_turn {
-                    result.flooded_area[id as usize] += 1;
+                    result.flooded_area[id as usize].push((coord, turn));
                     if new_field.was_food() {
                         result.food[id as usize].push((coord, turn));
                     }
@@ -566,7 +566,7 @@ impl GameState<FloodFillField> {
                         if by[other_id as usize] == by[id as usize]
                             && lengths[other_id as usize] == best_length_on_same_turn
                         {
-                            result.flooded_area[other_id as usize] -= 1;
+                            result.flooded_area[other_id as usize].retain(|&(c, _)| c != coord);
                             if new_field.was_food() {
                                 result.food[other_id as usize].retain(|&(c, _)| c != coord);
                             }
@@ -574,7 +574,7 @@ impl GameState<FloodFillField> {
                     }
                     return true;
                 } else if lengths[id as usize] == best_length_on_same_turn {
-                    result.flooded_area[id as usize] += 1;
+                    result.flooded_area[id as usize].push((coord, turn));
                     if new_field.was_food() {
                         result.food[id as usize].push((coord, turn));
                     }
@@ -599,7 +599,7 @@ impl GameState<FloodFillField> {
             self.move_tails();
             self.mark_tails(turn, tails);
             for id in 0..SNAKES {
-                if result.flooded_area[id as usize] >= lengths[id as usize] {
+                if result.flooded_area[id as usize].len() as u8 >= lengths[id as usize] {
                     can_ignite_filled[id as usize] = true;
                 }
             }
@@ -641,7 +641,7 @@ impl GameState<FloodFillField> {
                                 if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
-                                        result.flooded_area[id as usize] += 1;
+                                        result.flooded_area[id as usize].push((Coord::new(x, y), turn));
                                         if new_field.was_food() && number_of_best_length_snakes_that_can_fill == 1 {
                                             result.food[id as usize].push((Coord::new(x, y), turn));
                                         }
@@ -696,7 +696,7 @@ impl GameState<FloodFillField> {
             }
 
             for id in 0..SNAKES {
-                if result.flooded_area[id as usize] < turn.min(lengths[id as usize])
+                if (result.flooded_area[id as usize].len() as u8) < turn.min(lengths[id as usize])
                     && result.not_enough_area_in_turn[id as usize].is_none()
                 {
                     result.not_enough_area_in_turn[id as usize] = Some(turn);
@@ -716,7 +716,7 @@ impl GameState<FloodFillField> {
 #[derive(Debug, Clone)]
 pub struct FloodFillResult {
     pub not_enough_area_in_turn: [Option<u8>; SNAKES as usize],
-    pub flooded_area: [u8; SNAKES as usize],
+    pub flooded_area: [Vec<(Coord, u8)>; SNAKES as usize],
     pub food: [Vec<(Coord, u8)>; SNAKES as usize],
 }
 
@@ -724,7 +724,7 @@ impl FloodFillResult {
     pub fn new() -> Self {
         FloodFillResult {
             not_enough_area_in_turn: [None; SNAKES as usize],
-            flooded_area: [0; SNAKES as usize],
+            flooded_area: std::array::from_fn(|_| Vec::new()),
             food: std::array::from_fn(|_| Vec::new()),
         }
     }
@@ -1261,7 +1261,6 @@ mod tests {
             println!("{:?}", ff_state.board().cell(1, 5).unwrap().get());
             println!("{:?}", result);
 
-            let total: u8 = result.flooded_area.iter().sum();
         }
     }
 

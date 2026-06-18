@@ -190,7 +190,7 @@ impl GamestateNodesSnake {
                 2 => 2.0,
                 _ => 1.0,
             };
-            evaluation.score(direction, result.flooded_area[0] as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
+            evaluation.score(direction, result.flooded_area[0].len() as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
 
             let length_multiplier=match gamestate.snakes().length_gap_to_longest_other_snake() {
                 gap if gap < 0 => 2.0,
