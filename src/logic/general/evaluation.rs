@@ -126,6 +126,10 @@ struct EvaluationSection {
     score_details: [Vec<(f64, String)>; 4],
 }
 
+fn fmt_score(v: f64) -> String {
+    if v == 0.0 { "0".to_string() } else { v.to_string() }
+}
+
 impl Display for Evaluation {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.sections.is_empty() {
@@ -231,11 +235,10 @@ impl Display for Evaluation {
                     .iter()
                     .map(|direction| {
                         let index = *direction as usize;
-                        section.score_details[index]
+                        fmt_score(section.score_details[index]
                             .iter()
                             .map(|(score, _)| *score)
-                            .sum::<f64>()
-                            .to_string()
+                            .sum::<f64>())
                     })
                     .collect();
                 rows.push((section.name.clone(), section_total_cells));
@@ -259,7 +262,7 @@ impl Display for Evaluation {
                                 .filter(|(_, detail)| detail == &detail_label)
                                 .map(|(score, _)| *score)
                                 .sum::<f64>();
-                            value.to_string()
+                            fmt_score(value)
                         })
                         .collect();
                     rows.push((format!("  - {}", detail_label), detail_cells));
@@ -274,7 +277,7 @@ impl Display for Evaluation {
             "TOTAL".to_string(),
             DIRECTIONS
                 .iter()
-                .map(|direction| totals[*direction as usize].to_string())
+                .map(|direction| fmt_score(totals[*direction as usize]))
                 .collect(),
         ));
         score_rows.push((
