@@ -408,3 +408,15 @@ fn failure_58() {
     assert_ne!(chosen_move, OriginalDirection::Up);
     assert_ne!(chosen_move, OriginalDirection::Left);
 }
+
+#[test]
+fn failure_59() {
+    let chosen_move = get_move_from_json_file("failure_59.json");
+    assert_eq!(chosen_move, OriginalDirection::Up, "Going up should be possible but is being excluded by capture logic");
+}
+
+#[test]
+fn failure_60() {
+    let chosen_move = get_move_from_json_file("failure_60.json");
+    assert_eq!(chosen_move, OriginalDirection::Up, "Going up is preferrable here to fight for the food");
+}

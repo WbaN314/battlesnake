@@ -1,0 +1,230 @@
+{
+    "game": {
+        "id": "0ad17ec5-e8ad-4ec7-b65c-09fe4c81c004",
+        "ruleset": {
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard",
+            "version": "v1.2.3"
+        },
+        "timeout": 500
+    },
+    "turn": 38,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 0,
+                "y": 8
+            },
+            {
+                "x": 4,
+                "y": 0
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_yCFT9WfXPkPVycmk8DBRxQKF",
+                "name": "Game of Chicken",
+                "health": 89,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    },
+                    {
+                        "x": 4,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 5
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 7
+                },
+                "length": 7,
+                "latency": "219",
+                "shout": ""
+            },
+            {
+                "id": "gs_XJwMyQbPydJTcxhMvTR4bWjD",
+                "name": "SnattleBake_v060s",
+                "health": 95,
+                "body": [
+                    {
+                        "x": 8,
+                        "y": 2
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 8,
+                    "y": 2
+                },
+                "length": 5,
+                "latency": "23",
+                "shout": ""
+            },
+            {
+                "id": "gs_8gCW6XFqHJkfrHp8W74ktWdY",
+                "name": "Shapeshifter",
+                "health": 64,
+                "body": [
+                    {
+                        "x": 10,
+                        "y": 4
+                    },
+                    {
+                        "x": 10,
+                        "y": 3
+                    },
+                    {
+                        "x": 9,
+                        "y": 3
+                    },
+                    {
+                        "x": 9,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 10,
+                    "y": 4
+                },
+                "length": 4,
+                "latency": "414",
+                "shout": ""
+            },
+            {
+                "id": "gs_KBcPPVH9PrVY6RxSCKgChcQR",
+                "name": "mark_snake",
+                "health": 91,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 8
+                    },
+                    {
+                        "x": 5,
+                        "y": 7
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 9
+                },
+                "length": 6,
+                "latency": "125",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_yCFT9WfXPkPVycmk8DBRxQKF",
+        "name": "Game of Chicken",
+        "health": 89,
+        "body": [
+            {
+                "x": 1,
+                "y": 7
+            },
+            {
+                "x": 2,
+                "y": 7
+            },
+            {
+                "x": 3,
+                "y": 7
+            },
+            {
+                "x": 4,
+                "y": 7
+            },
+            {
+                "x": 4,
+                "y": 6
+            },
+            {
+                "x": 4,
+                "y": 5
+            },
+            {
+                "x": 3,
+                "y": 5
+            }
+        ],
+        "head": {
+            "x": 1,
+            "y": 7
+        },
+        "length": 7,
+        "latency": "219",
+        "shout": ""
+    }
+}
