@@ -420,3 +420,9 @@ fn failure_60() {
     let chosen_move = get_move_from_json_file("failure_60.json");
     assert_eq!(chosen_move, OriginalDirection::Up, "Going up is preferrable here to fight for the food");
 }
+
+#[test]
+fn failure_61() {
+    let chosen_move = get_move_from_json_file("failure_61.json");
+    assert_eq!(chosen_move, OriginalDirection::Up, "Squeezing logic from flood prefers down but there is too much going on");
+}

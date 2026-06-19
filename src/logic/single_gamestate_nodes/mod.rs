@@ -59,12 +59,12 @@ impl GamestateNodesSnake {
             0.0,
             "Fast Track",
         )
-        .condition(|snakes| {
-            match (snakes.cell(0).get(), snakes.cell(1).get()) {
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                 _ => false,
-            }
-        })
+            },
+        )
     }
 
     pub fn special_situation_set() -> SituationSet {
@@ -85,9 +85,8 @@ impl GamestateNodesSnake {
                 Direction::Left,
                 60.0,
                 "Grab Food",
-            ).condition(|snakes| {
-                snakes.length_gap_to_longest_other_snake() <= 2
-            }),
+            )
+            .condition(|snakes| snakes.length_gap_to_longest_other_snake() <= 2),
             Situation::recommending(
                 "
                 W N *
@@ -108,12 +107,12 @@ impl GamestateNodesSnake {
                 100.0,
                 "Kill by Follow",
             )
-            .condition(|snakes| {
-                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+            .condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
                     (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
                     _ => false,
-                }
-            }),
+                },
+            ),
         ]);
         situation_set
     }
@@ -128,7 +127,9 @@ impl GamestateNodesSnake {
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
-                Self::fast_track_trigger_situation().check(node.gamestate()).is_some()
+                Self::fast_track_trigger_situation()
+                    .check(node.gamestate())
+                    .is_some()
             })
             .max_time(env_config.simulation_time);
         tree.simulate();
@@ -176,23 +177,45 @@ impl GamestateNodesSnake {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
             if let Some(turn) = result.not_enough_area_in_turn[0] {
-                evaluation.score(direction, 0.max(10 - turn as i8) as f64 * -10.0, "Not Enough Area");
+                evaluation.score(
+                    direction,
+                    0.max(10 - turn as i8) as f64 * -10.0,
+                    "Not Enough Area",
+                );
             }
-            let squeezed_snakes = result.not_enough_area_in_turn[1..]
-                .iter()
-                .filter(|x| x.is_some())
-                .count() as f64;
-            evaluation.score(direction, squeezed_snakes * 100.0, "Squeezed Snakes");
 
-            let number_of_alive_snakes = gamestate.snakes().clone().into_iter().filter(|s| matches!(s.get(), Snake::Alive { .. })).count();
+            if gamestate
+                .snakes().clone()
+                .into_iter()
+                .filter(|snake| matches!(snake.get(), Snake::Alive { .. }))
+                .count()
+                <= 3
+            { // Squeezing only if at most 3 snakes alive -> failure_61.json
+                let squeezed_snakes = result.not_enough_area_in_turn[1..]
+                    .iter()
+                    .filter(|x| x.is_some())
+                    .count() as f64;
+                evaluation.score(direction, squeezed_snakes * 100.0, "Squeezed Snakes");
+            }
+
+            let number_of_alive_snakes = gamestate
+                .snakes()
+                .clone()
+                .into_iter()
+                .filter(|s| matches!(s.get(), Snake::Alive { .. }))
+                .count();
             let number_of_alive_snakes_multiplier = match number_of_alive_snakes {
                 4 => 0.5,
                 2 => 2.0,
                 _ => 1.0,
             };
-            evaluation.score(direction, result.flooded_area[0].len() as f64 * number_of_alive_snakes_multiplier, format!("Flooded Area x {}", number_of_alive_snakes_multiplier));
+            evaluation.score(
+                direction,
+                result.flooded_area[0].len() as f64 * number_of_alive_snakes_multiplier,
+                format!("Flooded Area x {}", number_of_alive_snakes_multiplier),
+            );
 
-            let length_multiplier=match gamestate.snakes().length_gap_to_longest_other_snake() {
+            let length_multiplier = match gamestate.snakes().length_gap_to_longest_other_snake() {
                 gap if gap < 0 => 2.0,
                 gap if gap == 1 => 3.0,
                 gap if gap == 0 => 3.0,
@@ -202,21 +225,45 @@ impl GamestateNodesSnake {
             };
             for &(coord, turn) in &result.food[0] {
                 if turn == 1 {
-                    evaluation.score(direction, 60.0 * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        60.0 * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 }
                 if turn == 2 {
-                    evaluation.score(direction, 40.0 * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        40.0 * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 }
                 if turn == 3 {
-                    evaluation.score(direction, 30.0 * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        30.0 * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 }
                 if turn == 4 {
-                    evaluation.score(direction, 20.0 * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        20.0 * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 }
                 if turn == 5 {
-                    evaluation.score(direction, 10.0 * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        10.0 * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 } else {
-                    evaluation.score(direction, 5_f64.max(15.0 - turn as f64) * length_multiplier, format!("Food x {}", length_multiplier));
+                    evaluation.score(
+                        direction,
+                        5_f64.max(15.0 - turn as f64) * length_multiplier,
+                        format!("Food x {}", length_multiplier),
+                    );
                 }
             }
         }
