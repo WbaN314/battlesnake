@@ -426,3 +426,9 @@ fn failure_61() {
     let chosen_move = get_move_from_json_file("failure_61.json");
     assert_eq!(chosen_move, OriginalDirection::Up, "Squeezing logic from flood prefers down but there is too much going on");
 }
+
+#[test]
+fn failure_62() {
+    let chosen_move = get_move_from_json_file("failure_62.json");
+    assert_eq!(chosen_move, OriginalDirection::Left, "Moved to wall because of food, but should move away again now");
+}

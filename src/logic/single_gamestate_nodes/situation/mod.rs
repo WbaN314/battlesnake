@@ -204,8 +204,10 @@ impl SituationSet {
     ) -> Option<Direction> {
         evaluation.new_section("Situations");
         for situation in &self.situations {
-            if let Some(SituationMatch([Some(direction), ..])) = situation.check(gamestate) {
-                evaluation.score(direction, situation.score, situation.detail.clone());
+            for m in situation.check_all(gamestate) {
+                if let SituationMatch([Some(direction), ..]) = m {
+                    evaluation.score(direction, situation.score, situation.detail.clone());
+                }
             }
         }
         None
@@ -283,28 +285,49 @@ impl Situation {
     }
 
     pub fn check(&self, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
-        self.patterns.iter().find_map(|p| {
-            let (result, label_ids) = p.check(gamestate)?;
-            if let Some(condition) = self.condition {
-                // Build label-ordered Snakes: slot 0 = own snake (A), slots 1/2/3 = B/C/D matched IDs.
-                // Unmatched labels get NonExistent.
+        self.patterns.iter().find_map(|p| self.check_pattern(p, gamestate))
+    }
+
+    pub fn check_all(&self, gamestate: &GameState<BasicField>) -> Vec<SituationMatch> {
+        self.patterns.iter().filter_map(|p| self.check_pattern(p, gamestate)).collect()
+    }
+
+    fn check_pattern(&self, p: &SituationPattern, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
+        let (result, label_ids) = p.check(gamestate)?;
+        if let Some(condition) = self.condition {
+            let snakes = if label_ids.iter().any(|id| id.is_some()) {
+                // Slot 0 = A (own snake). Labeled snakes B/C/D go to slots 1/2/3.
+                // Remaining slots are filled with unlabeled gamestate snakes so none are lost.
                 let src = gamestate.snakes();
-                let mut ordered = [Snake::NonExistent; 4];
+                let mut ordered = [Snake::NonExistent; SNAKES];
                 ordered[0] = src.cell(0).get();
+                let labeled_ids: std::collections::HashSet<u8> = label_ids.iter().filter_map(|x| *x).collect();
                 for (slot, maybe_id) in label_ids.iter().enumerate() {
                     if let Some(id) = maybe_id {
                         ordered[slot + 1] = src.cell(*id).get();
                     }
                 }
-                if !condition(Snakes::from_label_order(ordered)) {
-                    return None;
+                let mut fill_slot = label_ids.iter().filter(|x| x.is_some()).count() + 1;
+                for id in 1..SNAKES as u8 {
+                    if !labeled_ids.contains(&id) {
+                        if fill_slot < SNAKES {
+                            ordered[fill_slot] = src.cell(id).get();
+                            fill_slot += 1;
+                        }
+                    }
                 }
+                Snakes::from_label_order(ordered)
+            } else {
+                gamestate.snakes().clone()
+            };
+            if !condition(snakes) {
+                return None;
             }
-            // Remap from label-order [A,B,C,D] to gamestate-snake-order.
-            // result[0] (A = own snake) stays at slot 0.
-            // result[1..] (B/C/D) move to the slot of the matched gamestate snake ID.
-            Some(result.remap_to_gamestate(&label_ids))
-        })
+        }
+        // Remap from label-order [A,B,C,D] to gamestate-snake-order.
+        // result[0] (A = own snake) stays at slot 0.
+        // result[1..] (B/C/D) move to the slot of the matched gamestate snake ID.
+        Some(result.remap_to_gamestate(&label_ids))
     }
 
     pub fn condition(mut self, condition: fn(Snakes) -> bool) -> Self {

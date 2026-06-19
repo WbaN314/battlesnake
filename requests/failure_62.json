@@ -1,0 +1,334 @@
+{
+    "game": {
+        "id": "b0e89c07-48d3-41b8-bd39-a1eea2f2d378",
+        "ruleset": {
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 136,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 2,
+                "y": 10
+            },
+            {
+                "x": 0,
+                "y": 0
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_4t4gSqPqXFWFqxTQdBy4rBtH",
+                "name": "MrdrSnek",
+                "health": 52,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 7
+                },
+                "length": 4,
+                "latency": "366",
+                "shout": ""
+            },
+            {
+                "id": "gs_96XCycfGx7fYjjpYG4D93SpR",
+                "name": "Game of Chicken",
+                "health": 99,
+                "body": [
+                    {
+                        "x": 10,
+                        "y": 8
+                    },
+                    {
+                        "x": 10,
+                        "y": 9
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    },
+                    {
+                        "x": 8,
+                        "y": 9
+                    },
+                    {
+                        "x": 8,
+                        "y": 8
+                    },
+                    {
+                        "x": 8,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 6
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 2
+                    },
+                    {
+                        "x": 8,
+                        "y": 1
+                    },
+                    {
+                        "x": 7,
+                        "y": 1
+                    },
+                    {
+                        "x": 6,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 4,
+                        "y": 1
+                    }
+                ],
+                "head": {
+                    "x": 10,
+                    "y": 8
+                },
+                "length": 16,
+                "latency": "319",
+                "shout": ""
+            },
+            {
+                "id": "gs_DPmCmvkcbJfyyjxB88KYDbKM",
+                "name": "ActionHero",
+                "health": 85,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 5,
+                        "y": 7
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    },
+                    {
+                        "x": 6,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 9
+                },
+                "length": 10,
+                "latency": "221",
+                "shout": ""
+            },
+            {
+                "id": "gs_q497cqHfVPJbCj4chVMxHMT6",
+                "name": "@~~~~@",
+                "health": 69,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 4,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    },
+                    {
+                        "x": 2,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 4
+                },
+                "length": 9,
+                "latency": "454",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_96XCycfGx7fYjjpYG4D93SpR",
+        "name": "Game of Chicken",
+        "health": 99,
+        "body": [
+            {
+                "x": 10,
+                "y": 8
+            },
+            {
+                "x": 10,
+                "y": 9
+            },
+            {
+                "x": 9,
+                "y": 9
+            },
+            {
+                "x": 8,
+                "y": 9
+            },
+            {
+                "x": 8,
+                "y": 8
+            },
+            {
+                "x": 8,
+                "y": 7
+            },
+            {
+                "x": 8,
+                "y": 6
+            },
+            {
+                "x": 8,
+                "y": 5
+            },
+            {
+                "x": 8,
+                "y": 4
+            },
+            {
+                "x": 8,
+                "y": 3
+            },
+            {
+                "x": 8,
+                "y": 2
+            },
+            {
+                "x": 8,
+                "y": 1
+            },
+            {
+                "x": 7,
+                "y": 1
+            },
+            {
+                "x": 6,
+                "y": 1
+            },
+            {
+                "x": 5,
+                "y": 1
+            },
+            {
+                "x": 4,
+                "y": 1
+            }
+        ],
+        "head": {
+            "x": 10,
+            "y": 8
+        },
+        "length": 16,
+        "latency": "319",
+        "shout": ""
+    }
+}

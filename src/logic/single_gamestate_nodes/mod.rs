@@ -6,11 +6,7 @@ use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
         general::{
-            direction::{DIRECTIONS, Direction},
-            evaluation::Evaluation,
-            field::{BasicField, FloodFillField},
-            game_state::GameState,
-            snake::Snake,
+            board::{HEIGHT, WIDTH}, direction::{DIRECTIONS, Direction}, evaluation::Evaluation, field::{BasicField, FloodFillField}, game_state::GameState, snake::Snake
         },
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
@@ -75,8 +71,8 @@ impl GamestateNodesSnake {
                 W . A
                 ",
                 Direction::Left,
-                -50.0,
-                "Avoid Next to Wall",
+                -20.0,
+                "Avoid Moving Next to Wall",
             ),
             Situation::recommending(
                 "
@@ -141,7 +137,7 @@ impl GamestateNodesSnake {
             match result {
                 NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n),
                 NodeStatus::AliveFor(n) => {
-                    evaluation.score(index.try_into().unwrap(), n as f64, "Alive For")
+                    evaluation.score(index.try_into().unwrap(), n as f64 / 100.0, "Alive For")
                 }
                 _ => {}
             }
@@ -165,10 +161,10 @@ impl GamestateNodesSnake {
         println!("{}", gamestate);
 
         // Simulation
-        GamestateNodesSnake::simulation(gamestate.clone(), &mut evaluation, &env_config);
+        Self::simulation(gamestate.clone(), &mut evaluation, &env_config);
 
         // Situations
-        let situation_set = GamestateNodesSnake::special_situation_set();
+        let situation_set = Self::special_situation_set();
         situation_set.evaluate(&gamestate, &mut evaluation);
 
         // Area
@@ -265,6 +261,16 @@ impl GamestateNodesSnake {
                         format!("Food x {}", length_multiplier),
                     );
                 }
+            }
+        }
+
+        // Wall avoidance
+        if let Snake::Alive { head, .. } =  gamestate.snakes().cell(0).get() {
+            for direction in DIRECTIONS {
+                let next_head = head + direction;
+                    if next_head.x == 0 || next_head.x == WIDTH - 1 || next_head.y == 0 || next_head.y == HEIGHT - 1 {
+                        evaluation.score(direction, -20.0, "Next to Wall");
+                    }
             }
         }
 
