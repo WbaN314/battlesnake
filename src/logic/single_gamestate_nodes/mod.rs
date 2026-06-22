@@ -6,7 +6,13 @@ use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
         general::{
-            board::{HEIGHT, WIDTH}, direction::{DIRECTIONS, Direction}, evaluation::Evaluation, field::{BasicField, FloodFillField}, game_state::GameState, snake::Snake
+            board::{HEIGHT, WIDTH},
+            coord::Coord,
+            direction::{DIRECTIONS, Direction},
+            evaluation::Evaluation,
+            field::{BasicField, FloodFillField},
+            game_state::GameState,
+            snake::Snake,
         },
         legacy::shared::brain::Brain,
         single_gamestate_nodes::{
@@ -168,6 +174,7 @@ impl GamestateNodesSnake {
         situation_set.evaluate(&gamestate, &mut evaluation);
 
         // Area
+        let number_of_alive_snakes = (0..4).filter(|&id| gamestate.is_alive(id)).count();
         evaluation.new_section("Capture");
         for direction in DIRECTIONS {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
@@ -180,26 +187,14 @@ impl GamestateNodesSnake {
                 );
             }
 
-            if gamestate
-                .snakes().clone()
-                .into_iter()
-                .filter(|snake| matches!(snake.get(), Snake::Alive { .. }))
-                .count()
-                <= 3
-            { // Squeezing only if at most 3 snakes alive -> failure_61.json
+            if number_of_alive_snakes <= 3 {
+                // Squeezing only if at most 3 snakes alive -> failure_61.json
                 let squeezed_snakes = result.not_enough_area_in_turn[1..]
                     .iter()
                     .filter(|x| x.is_some())
                     .count() as f64;
                 evaluation.score(direction, squeezed_snakes * 100.0, "Squeezed Snakes");
             }
-
-            let number_of_alive_snakes = gamestate
-                .snakes()
-                .clone()
-                .into_iter()
-                .filter(|s| matches!(s.get(), Snake::Alive { .. }))
-                .count();
             let number_of_alive_snakes_multiplier = match number_of_alive_snakes {
                 4 => 0.5,
                 2 => 2.0,
@@ -270,12 +265,50 @@ impl GamestateNodesSnake {
         }
 
         // Wall avoidance
-        if let Snake::Alive { head, .. } =  gamestate.snakes().cell(0).get() {
+        if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
             for direction in DIRECTIONS {
                 let next_head = head + direction;
-                    if next_head.x == 0 || next_head.x == WIDTH - 1 || next_head.y == 0 || next_head.y == HEIGHT - 1 {
-                        evaluation.score(direction, -20.0, "Next to Wall");
-                    }
+                if next_head.x == 0
+                    || next_head.x == WIDTH - 1
+                    || next_head.y == 0
+                    || next_head.y == HEIGHT - 1
+                {
+                    evaluation.score(direction, -20.0, "Next to Wall");
+                }
+            }
+        }
+
+        // Away from trouble: if all enemy heads are on one side, bonus the opposite direction
+        evaluation.new_section("Away From Trouble");
+        if number_of_alive_snakes >= 4 {
+            if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
+                let enemy_heads: Vec<Coord> = gamestate
+                    .snakes()
+                    .clone()
+                    .into_iter()
+                    .skip(1)
+                    .filter_map(|s| {
+                        if let Snake::Alive { head, .. } = s.get() {
+                            Some(head)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let away_direction = if enemy_heads.iter().all(|e| e.x > head.x) {
+                    Some(Direction::Left)
+                } else if enemy_heads.iter().all(|e| e.x < head.x) {
+                    Some(Direction::Right)
+                } else if enemy_heads.iter().all(|e| e.y > head.y) {
+                    Some(Direction::Down)
+                } else if enemy_heads.iter().all(|e| e.y < head.y) {
+                    Some(Direction::Up)
+                } else {
+                    None
+                };
+                if let Some(d) = away_direction {
+                    evaluation.score(d, 20.0, "Away From Trouble");
+                }
             }
         }
 
