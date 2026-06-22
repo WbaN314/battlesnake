@@ -278,10 +278,10 @@ impl GamestateNodesSnake {
             }
         }
 
-        // Away from trouble: if all enemy heads are on one side, bonus the opposite direction
-        evaluation.new_section("Away From Trouble");
-        if number_of_alive_snakes >= 4 {
-            if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
+        // Away from trouble / center preference based on snake count
+        evaluation.new_section("Positioning");
+        if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
+            if number_of_alive_snakes >= 4 {
                 let enemy_heads: Vec<Coord> = gamestate
                     .snakes()
                     .clone()
@@ -308,6 +308,15 @@ impl GamestateNodesSnake {
                 };
                 if let Some(d) = away_direction {
                     evaluation.score(d, 20.0, "Away From Trouble");
+                }
+            } else {
+                let center = Coord::new(WIDTH / 2, HEIGHT / 2);
+                let current_dist = head.distance_to(center);
+                for direction in DIRECTIONS {
+                    let next_head = head + direction;
+                    if next_head.distance_to(center) < current_dist {
+                        evaluation.score(direction, 20.0, "Toward Center");
+                    }
                 }
             }
         }
