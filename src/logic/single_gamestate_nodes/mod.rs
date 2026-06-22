@@ -219,46 +219,51 @@ impl GamestateNodesSnake {
                 gap if gap > 2 => 0.5,
                 _ => 1.0,
             };
+            let hunger_multiplier = match gamestate.snakes().cell(0).get() {
+                Snake::Alive { health, .. } if health < 10 => 3.0,
+                Snake::Alive { health, .. } if health < 20 => 2.0,
+                _ => 1.0,
+            };
             for &(coord, turn) in &result.food[0] {
                 if turn == 1 {
                     evaluation.score(
                         direction,
-                        60.0 * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        60.0 * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
                 if turn == 2 {
                     evaluation.score(
                         direction,
-                        40.0 * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        40.0 * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
                 if turn == 3 {
                     evaluation.score(
                         direction,
-                        30.0 * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        30.0 * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
                 if turn == 4 {
                     evaluation.score(
                         direction,
-                        20.0 * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        20.0 * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
                 if turn == 5 {
                     evaluation.score(
                         direction,
-                        10.0 * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        10.0 * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 } else {
                     evaluation.score(
                         direction,
-                        5_f64.max(15.0 - turn as f64) * length_multiplier,
-                        format!("Food x {}", length_multiplier),
+                        5_f64.max(15.0 - turn as f64) * length_multiplier * hunger_multiplier,
+                        format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
             }

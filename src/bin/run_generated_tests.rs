@@ -70,6 +70,10 @@ fn main() {
                     pass += 1;
                 } else {
                     eprintln!("... FAIL (expected: {}, got: {})", expected_dir, actual);
+                    let txt_path = format!("{}/{}", dir, file.replace(".json", ".txt"));
+                    if let Ok(contents) = fs::read_to_string(&txt_path) {
+                        eprintln!("{}", contents);
+                    }
                     failures.push(format!("{}: expected {} got {}", file, expected_dir, actual));
                     fail += 1;
                 }
@@ -80,6 +84,10 @@ fn main() {
             }
             (Err(_), _) => {
                 eprintln!("... PANICKED");
+                let txt_path = format!("{}/{}", dir, file.replace(".json", ".txt"));
+                if let Ok(contents) = fs::read_to_string(&txt_path) {
+                    eprintln!("{}", contents);
+                }
                 failures.push(format!("{}: panicked", file));
                 panicked += 1;
             }
