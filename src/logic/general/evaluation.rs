@@ -1,6 +1,5 @@
 use crate::logic::general::direction::{Direction, DIRECTIONS};
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use serde_json;
 use tabled::{
     builder::Builder,
     settings::{Alignment, Style, object::Columns},
@@ -142,52 +141,42 @@ impl Display for Evaluation {
         }
 
         if self.one_line {
-            let totals = self.total_scores();
-            let directions = self.directions_after_elimination();
             let picked = self.result();
-            let sections: serde_json::Value = self
-                .sections
+            // Collect all unique (section, reason) labels in order of first appearance
+            let mut reason_labels: Vec<(usize, String)> = Vec::new();
+            for (si, s) in self.sections.iter().enumerate() {
+                for details in &s.score_details {
+                    for (_, label) in details {
+                        if !reason_labels.iter().any(|(ri, rl)| *ri == si && rl == label) {
+                            reason_labels.push((si, label.clone()));
+                        }
+                    }
+                }
+            }
+            let parts: Vec<String> = reason_labels
                 .iter()
-                .map(|s| {
-                    let scores: serde_json::Value = DIRECTIONS
+                .map(|(si, label)| {
+                    let s = &self.sections[*si];
+                    let scores: Vec<String> = DIRECTIONS
                         .iter()
                         .map(|d| {
-                            let i = *d as usize;
-                            let total: f64 = s.score_details[i].iter().map(|(v, _)| *v).sum();
-                            let details: serde_json::Value = s.score_details[i]
+                            let total: f64 = s.score_details[*d as usize]
                                 .iter()
-                                .map(|(v, label)| serde_json::json!({label: v}))
-                                .collect();
-                            (d.to_string(), serde_json::json!({"total": total, "details": details}))
+                                .filter(|(_, l)| l == label)
+                                .map(|(v, _)| *v)
+                                .sum();
+                            fmt_score(total)
                         })
                         .collect();
-                    let elims: serde_json::Value = DIRECTIONS
-                        .iter()
-                        .filter_map(|d| {
-                            s.elimination_priority[*d as usize]
-                                .map(|p| (d.to_string(), serde_json::json!(p)))
-                        })
-                        .collect();
-                    (s.name.clone(), serde_json::json!({"scores": scores, "eliminations": elims}))
+                    format!("{} {}", label, scores.join(" "))
                 })
                 .collect();
-            let summary: serde_json::Value = DIRECTIONS
-                .iter()
-                .map(|d| {
-                    let i = *d as usize;
-                    (d.to_string(), serde_json::json!({
-                        "total": totals[i],
-                        "available": directions[i],
-                        "picked": *d == picked,
-                    }))
-                })
-                .collect();
-            let json = serde_json::json!({
-                "picked": picked.to_string(),
-                "summary": summary,
-                "sections": sections,
-            });
-            return writeln!(f, "{}", json);
+            let totals = self.total_scores();
+            let total_part = format!(
+                "Total {}",
+                DIRECTIONS.iter().map(|d| fmt_score(totals[*d as usize])).collect::<Vec<_>>().join(" ")
+            );
+            return write!(f, "{} | {} | Picked {}\n", parts.join(" | "), total_part, picked);
         }
 
         let direction_headers: Vec<String> = DIRECTIONS.iter().map(ToString::to_string).collect();

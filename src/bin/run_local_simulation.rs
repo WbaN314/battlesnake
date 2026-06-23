@@ -56,6 +56,36 @@ impl SnakeSpec {
     }
 }
 
+/// From the last request turn where 2+ snakes were alive, return (winner_length, max_other_length).
+fn parse_last_decisive_lengths(log_content: &str, winner_name: &str) -> Option<(i64, i64)> {
+    let mut last_state: Option<(i64, i64)> = None;
+    let arrow = " Request -> ";
+    for line in log_content.lines() {
+        if let Some(pos) = line.find(arrow) {
+            let json_str = &line[pos + arrow.len()..];
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+                if let Some(snakes) = val["board"]["snakes"].as_array() {
+                    if snakes.len() >= 2 {
+                        let winner_len = snakes
+                            .iter()
+                            .find(|s| s["name"].as_str() == Some(winner_name))
+                            .and_then(|s| s["length"].as_i64());
+                        let max_other = snakes
+                            .iter()
+                            .filter(|s| s["name"].as_str() != Some(winner_name))
+                            .filter_map(|s| s["length"].as_i64())
+                            .max();
+                        if let (Some(wl), Some(mo)) = (winner_len, max_other) {
+                            last_state = Some((wl, mo));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    last_state
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -160,8 +190,8 @@ fn main() {
 
     if log {
         let _ = fs::remove_dir_all("game_logs");
-        fs::create_dir_all("game_logs").unwrap();
     }
+    fs::create_dir_all("game_logs").unwrap();
     for (idx, snake) in snakes.iter().enumerate() {
         let port = base_port + idx as u16;
         let name = snake.display_name(idx);
@@ -169,14 +199,14 @@ fn main() {
         kill_port(port);
 
         let binary = snake.binary_path();
-        let child = if log && idx == 0 {
+        let child = if idx == 0 {
             let log_file =
                 fs::File::create("game_logs/.server.log").expect("Cannot create log file");
             Command::new(&binary)
                 .env("PORT", port.to_string())
                 .env("VARIANT", &snake.variant)
                 .env("LOG_BOARD", "1")
-                .env("LOG_EVAL", "1")
+                .env("LOG_EVAL", if log { "1" } else { "" })
                 .stdout(log_file.try_clone().unwrap())
                 .stderr(log_file)
                 .spawn()
@@ -196,7 +226,7 @@ fn main() {
             name,
             port,
             child.id(),
-            if log && idx == 0 { " (logging)" } else { "" }
+            if idx == 0 { " (logging)" } else { "" }
         );
 
         server_pids.push(child);
@@ -212,8 +242,14 @@ fn main() {
     std::thread::sleep(std::time::Duration::from_secs(1));
 
     let mut wins: HashMap<String, usize> = HashMap::new();
+    let mut wins_as_longer: HashMap<String, usize> = HashMap::new();
+    let mut wins_as_same: HashMap<String, usize> = HashMap::new();
+    let mut wins_as_shorter: HashMap<String, usize> = HashMap::new();
     for name in &snake_names {
         wins.insert(name.clone(), 0);
+        wins_as_longer.insert(name.clone(), 0);
+        wins_as_same.insert(name.clone(), 0);
+        wins_as_shorter.insert(name.clone(), 0);
     }
     let mut draws: usize = 0;
     let mut total: usize = 0;
@@ -290,26 +326,46 @@ fn main() {
             }
         }
 
-        if log {
-            let first_snake_won = winner_name.as_ref() == Some(&snake_names[0]);
+        // Read new log content for length analysis and optional file saving
+        let new_log_content = {
+            let mut content = String::new();
             if let Ok(mut file) = fs::File::open("game_logs/.server.log") {
                 file.seek(SeekFrom::Start(log_position)).ok();
-                let mut new_content = String::new();
-                file.read_to_string(&mut new_content).ok();
-                let new_position = log_position + new_content.len() as u64;
-                if !new_content.is_empty() {
-                    let suffix = if first_snake_won { "" } else { "_lost" };
-                    let game_log_path = format!("game_logs/game_{}{}.log", total, suffix);
-                    fs::write(&game_log_path, &new_content).unwrap();
-                    eprintln!("  Game log: {}", game_log_path);
+                file.read_to_string(&mut content).ok();
+            }
+            content
+        };
+        log_position += new_log_content.len() as u64;
+
+        if let Some(winner) = &winner_name {
+            if let Some((wl, mo)) = parse_last_decisive_lengths(&new_log_content, winner) {
+                if wl > mo {
+                    *wins_as_longer.entry(winner.clone()).or_default() += 1;
+                } else if wl == mo {
+                    *wins_as_same.entry(winner.clone()).or_default() += 1;
+                } else {
+                    *wins_as_shorter.entry(winner.clone()).or_default() += 1;
                 }
-                log_position = new_position;
             }
         }
 
+        if log && !new_log_content.is_empty() {
+            let first_snake_won = winner_name.as_ref() == Some(&snake_names[0]);
+            let suffix = if first_snake_won { "" } else { "_lost" };
+            let game_log_path = format!("game_logs/game_{}{}.log", total, suffix);
+            fs::write(&game_log_path, &new_log_content).unwrap();
+            eprintln!("  Game log: {}", game_log_path);
+        }
+
         eprintln!();
-        eprintln!("  {:<34} {:>6}  {:>6}", "Snake", "Wins", "Win%");
-        eprintln!("  {:<34} {:>6}  {:>6}", "----------------------------------", "------", "------");
+        eprintln!(
+            "  {:<34} {:>6}  {:>6}  {:>14}  {:>12}  {:>14}",
+            "Snake", "Win%", "Wins", "Wins as Longer", "Wins as Same", "Wins as Shorter"
+        );
+        eprintln!(
+            "  {:<34} {:>6}  {:>6}  {:>14}  {:>12}  {:>14}",
+            "----------------------------------", "------", "------", "--------------", "------------", "--------------"
+        );
         for name in &snake_names {
             let w = wins[name];
             let pct = if total > 0 {
@@ -317,11 +373,20 @@ fn main() {
             } else {
                 0.0
             };
-            eprintln!("  {:<34} {:>6}  {:>5.1}%", name, w, pct);
+            let wl = wins_as_longer[name];
+            let ws = wins_as_same[name];
+            let wsh = wins_as_shorter[name];
+            eprintln!(
+                "  {:<34} {:>5.1}%  {:>6}  {:>14}  {:>12}  {:>14}",
+                name, pct, w, wl, ws, wsh
+            );
         }
         if draws > 0 {
             let pct = draws as f64 * 100.0 / total as f64;
-            eprintln!("  {:<34} {:>6}  {:>5.1}%", "draws", draws, pct);
+            eprintln!(
+                "  {:<34} {:>5.1}%",
+                "draws", pct
+            );
         }
         eprintln!("  Games played: {}", total);
         if n_games > 0 {
