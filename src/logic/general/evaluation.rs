@@ -24,6 +24,11 @@ impl Evaluation {
         self
     }
 
+    pub fn is_eliminated(&self, direction: Direction) -> bool {
+        let index = direction as usize;
+        self.directions_after_elimination()[index] == false
+    }
+
     pub fn new_section(&mut self, name: &str) {
         // Start a new section in the evaluation report
         self.sections.push(EvaluationSection {

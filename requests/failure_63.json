@@ -1,0 +1,206 @@
+{
+    "game": {
+        "id": "22137c8d-5849-4503-8aa3-a843c8086948",
+        "ruleset": {
+            "name": "standard",
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 26,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 1,
+                "y": 10
+            },
+            {
+                "x": 1,
+                "y": 5
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_6hDQVvhtd9Dc3vJwgBYvVBqd",
+                "name": "Game of Chicken",
+                "health": 76,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 9
+                    },
+                    {
+                        "x": 1,
+                        "y": 8
+                    },
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 9
+                },
+                "length": 4,
+                "latency": "317",
+                "shout": ""
+            },
+            {
+                "id": "gs_r6SHdJyWF4FWkBRcFyKm3CGV",
+                "name": "SnattleBake_v060s",
+                "health": 88,
+                "body": [
+                    {
+                        "x": 2,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 4,
+                        "y": 6
+                    },
+                    {
+                        "x": 5,
+                        "y": 6
+                    },
+                    {
+                        "x": 6,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 2,
+                    "y": 6
+                },
+                "length": 5,
+                "latency": "427",
+                "shout": ""
+            },
+            {
+                "id": "gs_jfKrTQJhKQxP6jcFHMCTRXQQ",
+                "name": "Snaky  McSnakeface",
+                "health": 95,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 8,
+                        "y": 8
+                    },
+                    {
+                        "x": 9,
+                        "y": 8
+                    },
+                    {
+                        "x": 10,
+                        "y": 8
+                    },
+                    {
+                        "x": 10,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 8
+                },
+                "length": 6,
+                "latency": "301",
+                "shout": "6 4 25"
+            },
+            {
+                "id": "gs_rWW7W9HBkb7p64qpppSftJ89",
+                "name": "Slytherin",
+                "health": 76,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 4
+                },
+                "length": 4,
+                "latency": "358",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_6hDQVvhtd9Dc3vJwgBYvVBqd",
+        "name": "Game of Chicken",
+        "health": 76,
+        "body": [
+            {
+                "x": 1,
+                "y": 9
+            },
+            {
+                "x": 1,
+                "y": 8
+            },
+            {
+                "x": 1,
+                "y": 7
+            },
+            {
+                "x": 1,
+                "y": 6
+            }
+        ],
+        "head": {
+            "x": 1,
+            "y": 9
+        },
+        "length": 4,
+        "latency": "317",
+        "shout": ""
+    }
+}

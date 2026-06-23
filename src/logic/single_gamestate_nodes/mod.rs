@@ -176,9 +176,19 @@ impl GamestateNodesSnake {
         // Area
         let number_of_alive_snakes = (0..4).filter(|&id| gamestate.is_alive(id)).count();
         evaluation.new_section("Capture");
+        let mut enemy_min_dist_from_center: [Option<u8>; 4] = [None; 4];
         for direction in DIRECTIONS {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
             let result = state.flood_fill(direction);
+
+            #[cfg(debug_assertions)]
+            {
+                if !evaluation.is_eliminated(direction) {
+                    println!("Flood Fill Board for direction {:?}:", direction);
+                    println!("{}", state);
+                }
+            }
+
             if let Some(turn) = result.not_enough_area_in_turn[0] {
                 evaluation.score(
                     direction,
@@ -205,6 +215,14 @@ impl GamestateNodesSnake {
                 result.flooded_area[0].len() as f64 * number_of_alive_snakes_multiplier,
                 format!("Flooded Area x {}", number_of_alive_snakes_multiplier),
             );
+
+            if number_of_alive_snakes == 2 {
+                let center = Coord::new(WIDTH / 2, HEIGHT / 2);
+                enemy_min_dist_from_center[direction as usize] = result.flooded_area[1]
+                    .iter()
+                    .map(|&(coord, _)| coord.king_distance_to(center))
+                    .min();
+            }
 
             let length_multiplier = match gamestate.snakes().length_gap_to_longest_other_snake() {
                 gap if gap < 0 => 2.0,
@@ -264,6 +282,19 @@ impl GamestateNodesSnake {
             }
         }
 
+        if number_of_alive_snakes == 2 {
+            if let Some(best_dist) = enemy_min_dist_from_center.iter().filter_map(|x| *x).max() {
+                let best_dirs: Vec<Direction> = DIRECTIONS
+                    .iter()
+                    .filter(|&&d| enemy_min_dist_from_center[d as usize] == Some(best_dist))
+                    .copied()
+                    .collect();
+                for d in best_dirs {
+                    evaluation.score(d, 100.0, "Enemy Pushed to Side");
+                }
+            }
+        }
+
         // Wall avoidance
         if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
             for direction in DIRECTIONS {
@@ -309,13 +340,40 @@ impl GamestateNodesSnake {
                 if let Some(d) = away_direction {
                     evaluation.score(d, 20.0, "Away From Trouble");
                 }
-            } else {
+            } else if number_of_alive_snakes == 3 {
                 let center = Coord::new(WIDTH / 2, HEIGHT / 2);
                 let current_dist = head.distance_to(center);
                 for direction in DIRECTIONS {
                     let next_head = head + direction;
                     if next_head.distance_to(center) < current_dist {
                         evaluation.score(direction, 20.0, "Toward Center");
+                    }
+                }
+            } else if number_of_alive_snakes == 2 {
+                if let Some(enemy_head) = gamestate
+                    .snakes()
+                    .clone()
+                    .into_iter()
+                    .skip(1)
+                    .find_map(|s| {
+                        if let Snake::Alive { head, .. } = s.get() {
+                            Some(head)
+                        } else {
+                            None
+                        }
+                    })
+                {
+                    let center = Coord::new(WIDTH / 2, HEIGHT / 2);
+                    let target = Coord::new(
+                        (center.x + enemy_head.x) / 2,
+                        (center.y + enemy_head.y) / 2,
+                    );
+                    let current_dist = head.distance_to(target);
+                    for direction in DIRECTIONS {
+                        let next_head = head + direction;
+                        if next_head.distance_to(target) < current_dist {
+                            evaluation.score(direction, 20.0, "Toward Enemy Midpoint");
+                        }
                     }
                 }
             }

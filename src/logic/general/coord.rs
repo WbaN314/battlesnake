@@ -15,6 +15,10 @@ impl Coord {
     pub fn distance_to(&self, other: Coord) -> u8 {
         (self.x - other.x).unsigned_abs() + (self.y - other.y).unsigned_abs()
     }
+
+    pub fn king_distance_to(&self, other: Coord) -> u8 {
+        (self.x - other.x).unsigned_abs().max((self.y - other.y).unsigned_abs())
+    }
 }
 
 impl From<&OriginalCoord> for Coord {

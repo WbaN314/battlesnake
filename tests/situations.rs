@@ -432,3 +432,9 @@ fn failure_62() {
     let chosen_move = get_move_from_json_file("failure_62.json");
     assert_eq!(chosen_move, OriginalDirection::Left, "Moved to wall because of food, but should move away again now");
 }
+
+#[test]
+fn failure_63() {
+    let chosen_move = get_move_from_json_file("failure_63.json");
+    assert_eq!(chosen_move, OriginalDirection::Up, "Is grabbing food preferred here?");
+}
