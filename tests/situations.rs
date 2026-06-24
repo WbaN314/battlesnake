@@ -438,3 +438,9 @@ fn failure_63() {
     let chosen_move = get_move_from_json_file("failure_63.json");
     assert_eq!(chosen_move, OriginalDirection::Up, "Is grabbing food preferred here?");
 }
+
+#[test]
+fn failure_64() {
+    let chosen_move = get_move_from_json_file("failure_64.json");
+    assert_eq!(chosen_move, OriginalDirection::Left, "Left is preferable to right as death relies on opponent move, whereas right is inevitable death");
+}
