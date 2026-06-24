@@ -46,6 +46,18 @@ cargo run --release --bin run_generated_tests
 ```
 
 
+## Board Editor
+
+Interactive TUI for building game state JSON files used as test cases.
+
+```bash
+# Open empty board
+cargo run --bin board_editor
+
+# Load an existing file as a starting point
+cargo run --bin board_editor -- requests/example_move_request_2.json
+```
+
 ## Flamegraph
 Use to find hot spots with the benchmarks. For example:
 
