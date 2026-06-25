@@ -252,7 +252,7 @@ impl GamestateNodesSnake {
                 gap if gap == 1 => 3.0,
                 gap if gap == 0 => 3.0,
                 gap if gap > 8 => 0.1,
-                gap if gap > 2 => 0.5,
+                gap if gap > 4 => 0.5,
                 _ => 1.0,
             };
             let hunger_multiplier = match gamestate.snakes().cell(0).get() {
@@ -335,7 +335,7 @@ impl GamestateNodesSnake {
         // Away from trouble / center preference based on snake count
         evaluation.new_section("Positioning");
         if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
-            if number_of_alive_snakes >= 4 {
+            if number_of_alive_snakes <= 4 {
                 let enemy_heads: Vec<Coord> = gamestate
                     .snakes()
                     .clone()
@@ -363,7 +363,8 @@ impl GamestateNodesSnake {
                 if let Some(d) = away_direction {
                     evaluation.score(d, 20.0, "Away From Trouble");
                 }
-            } else if number_of_alive_snakes == 3 {
+            } 
+            if number_of_alive_snakes <= 3 {
                 let center = Coord::new(WIDTH / 2, HEIGHT / 2);
                 let current_dist = head.distance_to(center);
                 for direction in DIRECTIONS {
@@ -372,7 +373,8 @@ impl GamestateNodesSnake {
                         evaluation.score(direction, 20.0, "Toward Center");
                     }
                 }
-            } else if number_of_alive_snakes == 2 {
+            }
+             if number_of_alive_snakes <= 2 {
                 if let Some(enemy_head) = gamestate
                     .snakes()
                     .clone()
