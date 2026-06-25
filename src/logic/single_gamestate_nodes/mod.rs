@@ -119,6 +119,26 @@ impl GamestateNodesSnake {
         situation_set
     }
 
+    fn move_to_middle_first(
+        turn: u8,
+        gamestate: &GameState<BasicField>,
+        evaluation: &mut Evaluation,
+    ) {
+        evaluation.new_section("First Moves");
+        if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
+            if turn < 4 && head.distance_to(Coord::new(WIDTH / 2, HEIGHT / 2)) + turn == 4 {
+                let center = Coord::new(WIDTH / 2, HEIGHT / 2);
+                let current_dist = head.distance_to(center);
+                for direction in DIRECTIONS {
+                    let next_head = head + direction;
+                    if next_head.distance_to(center) < current_dist {
+                        evaluation.score(direction, 200.0, "Toward Center");
+                    }
+                }
+            }
+        }
+    }
+
     fn simulation(
         gamestate: GameState<BasicField>,
         evaluation: &mut Evaluation,
@@ -157,6 +177,7 @@ impl GamestateNodesSnake {
         gamestate: &OriginalGameState,
     ) -> (OriginalDirection, String) {
         let env_config = EnvironmentConfig::read();
+        let turn = gamestate.turn as u8;
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
         if env::var("LOG_EVAL").is_ok() {
@@ -165,6 +186,8 @@ impl GamestateNodesSnake {
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
+
+        Self::move_to_middle_first(turn, &gamestate, &mut evaluation);
 
         // Simulation
         Self::simulation(gamestate.clone(), &mut evaluation, &env_config);
