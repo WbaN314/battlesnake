@@ -1,6 +1,8 @@
 use core::panic;
 use std::{collections::HashSet, fmt::Display};
 
+use itertools::Itertools;
+
 use crate::logic::{
     general::{
         direction::{DIRECTIONS, Direction},
@@ -46,7 +48,10 @@ impl NodeStatus {
     }
 
     pub fn is_comparable(self) -> bool {
-        matches!(self, NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_))
+        matches!(
+            self,
+            NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_) | NodeStatus::Conditional(_, _)
+        )
     }
 
     pub fn for_comparison(self) -> Option<NodeStatus> {
@@ -68,13 +73,13 @@ impl PartialEq for NodeStatus {
 
 impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-
         debug_assert!(
             if let NodeStatus::Conditional(n, m) = self {
-                n < m
+                n <= m
             } else {
                 true
-            }, "Invalid NodeStatus: Conditional(n, m) with n >= m"
+            },
+            "Invalid NodeStatus: Conditional(n, m) with n > m"
         );
 
         match (self, other) {
@@ -139,6 +144,7 @@ pub struct Node {
     children: [Option<Vec<(DirectionVector, NodeStatus)>>; 4],
     pinned_status: Option<NodeStatus>,
     queue_status: QueueStatus,
+    if_alive_initial_status: NodeStatus,
 }
 
 impl Node {
@@ -149,6 +155,7 @@ impl Node {
             children: [None, None, None, None],
             pinned_status: None,
             queue_status: QueueStatus::Normal,
+            if_alive_initial_status: NodeStatus::AliveFor(0),
         }
     }
 
@@ -173,6 +180,10 @@ impl Node {
         self.queue_status
     }
 
+    pub fn set_if_alive_initial_status(&mut self, status: NodeStatus) {
+        self.if_alive_initial_status = status;
+    }
+
     pub fn id(&self) -> NodeId {
         self.id
     }
@@ -192,13 +203,13 @@ impl Node {
             .max_by(|x, y| x.partial_cmp(y).unwrap());
 
         match best {
-            None => NodeStatus::AliveFor(0), // No directions explored yet
+            None => self.if_alive_initial_status, // No directions explored yet
             Some(s @ NodeStatus::AliveFor(_)) => s.increment(),
             Some(s @ NodeStatus::DeadIn(_)) => {
                 if self.children.iter().all(|c| c.is_some()) {
                     s.increment()
                 } else {
-                    NodeStatus::AliveFor(0) // Best so far is dead but not all directions explored, so we are still alive for now
+                    self.if_alive_initial_status // Best so far is dead but not all directions explored, so we are still alive for now
                 }
             }
             _ => panic!("Invalid best status: {}", best.unwrap()),
@@ -222,7 +233,28 @@ impl Node {
                     .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
                     .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
                 {
-                    return NodeStatus::AliveFor(0);
+                    return self.if_alive_initial_status;
+                } else if children
+                    .iter()
+                    .any(|(_, status)| matches!(status, NodeStatus::Conditional(_, _)))
+                {
+                    debug_assert!(
+                        children
+                            .iter()
+                            .filter(|(_, status)| matches!(status, NodeStatus::AliveFor(_)))
+                            .count()
+                            == 0,
+                        "If any child is Conditional, there should be no AliveFor children"
+                    );
+
+                    return children
+                        .iter()
+                        .filter_map(|(_, s)| match s {
+                            NodeStatus::Conditional(_, _) => Some(*s),
+                            _ => None,
+                        })
+                        .min_by(|x, y| x.partial_cmp(y).unwrap())
+                        .unwrap_or_else(|| panic!("{:#?}", self.children)); // Direction with children should always contain a comparable child
                 } else {
                     return children
                         .iter()
@@ -251,6 +283,7 @@ impl Node {
         &mut self,
         similarity_distance: Option<u8>,
         fast_track_fn: Option<&dyn Fn(&Node) -> bool>,
+        use_nodestatus_conditional: bool,
     ) -> Option<Vec<Node>> {
         // Check fast track once
 
@@ -258,6 +291,7 @@ impl Node {
             let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
             let mut similarity_set: HashSet<u64> = HashSet::new();
+            let mut dead_child_count = 0;
             for moves in move_matrix {
                 let mut child_gamestate = self.gamestate.clone();
                 child_gamestate.next_state(moves);
@@ -274,20 +308,52 @@ impl Node {
                 }
 
                 let mut child = Node::new(child_id, child_gamestate);
+
+                if use_nodestatus_conditional {
+                    if matches!(self.if_alive_initial_status, NodeStatus::Conditional(n, m)) {
+                        child.set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
+                    } else if dead_child_count > 0 {
+                        child.set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
+                    }
+                }
+
                 if self.read_queue_status() == QueueStatus::FastTrack {
                     child.set_queue_status(QueueStatus::ChildOfFastTrack);
                 }
                 let child_status = child.status();
-                children.push(child);
+
+                if !matches!(child_status, NodeStatus::DeadIn(_)) {
+                    children.push(child);
+                }
+
                 self.children[direction as usize]
                     .as_mut()
                     .map(|child_vec| child_vec.push((moves, child_status)));
                 match child_status {
                     NodeStatus::DeadIn(0) => {
                         // Do not return children as this direction is already dead
-                        continue 'moveset;
+                        if use_nodestatus_conditional {
+                            dead_child_count += 1;
+                            // Correct already created children to have conditional status if we have at least one dead child
+                            if dead_child_count == 1 {
+                                for child in children.iter_mut() {
+                                    child
+                                        .set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
+                                }
+                                self.children[direction as usize].as_mut().map(|child_vec| {
+                                    for (_, status) in child_vec.iter_mut() {
+                                        if !matches!(status, NodeStatus::DeadIn(_)) {
+                                            *status = NodeStatus::Conditional(0, 0);
+                                        }
+                                    }
+                                });
+                            }
+                        } else {
+                            continue 'moveset;
+                        }
                     }
                     NodeStatus::AliveFor(0) => {}
+                    NodeStatus::Conditional(0, 0) => {}
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }
@@ -375,6 +441,7 @@ impl Display for Node {
 #[cfg(test)]
 mod tests {
     use crate::read_game_state;
+    use std::assert_matches;
 
     use super::*;
 
@@ -436,8 +503,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None, None).is_some() {
-            node.simulate(None, None);
+        while node.simulate(None, None, false).is_some() {
+            node.simulate(None, None, false);
         }
         // After exhaustion, all children slots should be filled
         assert!(
@@ -456,15 +523,26 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None, None).is_none());
+        assert!(node.simulate(None, None, false).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate(None, None);
+        node.simulate(None, None, false);
         println!("{}", node);
+    }
+
+    #[test]
+    fn use_nodestatus_conditional() {
+        let mut node = make_root_node("requests/failure_64.json");
+        while node.simulate(None, None, true).is_some() {}
+        println!("{}", node);
+        assert_matches!(
+            node.direction_status(Direction::Left),
+            NodeStatus::Conditional(0, 0)
+        );
     }
 }
 
@@ -502,7 +580,7 @@ mod benchmarks {
             // Fresh clone per iteration so each call starts from a clean, unsimulated node.
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), black_box(None)))
+            black_box(node.simulate(black_box(None), black_box(None), false))
         });
     }
 
@@ -511,7 +589,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None, None); // explore one direction
+                n.simulate(None, None, false); // explore one direction
                 n
             })
             .collect();
@@ -530,7 +608,7 @@ mod benchmarks {
             .into_iter()
             .filter_map(|mut parent| {
                 // Simulate one direction to populate a children list.
-                let children = parent.simulate(None, None)?;
+                let children = parent.simulate(None, None, false)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })

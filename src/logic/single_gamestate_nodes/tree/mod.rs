@@ -160,7 +160,7 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
         let node = self.nodes.get_mut(&node_id).unwrap();
-        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref());
+        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref(), false);
         let node_status = node.status();
         let node_queue_status = node.read_queue_status();
         self.propagate_status(node_id, node_status);
