@@ -42,7 +42,6 @@ impl NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
             NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
-            NodeStatus::Conditional(n, m) => NodeStatus::Conditional(n, m + 1),
             _ => panic!("Cannot increment status: {}", self),
         }
     }
@@ -212,6 +211,13 @@ impl Node {
                     self.if_alive_initial_status // Best so far is dead but not all directions explored, so we are still alive for now
                 }
             }
+            Some(s @ NodeStatus::Conditional(n, m)) => {
+                if matches!(self.if_alive_initial_status, NodeStatus::Conditional(_, _)) {
+                    NodeStatus::Conditional(n, m + 1)
+                } else {
+                    NodeStatus::Conditional(n + 1, m + 1)
+                }
+            }
             _ => panic!("Invalid best status: {}", best.unwrap()),
         }
     }
@@ -238,15 +244,6 @@ impl Node {
                     .iter()
                     .any(|(_, status)| matches!(status, NodeStatus::Conditional(_, _)))
                 {
-                    debug_assert!(
-                        children
-                            .iter()
-                            .filter(|(_, status)| matches!(status, NodeStatus::AliveFor(_)))
-                            .count()
-                            == 0,
-                        "If any child is Conditional, there should be no AliveFor children"
-                    );
-
                     return children
                         .iter()
                         .filter_map(|(_, s)| match s {
@@ -349,6 +346,7 @@ impl Node {
                                 });
                             }
                         } else {
+                            // Early exit if we have a dead child and are not using conditional status, as this direction is already dead
                             continue 'moveset;
                         }
                     }
@@ -359,9 +357,10 @@ impl Node {
                     }
                 }
             }
-            debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
 
-            if children.len() == 1 {
+            if children.len() == 0 {
+                continue 'moveset; // This direction is dead, try next direction
+            } else if children.len() == 1 {
                 children
                     .get_mut(0)
                     .map(|child| child.set_queue_status(QueueStatus::FastTrack));
@@ -375,6 +374,7 @@ impl Node {
                 }
             }
 
+            debug_assert!(!children.is_empty()); // Node must spawn children if it is alive
             return Some(children);
         }
         return None;

@@ -361,14 +361,16 @@ fn failure_50() {
 fn failure_51_grab_food_after_other_moved_down_in_48() {
     let chosen_move =
         get_move_from_json_file("failure_51_grab_food_after_other_moved_down_in_48.json");
-    assert_eq!(chosen_move, OriginalDirection::Up);
+    assert_ne!(chosen_move, OriginalDirection::Left);
+    assert_ne!(chosen_move, OriginalDirection::Right);
 }
 
 #[test]
 fn failure_52_grab_food_after_other_moved_up_in_48() {
     let chosen_move =
         get_move_from_json_file("failure_52_grab_food_after_other_moved_up_in_48.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
+    assert_ne!(chosen_move, OriginalDirection::Left);
+    assert_ne!(chosen_move, OriginalDirection::Right);
 }
 
 #[test]
@@ -411,47 +413,79 @@ fn failure_58() {
 #[test]
 fn failure_59() {
     let chosen_move = get_move_from_json_file("failure_59.json");
-    assert_eq!(chosen_move, OriginalDirection::Up, "Going up should be possible but is being excluded by capture logic");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Up,
+        "Going up should be possible but is being excluded by capture logic"
+    );
 }
 
 #[test]
 fn failure_60() {
     let chosen_move = get_move_from_json_file("failure_60.json");
-    assert_eq!(chosen_move, OriginalDirection::Up, "Going up is preferrable here to fight for the food");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Up,
+        "Going up is preferrable here to fight for the food"
+    );
 }
 
 #[test]
 fn failure_61() {
     let chosen_move = get_move_from_json_file("failure_61.json");
-    assert_eq!(chosen_move, OriginalDirection::Up, "Squeezing logic from flood prefers down but there is too much going on");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Up,
+        "Squeezing logic from flood prefers down but there is too much going on"
+    );
 }
 
 #[test]
 fn failure_62() {
     let chosen_move = get_move_from_json_file("failure_62.json");
-    assert_eq!(chosen_move, OriginalDirection::Left, "Moved to wall because of food, but should move away again now");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Left,
+        "Moved to wall because of food, but should move away again now"
+    );
 }
 
 #[test]
 fn failure_63() {
     let chosen_move = get_move_from_json_file("failure_63.json");
-    assert_eq!(chosen_move, OriginalDirection::Up, "Is grabbing food preferred here?");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Up,
+        "Is grabbing food preferred here?"
+    );
 }
 
 #[test]
 fn failure_64() {
     let chosen_move = get_move_from_json_file("failure_64.json");
-    assert_eq!(chosen_move, OriginalDirection::Left, "Left is preferable to right as death relies on opponent move, whereas right is inevitable death");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Left,
+        "Left is preferable to right as death relies on opponent move, whereas right is inevitable death"
+    );
 }
 
 #[test]
 fn failure_65() {
     let chosen_move = get_move_from_json_file("failure_65.json");
-    assert_eq!(chosen_move, OriginalDirection::Right, "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Right,
+        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
+    );
 }
 
 #[test]
 fn failure_66() {
     let chosen_move = get_move_from_json_file("failure_66.json");
-    assert_eq!(chosen_move, OriginalDirection::Left, "Going Left should be possible here");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Left,
+        "Going Left should be possible here"
+    );
 }

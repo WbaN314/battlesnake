@@ -153,6 +153,7 @@ impl GamestateNodesSnake {
             .all_root_directions()
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
+            .use_nodestatus_conditional()
             .fast_track(move |node| {
                 Self::fast_track_trigger_situation()
                     .check(node.gamestate())
