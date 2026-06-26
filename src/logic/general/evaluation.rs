@@ -176,7 +176,18 @@ impl Display for Evaluation {
                 "Total {}",
                 DIRECTIONS.iter().map(|d| fmt_score(totals[*d as usize])).collect::<Vec<_>>().join(" ")
             );
-            return write!(f, "{} | {} | Picked {}\n", parts.join(" | "), total_part, picked);
+            let directions = self.directions_after_elimination();
+            let eliminated: Vec<String> = DIRECTIONS
+                .iter()
+                .filter(|d| !directions[**d as usize])
+                .map(|d| d.to_string())
+                .collect();
+            let elim_part = if eliminated.is_empty() {
+                "Eliminated none".to_string()
+            } else {
+                format!("Eliminated {}", eliminated.join(" "))
+            };
+            return write!(f, "{} | {} | {} | Picked {}\n", parts.join(" | "), total_part, elim_part, picked);
         }
 
         let direction_headers: Vec<String> = DIRECTIONS.iter().map(ToString::to_string).collect();
