@@ -180,7 +180,13 @@ impl Display for Evaluation {
             let eliminated: Vec<String> = DIRECTIONS
                 .iter()
                 .filter(|d| !directions[**d as usize])
-                .map(|d| d.to_string())
+                .map(|d| {
+                    let reason = self.sections.iter()
+                        .find_map(|s| s.elimination_priority[*d as usize].map(|p| (s.name.as_str(), p)))
+                        .map(|(name, p)| format!("{}:{}", name, p))
+                        .unwrap_or_else(|| "?".to_string());
+                    format!("{}({})", d, reason)
+                })
                 .collect();
             let elim_part = if eliminated.is_empty() {
                 "Eliminated none".to_string()
