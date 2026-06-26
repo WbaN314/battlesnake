@@ -31,6 +31,7 @@ pub struct GamestateNodesSnake;
 
 struct EnvironmentConfig {
     simulation_time: Duration,
+    log_eval: bool,
 }
 
 impl EnvironmentConfig {
@@ -41,7 +42,11 @@ impl EnvironmentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(200),
         );
-        Self { simulation_time }
+        let log_eval = env::var("LOG_EVAL").is_ok();
+        Self {
+            simulation_time,
+            log_eval,
+        }
     }
 }
 
@@ -178,9 +183,10 @@ impl GamestateNodesSnake {
     ) -> (OriginalDirection, String) {
         let env_config = EnvironmentConfig::read();
         let turn = gamestate.turn as u8;
+        let id = gamestate.game.id.clone();
         let gamestate: GameState<BasicField> = gamestate.into();
         let mut evaluation = Evaluation::new();
-        if env::var("LOG_EVAL").is_ok() {
+        if env_config.log_eval {
             evaluation = evaluation.one_line();
         }
 
@@ -363,7 +369,7 @@ impl GamestateNodesSnake {
                 if let Some(d) = away_direction {
                     evaluation.score(d, 20.0, "Away From Trouble");
                 }
-            } 
+            }
             if number_of_alive_snakes <= 3 {
                 let center = Coord::new(WIDTH / 2, HEIGHT / 2);
                 let current_dist = head.distance_to(center);
@@ -374,25 +380,24 @@ impl GamestateNodesSnake {
                     }
                 }
             }
-             if number_of_alive_snakes <= 2 {
-                if let Some(enemy_head) = gamestate
-                    .snakes()
-                    .clone()
-                    .into_iter()
-                    .skip(1)
-                    .find_map(|s| {
-                        if let Snake::Alive { head, .. } = s.get() {
-                            Some(head)
-                        } else {
-                            None
-                        }
-                    })
+            if number_of_alive_snakes <= 2 {
+                if let Some(enemy_head) =
+                    gamestate
+                        .snakes()
+                        .clone()
+                        .into_iter()
+                        .skip(1)
+                        .find_map(|s| {
+                            if let Snake::Alive { head, .. } = s.get() {
+                                Some(head)
+                            } else {
+                                None
+                            }
+                        })
                 {
                     let center = Coord::new(WIDTH / 2, HEIGHT / 2);
-                    let target = Coord::new(
-                        (center.x + enemy_head.x) / 2,
-                        (center.y + enemy_head.y) / 2,
-                    );
+                    let target =
+                        Coord::new((center.x + enemy_head.x) / 2, (center.y + enemy_head.y) / 2);
                     let current_dist = head.distance_to(target);
                     for direction in DIRECTIONS {
                         let next_head = head + direction;
@@ -410,19 +415,21 @@ impl GamestateNodesSnake {
         #[cfg(debug_assertions)]
         println!("{}", eval_string);
 
+        if env_config.log_eval {
+            warn!(
+                "ID {} Turn {} Evaluation -> {}",
+                id, turn, eval_string
+            );
+        }
+
         (direction.into(), eval_string)
     }
 }
 
 impl Brain for GamestateNodesSnake {
     fn logic(&self, gamestate: &OriginalGameState) -> OriginalDirection {
-        let (direction, eval_string) = self.logic_with_evaluation_result(gamestate);
-        if env::var("LOG_EVAL").is_ok() {
-            warn!(
-                "ID {} Turn {} Evaluation -> {}",
-                gamestate.game.id, gamestate.turn, eval_string
-            );
-        }
+        let (direction, _) = self.logic_with_evaluation_result(gamestate);
+
         direction
     }
 }
