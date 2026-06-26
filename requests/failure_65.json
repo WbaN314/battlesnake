@@ -1,0 +1,266 @@
+{
+    "game": {
+        "id": "a0a48fe0-a5ec-42c7-9ecf-c5f7a8baae88",
+        "ruleset": {
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 81,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 3,
+                "y": 5
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_wXrQ49gQPXtyPyD96R8jXjVH",
+                "name": "Game of Chicken",
+                "health": 75,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 10
+                    },
+                    {
+                        "x": 1,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 8
+                    },
+                    {
+                        "x": 0,
+                        "y": 7
+                    },
+                    {
+                        "x": 0,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 10
+                },
+                "length": 6,
+                "latency": "16",
+                "shout": ""
+            },
+            {
+                "id": "gs_qpxkPxtcCHV73ShHRqFYJg4G",
+                "name": "👁️ Kwisatz Haderach",
+                "health": 59,
+                "body": [
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 5
+                    },
+                    {
+                        "x": 6,
+                        "y": 6
+                    },
+                    {
+                        "x": 5,
+                        "y": 6
+                    },
+                    {
+                        "x": 5,
+                        "y": 5
+                    },
+                    {
+                        "x": 5,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 6,
+                    "y": 3
+                },
+                "length": 9,
+                "latency": "350",
+                "shout": ""
+            },
+            {
+                "id": "gs_K8CGfJvjRPbcX9PrTgkkPqXD",
+                "name": "Shapeshifter",
+                "health": 92,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 6
+                    },
+                    {
+                        "x": 1,
+                        "y": 5
+                    },
+                    {
+                        "x": 1,
+                        "y": 4
+                    },
+                    {
+                        "x": 1,
+                        "y": 3
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 8
+                },
+                "length": 9,
+                "latency": "413",
+                "shout": ""
+            },
+            {
+                "id": "gs_BkR87TP9DG38SkmmWVDSDd78",
+                "name": "Slytherin",
+                "health": 99,
+                "body": [
+                    {
+                        "x": 9,
+                        "y": 10
+                    },
+                    {
+                        "x": 8,
+                        "y": 10
+                    },
+                    {
+                        "x": 8,
+                        "y": 9
+                    },
+                    {
+                        "x": 8,
+                        "y": 8
+                    },
+                    {
+                        "x": 8,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 6
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 9,
+                    "y": 10
+                },
+                "length": 9,
+                "latency": "371",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_wXrQ49gQPXtyPyD96R8jXjVH",
+        "name": "Game of Chicken",
+        "health": 75,
+        "body": [
+            {
+                "x": 1,
+                "y": 10
+            },
+            {
+                "x": 1,
+                "y": 9
+            },
+            {
+                "x": 0,
+                "y": 9
+            },
+            {
+                "x": 0,
+                "y": 8
+            },
+            {
+                "x": 0,
+                "y": 7
+            },
+            {
+                "x": 0,
+                "y": 6
+            }
+        ],
+        "head": {
+            "x": 1,
+            "y": 10
+        },
+        "length": 6,
+        "latency": "16",
+        "shout": ""
+    }
+}
