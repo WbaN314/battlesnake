@@ -1,0 +1,318 @@
+{
+    "game": {
+        "id": "9c2ed45a-0477-479c-8749-92494d78dd02",
+        "ruleset": {
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 118,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 0,
+                "y": 1
+            },
+            {
+                "x": 8,
+                "y": 9
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_VKSTD4gkVxbS6xQgR8pMgwX8",
+                "name": "Aurora",
+                "health": 71,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 1
+                    },
+                    {
+                        "x": 3,
+                        "y": 2
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 1
+                },
+                "length": 6,
+                "latency": "405",
+                "shout": ""
+            },
+            {
+                "id": "gs_g7QqYcbdGPVtQG8wKjYxDMKY",
+                "name": "Geriatric Jagwire",
+                "health": 92,
+                "body": [
+                    {
+                        "x": 8,
+                        "y": 10
+                    },
+                    {
+                        "x": 7,
+                        "y": 10
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 6,
+                        "y": 9
+                    },
+                    {
+                        "x": 6,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 8,
+                    "y": 10
+                },
+                "length": 8,
+                "latency": "453",
+                "shout": ""
+            },
+            {
+                "id": "gs_mPRMTXGbXvS334Dh7r3CxkHW",
+                "name": "Game of Chicken",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 1
+                    },
+                    {
+                        "x": 1,
+                        "y": 2
+                    },
+                    {
+                        "x": 1,
+                        "y": 3
+                    },
+                    {
+                        "x": 1,
+                        "y": 4
+                    },
+                    {
+                        "x": 1,
+                        "y": 5
+                    },
+                    {
+                        "x": 1,
+                        "y": 6
+                    },
+                    {
+                        "x": 1,
+                        "y": 7
+                    },
+                    {
+                        "x": 1,
+                        "y": 8
+                    },
+                    {
+                        "x": 0,
+                        "y": 8
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 1
+                },
+                "length": 11,
+                "latency": "304",
+                "shout": ""
+            },
+            {
+                "id": "gs_xFvYHdQtbfYXpDk6Hh7Cx8PS",
+                "name": "👁️ Kwisatz Haderach",
+                "health": 54,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 4
+                    },
+                    {
+                        "x": 5,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 5
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 4
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 2
+                    },
+                    {
+                        "x": 7,
+                        "y": 2
+                    },
+                    {
+                        "x": 7,
+                        "y": 1
+                    },
+                    {
+                        "x": 6,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 4
+                },
+                "length": 15,
+                "latency": "349",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_mPRMTXGbXvS334Dh7r3CxkHW",
+        "name": "Game of Chicken",
+        "health": 100,
+        "body": [
+            {
+                "x": 1,
+                "y": 1
+            },
+            {
+                "x": 1,
+                "y": 2
+            },
+            {
+                "x": 1,
+                "y": 3
+            },
+            {
+                "x": 1,
+                "y": 4
+            },
+            {
+                "x": 1,
+                "y": 5
+            },
+            {
+                "x": 1,
+                "y": 6
+            },
+            {
+                "x": 1,
+                "y": 7
+            },
+            {
+                "x": 1,
+                "y": 8
+            },
+            {
+                "x": 0,
+                "y": 8
+            },
+            {
+                "x": 0,
+                "y": 9
+            },
+            {
+                "x": 0,
+                "y": 9
+            }
+        ],
+        "head": {
+            "x": 1,
+            "y": 1
+        },
+        "length": 11,
+        "latency": "304",
+        "shout": ""
+    }
+}
