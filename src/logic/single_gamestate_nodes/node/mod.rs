@@ -8,7 +8,10 @@ use crate::logic::{
         game_state::GameState,
         moves::{MoveMatrix, MoveVector},
     },
-    single_gamestate_nodes::node::node_id::{DirectionVector, NodeId},
+    single_gamestate_nodes::node::{
+        NodeStatus::Conditional,
+        node_id::{DirectionVector, NodeId},
+    },
 };
 
 pub mod node_id;
@@ -25,6 +28,7 @@ pub enum QueueStatus {
 pub enum NodeStatus {
     AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
     DeadIn(u8),          // Number of steps until inevitable death (if opponents play optimally)
+    Conditional(u8, u8), // Number of steps until death if opponents play optimally, number of steps if not
     NotSimulated,        // Status not yet determined as this direction has not been simulated
     PrunedDeadAncestor,  // Node was skipped: an ancestor direction is dead
     PrunedMaxDepth,      // Node was skipped: max depth reached
@@ -36,6 +40,7 @@ impl NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
             NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
+            NodeStatus::Conditional(n, m) => NodeStatus::Conditional(n, m + 1),
             _ => panic!("Cannot increment status: {}", self),
         }
     }
@@ -63,12 +68,41 @@ impl PartialEq for NodeStatus {
 
 impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+
+        debug_assert!(
+            if let NodeStatus::Conditional(n, m) = self {
+                n < m
+            } else {
+                true
+            }, "Invalid NodeStatus: Conditional(n, m) with n >= m"
+        );
+
         match (self, other) {
-            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => n.partial_cmp(m),
-            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => n.partial_cmp(m),
+            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => Some(n.cmp(m)),
+            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => Some(n.cmp(m)),
+            (NodeStatus::Conditional(n, m), NodeStatus::Conditional(n2, m2)) => {
+                Some(n.cmp(n2).then(m.cmp(m2)))
+            }
+
             (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
-            (NodeStatus::DeadIn(_), NodeStatus::AliveFor(_)) => Some(std::cmp::Ordering::Less),
-            // NotSimulated is not comparable to AliveFor or DeadIn, but two NotSimulated are considered equal (required for partial_eq to be consistent with partial_cmp)
+            (a @ NodeStatus::DeadIn(_), b @ NodeStatus::AliveFor(_)) => {
+                b.partial_cmp(a).map(|o| o.reverse())
+            }
+
+            (NodeStatus::Conditional(n, m), NodeStatus::AliveFor(n2)) => {
+                Some(n.cmp(n2).then(std::cmp::Ordering::Less))
+            }
+            (a @ NodeStatus::AliveFor(n), b @ NodeStatus::Conditional(n2, m2)) => {
+                b.partial_cmp(a).map(|o| o.reverse())
+            }
+
+            (NodeStatus::Conditional(n, m), NodeStatus::DeadIn(n2)) => {
+                Some(std::cmp::Ordering::Greater)
+            }
+            (a @ NodeStatus::DeadIn(n), b @ NodeStatus::Conditional(n2, m2)) => {
+                b.partial_cmp(a).map(|o| o.reverse())
+            }
+
             (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
             (NodeStatus::PrunedDeadAncestor, NodeStatus::PrunedDeadAncestor) => {
                 Some(std::cmp::Ordering::Equal)
@@ -89,6 +123,7 @@ impl Display for NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
+            NodeStatus::Conditional(n, m) => write!(f, "Conditional({}, {})", n, m),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::PrunedDeadAncestor => write!(f, "PrunedDeadAncestor"),
             NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
@@ -376,6 +411,19 @@ mod tests {
                 .unwrap(),
             NodeStatus::DeadIn(0)
         );
+
+        // Conditional: compared by guaranteed alive, then conditional alive.
+        assert!(NodeStatus::Conditional(5, 6) > NodeStatus::Conditional(4, 10));
+        assert!(NodeStatus::Conditional(5, 7) > NodeStatus::Conditional(5, 6));
+        assert_eq!(NodeStatus::Conditional(3, 4), NodeStatus::Conditional(3, 4));
+
+        // Conditional always beats DeadIn
+        assert!(NodeStatus::Conditional(1, 2) > NodeStatus::DeadIn(10));
+
+        // Conditional vs AliveFor: compared by guaranteed alive, then conditional alive
+        assert!(NodeStatus::Conditional(5, 10) > NodeStatus::AliveFor(3));
+        assert!(NodeStatus::Conditional(3, 10) < NodeStatus::AliveFor(5));
+        assert!(NodeStatus::Conditional(3, 10) < NodeStatus::AliveFor(3));
     }
 
     fn make_root_node(json_path: &str) -> Node {
