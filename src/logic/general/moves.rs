@@ -130,6 +130,14 @@ impl MoveMatrix {
         list
     }
 
+    pub fn apply_mask(&mut self, mask: [bool; SNAKES as usize]) {
+        for (i, &m) in mask.iter().enumerate() {
+            if !m {
+                self.moves[i] = MoveVector::new(None);
+            }
+        }
+    }
+
     #[allow(dead_code, reason = "Accessed only via IntoIterator")]
     fn generate(&self) -> MoveMatrixIter {
         MoveMatrixIter::new(self.moves)

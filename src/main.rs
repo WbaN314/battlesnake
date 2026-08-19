@@ -61,8 +61,10 @@ fn handle_move(mut move_req: Json<OriginalGameState>) -> Json<Value> {
 
 #[post("/end", format = "json", data = "<end_req>")]
 fn handle_end(end_req: Json<OriginalGameState>) -> Status {
-    logic::end(&end_req.game, &end_req.turn, &end_req.board, &end_req.you);
-
+    let r = end_req.into_inner();
+    warn!("ID {} Turn {} End -> {}", r.game.id, r.turn, serde_json::to_string(&r).unwrap());
+    logic::end(&r.game, &r.turn, &r.board, &r.you);
+    log::logger().flush();
     Status::Ok
 }
 

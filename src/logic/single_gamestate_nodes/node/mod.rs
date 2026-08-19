@@ -1,17 +1,10 @@
 use core::panic;
 use std::{collections::HashSet, fmt::Display};
 
-use itertools::Itertools;
-
 use crate::logic::{
     general::{
-        direction::{DIRECTIONS, Direction},
-        field::BasicField,
-        game_state::GameState,
-        moves::{MoveMatrix, MoveVector},
-    },
-    single_gamestate_nodes::node::{
-        NodeStatus::Conditional,
+        direction::{DIRECTIONS, Direction}, field::BasicField, game_state::GameState, moves::{MoveMatrix, MoveVector}, snakes::SNAKES,
+    }, single_gamestate_nodes::node::{
         node_id::{DirectionVector, NodeId},
     },
 };
@@ -144,6 +137,7 @@ pub struct Node {
     pinned_status: Option<NodeStatus>,
     queue_status: QueueStatus,
     if_alive_initial_status: NodeStatus,
+    simulated_snakes: [bool; SNAKES]
 }
 
 impl Node {
@@ -155,6 +149,7 @@ impl Node {
             pinned_status: None,
             queue_status: QueueStatus::Normal,
             if_alive_initial_status: NodeStatus::AliveFor(0),
+            simulated_snakes: [true; SNAKES],
         }
     }
 
@@ -169,6 +164,10 @@ impl Node {
             );
         }
         self.pinned_status = Some(status);
+    }
+
+    pub fn set_simulated_snakes(&mut self, simulated_snakes: [bool; SNAKES]) {
+        self.simulated_snakes = simulated_snakes;
     }
 
     pub fn set_queue_status(&mut self, queue_status: QueueStatus) {
@@ -279,7 +278,7 @@ impl Node {
     pub fn simulate(
         &mut self,
         similarity_distance: Option<u8>,
-        fast_track_fn: Option<&dyn Fn(&Node) -> bool>,
+        fast_track_fn: Option<&dyn Fn(&Node) -> Option<[bool; SNAKES]>>,
         use_nodestatus_conditional: bool,
     ) -> Option<Vec<Node>> {
         // Check fast track once
@@ -368,8 +367,9 @@ impl Node {
 
             if let Some(fast_track_fn) = fast_track_fn {
                 for child in children.iter_mut() {
-                    if fast_track_fn(child) {
+                    if let Some(snake_mask) =fast_track_fn(child) {
                         child.set_queue_status(QueueStatus::FastTrack);
+                        child.set_simulated_snakes(snake_mask);
                     }
                 }
             }
@@ -399,6 +399,7 @@ impl Node {
 
     fn next_moveset(&mut self) -> Option<MoveMatrix> {
         let mut move_matrix = self.gamestate.valid_moves();
+        move_matrix.apply_mask(self.simulated_snakes);
         let directions = move_matrix.get(0).unwrap();
         for i in 0..4 {
             if self.children[i].is_none() {

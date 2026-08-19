@@ -10,8 +10,7 @@ use log::{debug, trace};
 mod tree_stats;
 
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState},
-    single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
+    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES}, single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
 };
 
 #[derive(Clone)]
@@ -25,7 +24,7 @@ pub struct Tree {
     dead_ancestor_pruning: bool,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
-    fast_track_fn: Option<Rc<dyn Fn(&Node) -> bool>>,
+    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[bool; SNAKES]>>>,
     use_nodestatus_conditional: bool,
 }
 
@@ -86,7 +85,7 @@ impl Tree {
         self
     }
 
-    pub fn fast_track(mut self, fast_track_fn: impl Fn(&Node) -> bool + 'static) -> Self {
+    pub fn fast_track(mut self, fast_track_fn: impl Fn(&Node) -> Option<[bool; SNAKES]> + 'static) -> Self {
         self.fast_track_fn = Some(Rc::new(fast_track_fn));
         self
     }
@@ -619,10 +618,11 @@ mod tests {
             |tree| {
                 let situation = situation.clone();
                 tree.fast_track(move |node| {
-                    matches!(
-                        situation.check(node.gamestate()),
-                        Some(_)
-                    )
+                    if let Some(situation_match) = situation.check(node.gamestate()) {
+                        Some(situation_match.0.map(|v| v.is_some()))
+                    } else {
+                        None
+                    }
                 })
             },
             |baseline_tree, tree, filename| {
@@ -652,10 +652,11 @@ mod tests {
         .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
-            matches!(
-                situation.check(node.gamestate()),
-                Some(_)
-            )
+            if let Some(situation_match) = situation.check(node.gamestate()) {
+                Some(situation_match.0.map(|v| v.is_some()))
+            } else {
+                None
+            }
         })
         .max_time(Duration::from_millis(200));
         tree.simulate();
@@ -725,10 +726,11 @@ mod tests {
         .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
-            matches!(
-                situation.check(node.gamestate()),
-                Some(_)
-            )
+            if let Some(situation_match) = situation.check(node.gamestate()) {
+                Some(situation_match.0.map(|v| v.is_some()))
+            } else {
+                None
+            }
         })
         .max_time(Duration::from_millis(200));
         tree.simulate();
@@ -742,31 +744,19 @@ mod tests {
         println!(
             "{}",
             tree.nodes
-                .get(&"DUDD-DURR-DUDR".try_into().unwrap())
+                .get(&"DUDD-DURR-D_D_".try_into().unwrap())
                 .unwrap()
         );
         println!(
             "{}",
             tree.nodes
-                .get(&"DUDD-DURR-DUDR-DULR".try_into().unwrap())
+                .get(&"DUDD-DURR-D_D_-D_L_".try_into().unwrap())
                 .unwrap()
         );
         println!(
             "{}",
             tree.nodes
-                .get(&"DUDD-DURR-DUDR-DUDR".try_into().unwrap())
-                .unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"DUDD-DURR-DUDR-DUDR-DUDR-DULD".try_into().unwrap())
-                .unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"DUDD-DURR-DUDR-DUDR-DUDR-DUDD-DUDL".try_into().unwrap())
+                .get(&"DUDD-DURR-D_D_-D_D_".try_into().unwrap())
                 .unwrap()
         );
     }
