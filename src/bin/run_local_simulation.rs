@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use tabled::{builder::Builder as TableBuilder, settings::Style as TableStyle};
 
 struct SnakeSpec {
     variant: String,
@@ -54,6 +55,118 @@ impl SnakeSpec {
         };
         format!("{}_{}", base, idx + 1)
     }
+}
+
+enum SnakeFate {
+    Eliminated(usize),   // confirmed: disappeared from board at this turn
+    Survived,            // log covers full game, alive to end
+    UnknownAfter(usize), // alive when snake[0]'s log ended, game continued without us
+}
+
+struct GameStats {
+    avg_head_x: f64,
+    avg_head_y: f64,
+    avg_dist_from_center: f64,
+    avg_health: f64,
+    final_length: i64,
+    fate: SnakeFate,
+}
+
+fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_snake: &str) -> HashMap<String, GameStats> {
+    let arrow = " Request -> ";
+    let mut samples: HashMap<String, usize> = HashMap::new();
+    let mut sum_x: HashMap<String, f64> = HashMap::new();
+    let mut sum_y: HashMap<String, f64> = HashMap::new();
+    let mut sum_dist: HashMap<String, f64> = HashMap::new();
+    let mut sum_health: HashMap<String, f64> = HashMap::new();
+    let mut last_length: HashMap<String, i64> = HashMap::new();
+    let mut last_turn_seen: HashMap<String, usize> = HashMap::new();
+    let mut game_last_turn = 0usize;
+
+    for line in log_content.lines() {
+        if let Some(pos) = line.find(arrow) {
+            let json_str = &line[pos + arrow.len()..];
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+                let turn = val["turn"].as_u64().unwrap_or(0) as usize;
+                if turn > game_last_turn {
+                    game_last_turn = turn;
+                }
+                if let Some(snakes) = val["board"]["snakes"].as_array() {
+                    for snake in snakes {
+                        let name = match snake["name"].as_str() {
+                            Some(n) => n.to_string(),
+                            None => continue,
+                        };
+                        let x = snake["head"]["x"].as_f64().unwrap_or(0.0);
+                        let y = snake["head"]["y"].as_f64().unwrap_or(0.0);
+                        let length = snake["length"].as_i64().unwrap_or(0);
+                        let health = snake["health"].as_f64().unwrap_or(0.0);
+                        let dx = x - 5.0;
+                        let dy = y - 5.0;
+                        *samples.entry(name.clone()).or_default() += 1;
+                        *sum_x.entry(name.clone()).or_default() += x;
+                        *sum_y.entry(name.clone()).or_default() += y;
+                        *sum_dist.entry(name.clone()).or_default() += (dx * dx + dy * dy).sqrt();
+                        *sum_health.entry(name.clone()).or_default() += health;
+                        last_length.insert(name.clone(), length);
+                        last_turn_seen.insert(name, turn);
+                    }
+                }
+            }
+        }
+    }
+
+    samples
+        .iter()
+        .map(|(name, &n)| {
+            let nf = n as f64;
+            let last_seen = last_turn_seen.get(name).copied().unwrap_or(0);
+            let fate = if last_seen < game_last_turn {
+                SnakeFate::Eliminated(last_seen + 1)
+            } else {
+                match actual_turns.map(|t| t.saturating_sub(1)) {
+                    Some(actual_last) if game_last_turn >= actual_last => SnakeFate::Survived,
+                    _ if name == logging_snake => SnakeFate::Eliminated(game_last_turn + 1),
+                    _ => SnakeFate::UnknownAfter(game_last_turn),
+                }
+            };
+            (
+                name.clone(),
+                GameStats {
+                    avg_head_x: sum_x[name] / nf,
+                    avg_head_y: sum_y[name] / nf,
+                    avg_dist_from_center: sum_dist[name] / nf,
+                    avg_health: sum_health[name] / nf,
+                    final_length: *last_length.get(name).unwrap_or(&0),
+                    fate,
+                },
+            )
+        })
+        .collect()
+}
+
+fn render_last_board(log_content: &str) -> Option<&str> {
+    let board_marker = " Board\n";
+    let last_pos = log_content.rfind(board_marker)?;
+    let after = &log_content[last_pos + board_marker.len()..];
+    // cut at the next log entry (line starting with '[')
+    let end = after.find("\n[").map(|p| p + 1).unwrap_or(after.len());
+    Some(after[..end].trim_end())
+}
+
+fn parse_end_turn(log_content: &str) -> Option<usize> {
+    let arrow = " End -> ";
+    for line in log_content.lines().rev() {
+        if let Some(pos) = line.find(arrow) {
+            let before = &line[..pos];
+            if let Some(turn_pos) = before.rfind(" Turn ") {
+                if let Ok(t) = before[turn_pos + 6..].trim().parse::<usize>() {
+                    return Some(t);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// From the last request turn where 2+ snakes were alive, return (winner_length, max_other_length).
@@ -254,6 +367,9 @@ fn main() {
     let mut draws: usize = 0;
     let mut total: usize = 0;
     let mut log_position: u64 = 0;
+    let mut game_stats_log: Vec<HashMap<String, GameStats>> = Vec::new();
+    let mut game_winners: Vec<Option<String>> = Vec::new();
+    let mut game_lengths: Vec<usize> = Vec::new();
 
     let mut play_flags: Vec<String> = Vec::new();
     if watch {
@@ -305,6 +421,21 @@ fn main() {
             }
         }
 
+        // Read new log content before printing summary so we can use End -> turn
+        let new_log_content = {
+            let mut content = String::new();
+            if let Ok(mut file) = fs::File::open("game_logs/.server.log") {
+                file.seek(SeekFrom::Start(log_position)).ok();
+                file.read_to_string(&mut content).ok();
+            }
+            content
+        };
+        log_position += new_log_content.len() as u64;
+
+        if let Some(t) = parse_end_turn(&new_log_content) {
+            turns = t.to_string();
+        }
+
         match &winner_name {
             Some(w) => {
                 if let Some(count) = wins.get_mut(w.as_str()) {
@@ -325,17 +456,7 @@ fn main() {
                 );
             }
         }
-
-        // Read new log content for length analysis and optional file saving
-        let new_log_content = {
-            let mut content = String::new();
-            if let Ok(mut file) = fs::File::open("game_logs/.server.log") {
-                file.seek(SeekFrom::Start(log_position)).ok();
-                file.read_to_string(&mut content).ok();
-            }
-            content
-        };
-        log_position += new_log_content.len() as u64;
+        game_winners.push(winner_name.clone());
 
         if let Some(winner) = &winner_name {
             if let Some((wl, mo)) = parse_last_decisive_lengths(&new_log_content, winner) {
@@ -357,36 +478,79 @@ fn main() {
             eprintln!("  Game log: {}", game_log_path);
         }
 
-        eprintln!();
-        eprintln!(
-            "  {:<34} {:>6}  {:>6}  {:>14}  {:>12}  {:>14}",
-            "Snake", "Win%", "Wins", "Wins as Longer", "Wins as Same", "Wins as Shorter"
-        );
-        eprintln!(
-            "  {:<34} {:>6}  {:>6}  {:>14}  {:>12}  {:>14}",
-            "----------------------------------", "------", "------", "--------------", "------------", "--------------"
-        );
-        for name in &snake_names {
-            let w = wins[name];
-            let pct = if total > 0 {
-                w as f64 * 100.0 / total as f64
-            } else {
-                0.0
-            };
-            let wl = wins_as_longer[name];
-            let ws = wins_as_same[name];
-            let wsh = wins_as_shorter[name];
-            eprintln!(
-                "  {:<34} {:>5.1}%  {:>6}  {:>14}  {:>12}  {:>14}",
-                name, pct, w, wl, ws, wsh
-            );
+        let actual_turns: Option<usize> = turns.parse().ok();
+        game_lengths.push(actual_turns.unwrap_or(0));
+        let all_game_stats = parse_all_game_stats(&new_log_content, actual_turns, &snake_names[0]);
+
+        if let Some(board) = render_last_board(&new_log_content) {
+            for line in board.lines() {
+                eprintln!("{}", line);
+            }
         }
-        if draws > 0 {
-            let pct = draws as f64 * 100.0 / total as f64;
-            eprintln!(
-                "  {:<34} {:>5.1}%",
-                "draws", pct
-            );
+
+        if !all_game_stats.is_empty() {
+            let mut ordered_names: Vec<&str> = snake_names
+                .iter()
+                .filter(|n| all_game_stats.contains_key(*n))
+                .map(|n| n.as_str())
+                .collect();
+            for name in all_game_stats.keys() {
+                if !ordered_names.contains(&name.as_str()) {
+                    ordered_names.push(name.as_str());
+                }
+            }
+            let mut builder = TableBuilder::default();
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Fate"]);
+            for name in &ordered_names {
+                let s = &all_game_stats[*name];
+                let fate = match s.fate {
+                    SnakeFate::Eliminated(t) => format!("elim t{}", t),
+                    SnakeFate::Survived => "survived".to_string(),
+                    SnakeFate::UnknownAfter(t) => format!("t{}+", t),
+                };
+                builder.push_record([
+                    name.to_string(),
+                    format!("({:.1}, {:.1})", s.avg_head_x, s.avg_head_y),
+                    format!("{:.1}", s.avg_dist_from_center),
+                    format!("{:.0}", s.avg_health),
+                    s.final_length.to_string(),
+                    fate,
+                ]);
+            }
+            let mut table = builder.build();
+            table.with(TableStyle::ascii());
+            for line in table.to_string().lines() {
+                eprintln!("  {}", line);
+            }
+        }
+        game_stats_log.push(all_game_stats);
+
+        eprintln!();
+        {
+            let mut builder = TableBuilder::default();
+            builder.push_record(["Snake", "Win%", "Wins", "Longer", "Same", "Shorter"]);
+            for name in &snake_names {
+                let w = wins[name];
+                let pct = if total > 0 { w as f64 * 100.0 / total as f64 } else { 0.0 };
+                builder.push_record([
+                    name.clone(),
+                    format!("{:.1}%", pct),
+                    w.to_string(),
+                    wins_as_longer[name].to_string(),
+                    wins_as_same[name].to_string(),
+                    wins_as_shorter[name].to_string(),
+                ]);
+            }
+            if draws > 0 {
+                builder.push_record([
+                    "(draws)".to_string(),
+                    format!("{:.1}%", draws as f64 * 100.0 / total as f64),
+                    draws.to_string(), "-".to_string(), "-".to_string(), "-".to_string(),
+                ]);
+            }
+            let mut table = builder.build();
+            table.with(TableStyle::ascii());
+            for line in table.to_string().lines() { eprintln!("  {}", line); }
         }
         eprintln!("  Games played: {}", total);
         if n_games > 0 {
@@ -409,6 +573,154 @@ fn main() {
     let _ = fs::remove_file("game_logs/.server.log");
 
     cleanup_all_worktrees(&worktrees);
+
+    // ── FINAL SUMMARY ─────────────────────────────────────────────────────────
+    if total > 0 {
+        let sep = "=".repeat(66);
+        eprintln!("\n{}", sep);
+        eprintln!("  FINAL SUMMARY  ({} games)", total);
+        eprintln!("{}\n", sep);
+
+        // Results table
+        {
+            let mut builder = TableBuilder::default();
+            builder.push_record(["Snake", "Win%", "Wins", "Longer", "Same", "Shorter"]);
+            for name in &snake_names {
+                let w = wins[name];
+                let pct = w as f64 * 100.0 / total as f64;
+                builder.push_record([
+                    name.clone(),
+                    format!("{:.1}%", pct),
+                    w.to_string(),
+                    wins_as_longer[name].to_string(),
+                    wins_as_same[name].to_string(),
+                    wins_as_shorter[name].to_string(),
+                ]);
+            }
+            if draws > 0 {
+                builder.push_record([
+                    "(draws)".to_string(),
+                    format!("{:.1}%", draws as f64 * 100.0 / total as f64),
+                    draws.to_string(), "-".to_string(), "-".to_string(), "-".to_string(),
+                ]);
+            }
+            let mut table = builder.build();
+            table.with(TableStyle::ascii());
+            eprintln!("  Results");
+            for line in table.to_string().lines() { eprintln!("  {}", line); }
+            eprintln!();
+        }
+
+        // Aggregate game stats per snake
+        let non_empty: Vec<&HashMap<String, GameStats>> =
+            game_stats_log.iter().filter(|m| !m.is_empty()).collect();
+        if !non_empty.is_empty() {
+            let round1 = |v: f64| (v * 10.0).round() / 10.0;
+            let mut per_snake: HashMap<String, (usize, f64, f64, f64, f64, f64)> = HashMap::new();
+            for gs in &non_empty {
+                for (name, s) in *gs {
+                    let e = per_snake.entry(name.clone()).or_default();
+                    e.0 += 1; e.1 += s.avg_head_x; e.2 += s.avg_head_y;
+                    e.3 += s.avg_dist_from_center; e.4 += s.avg_health;
+                    e.5 += s.final_length as f64;
+                }
+            }
+            let mut builder = TableBuilder::default();
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len"]);
+            for name in &snake_names {
+                if let Some(e) = per_snake.get(name) {
+                    let n = e.0 as f64;
+                    builder.push_record([
+                        name.clone(),
+                        format!("({:.1}, {:.1})", e.1/n, e.2/n),
+                        format!("{:.1}", round1(e.3/n)),
+                        format!("{:.0}", e.4/n),
+                        format!("{:.1}", round1(e.5/n)),
+                    ]);
+                }
+            }
+            let mut table = builder.build();
+            table.with(TableStyle::ascii());
+            eprintln!("  Average game stats  (across all games)");
+            for line in table.to_string().lines() { eprintln!("  {}", line); }
+            eprintln!();
+
+            // Outcome analysis for snake[0]: won vs lost
+            let snake0 = &snake_names[0];
+            let mut won = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let mut lost = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let mut winner_when_lost = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let mut len_sum_won = 0usize;
+            let mut len_sum_lost = 0usize;
+            for (i, gs) in game_stats_log.iter().enumerate() {
+                if let Some(s) = gs.get(snake0) {
+                    let game_len = game_lengths.get(i).copied().unwrap_or(0);
+                    let winner = game_winners.get(i).and_then(|w| w.as_deref());
+                    let acc = if winner == Some(snake0.as_str()) {
+                        &mut won
+                    } else {
+                        &mut lost
+                    };
+                    acc.0 += 1; acc.1 += s.avg_head_x; acc.2 += s.avg_head_y;
+                    acc.3 += s.avg_dist_from_center; acc.4 += s.avg_health;
+                    acc.5 += s.final_length as f64;
+                    if winner == Some(snake0.as_str()) {
+                        len_sum_won += game_len;
+                    } else {
+                        len_sum_lost += match s.fate {
+                            SnakeFate::Eliminated(t) => t,
+                            SnakeFate::Survived => game_len,
+                            SnakeFate::UnknownAfter(t) => t,
+                        };
+                    }
+                    // accumulate the winning opponent's stats when we lost
+                    if winner != Some(snake0.as_str()) {
+                        if let Some(w_name) = winner {
+                            if let Some(ws) = gs.get(w_name) {
+                                winner_when_lost.0 += 1;
+                                winner_when_lost.1 += ws.avg_head_x;
+                                winner_when_lost.2 += ws.avg_head_y;
+                                winner_when_lost.3 += ws.avg_dist_from_center;
+                                winner_when_lost.4 += ws.avg_health;
+                                winner_when_lost.5 += ws.final_length as f64;
+                            }
+                        }
+                    }
+                }
+            }
+            let mut builder = TableBuilder::default();
+            builder.push_record(["Outcome", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Duration"]);
+            for (label, acc, len_sum) in [
+                (format!("Won ({})", won.0), &won, len_sum_won),
+                (format!("Lost/Draw ({})", lost.0), &lost, len_sum_lost),
+                (format!("Winner vs us ({})", winner_when_lost.0), &winner_when_lost, 0usize),
+            ] {
+                if acc.0 > 0 {
+                    let n = acc.0 as f64;
+                    let avg_len = if len_sum > 0 {
+                        format!("{:.1}", len_sum as f64 / acc.0 as f64)
+                    } else {
+                        "-".to_string()
+                    };
+                    builder.push_record([
+                        label,
+                        format!("({:.1}, {:.1})", acc.1/n, acc.2/n),
+                        format!("{:.1}", round1(acc.3/n)),
+                        format!("{:.0}", acc.4/n),
+                        format!("{:.1}", round1(acc.5/n)),
+                        avg_len,
+                    ]);
+                }
+            }
+            let mut table = builder.build();
+            table.with(TableStyle::ascii());
+            eprintln!("  Outcome analysis — {}  (center of board is 5.0, 5.0)", snake0);
+            for line in table.to_string().lines() { eprintln!("  {}", line); }
+            eprintln!();
+        }
+    }
+    // ── END FINAL SUMMARY ─────────────────────────────────────────────────────
+
     eprintln!("Done.");
 }
 

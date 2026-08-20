@@ -64,7 +64,6 @@ fn handle_end(end_req: Json<OriginalGameState>) -> Status {
     let r = end_req.into_inner();
     warn!("ID {} Turn {} End -> {}", r.game.id, r.turn, serde_json::to_string(&r).unwrap());
     logic::end(&r.game, &r.turn, &r.board, &r.you);
-    log::logger().flush();
     Status::Ok
 }
 
