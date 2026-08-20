@@ -297,6 +297,13 @@ impl<F: Field> GameState<F> {
         matches!(self.snakes.cell(id).get(), Snake::Alive { .. })
     }
 
+    pub fn is_winner(&self, id: u8) -> bool {
+        self.is_alive(id)
+            && (0..SNAKES).all(|other_id| {
+                other_id == id || matches!(self.snakes.cell(other_id).get(), Snake::Dead { .. })
+            })
+    }
+
     // This expects the tails to be already moved
     fn valid_moves_for(&self, id: u8) -> MoveVector {
         let snake = self.snakes.cell(id).get();
@@ -518,7 +525,8 @@ impl GameState<FloodFillField> {
                             Some(field @ FloodFillField::Filled { .. }) => {
                                 let new_field = field.fill(id, 1);
                                 self.board.cell_coord(new_head).unwrap().set(new_field);
-                                if self.score_filled_field(&mut result, &new_field, id, new_head, 1) {
+                                if self.score_filled_field(&mut result, &new_field, id, new_head, 1)
+                                {
                                     filled_one = true;
                                 }
                             }
@@ -633,7 +641,8 @@ impl GameState<FloodFillField> {
                             let number_of_best_length_snakes_that_can_fill = (0..SNAKES)
                                 .filter(|other_id| {
                                     can_fill[*other_id as usize]
-                                        && lengths[*other_id as usize] == best_length_of_snakes_that_can_fill
+                                        && lengths[*other_id as usize]
+                                            == best_length_of_snakes_that_can_fill
                                 })
                                 .count();
                             let mut new_field = field;
@@ -641,8 +650,11 @@ impl GameState<FloodFillField> {
                                 if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
                                     if lengths[id as usize] == best_length_of_snakes_that_can_fill {
-                                        result.flooded_area[id as usize].push((Coord::new(x, y), turn));
-                                        if new_field.was_food() && number_of_best_length_snakes_that_can_fill == 1 {
+                                        result.flooded_area[id as usize]
+                                            .push((Coord::new(x, y), turn));
+                                        if new_field.was_food()
+                                            && number_of_best_length_snakes_that_can_fill == 1
+                                        {
                                             result.food[id as usize].push((Coord::new(x, y), turn));
                                         }
                                     }
@@ -1260,7 +1272,6 @@ mod tests {
             println!("{}", ff_state);
             println!("{:?}", ff_state.board().cell(1, 5).unwrap().get());
             println!("{:?}", result);
-
         }
     }
 

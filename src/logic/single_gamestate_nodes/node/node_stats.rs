@@ -22,7 +22,7 @@ impl Node {
         let others_product: usize = (1..4).map(|i| move_matrix.get(i).count_valid(1)).product();
         let mut result = [0usize; 4];
         for i in 0..4 {
-            if valid_directions[i] && self.children[i].is_some() {
+            if valid_directions[i] && !self.children_states_per_direction[i].is_empty() {
                 result[i] = others_product;
             }
         }

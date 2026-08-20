@@ -28,8 +28,6 @@ const FLAGS_START: u32 = TOTAL_BITS - FLAGS_BITS;
 const NONE_SENTINEL_INITIAL: u128 =
     ((1u128 << (NONE_START_BITS * SNAKES as u32)) - 1) << DEPTH_BITS;
 
-pub type DirectionVector = [Option<Direction>; SNAKES as usize];
-
 /// Compact node identifier for the game tree, packed into two `u128` values (256 bits total).
 ///
 /// Layout (LSB first):
@@ -226,7 +224,7 @@ impl NodeId {
         self.direction_at(depth - 1, snake)
     }
 
-    pub fn last_directions(&self) -> Option<DirectionVector> {
+    pub fn last_directions(&self) -> Option<Moves> {
         let depth = self.depth();
         if depth == 0 {
             return None;

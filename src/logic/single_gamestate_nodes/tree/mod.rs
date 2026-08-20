@@ -211,20 +211,20 @@ impl Tree {
     }
 
     fn propagate_status(&mut self, node_id: NodeId, node_status: NodeStatus) {
-        let mut changing_node_id = node_id;
-        let mut node_status = node_status;
-        while let Some(parent_id) = changing_node_id.parent() {
+        let mut current_node_id = node_id;
+        let mut current_node_status = node_status;
+        while let Some(parent_node_id) = current_node_id.parent() {
             trace!(
                 "Propagating child status {} to parent {}",
-                node_status, parent_id
+                current_node_status, parent_node_id
             );
-            let parent = self.nodes.get_mut(&parent_id).unwrap();
-            if parent.propagate_update_from_child(changing_node_id, node_status) {
-                changing_node_id = parent_id;
-                node_status = parent.status();
-                trace!("Status for {} updated to {}", parent_id, node_status);
+            let parent_node = self.nodes.get_mut(&parent_node_id).unwrap();
+            if parent_node.handle_update_from_child(current_node_id, current_node_status) {
+                current_node_id = parent_node_id;
+                current_node_status = parent_node.status();
+                trace!("Status for {} updated to {}", parent_node_id, current_node_status);
             } else {
-                trace!("Status for {} unchanged {}", parent_id, parent.status());
+                trace!("Status for {} unchanged {}", parent_node_id, parent_node.status());
                 break;
             }
         }

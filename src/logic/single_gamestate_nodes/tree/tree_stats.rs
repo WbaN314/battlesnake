@@ -165,20 +165,18 @@ impl Tree {
             }
             // Collect virtual-pruned children (pruned status recorded in children array but
             // not present as nodes in self.nodes)
-            for direction_slot in node.children() {
-                if let Some(children_vec) = direction_slot {
-                    for (child_id, child_status) in children_vec {
-                        if ALL_PRUNED_STATUSES.contains(&child_status)
-                            && !self.nodes.contains_key(&child_id)
-                        {
-                            pruned_by_depth
-                                .entry(child_id.depth())
-                                .or_default()
-                                .entry(format!("{}", child_status))
-                                .or_insert((child_status, 0))
-                                .1 += 1;
-                            *virtual_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
-                        }
+            for children_vec in node.children() {
+                for (child_id, child_status) in children_vec {
+                    if ALL_PRUNED_STATUSES.contains(&child_status)
+                        && !self.nodes.contains_key(&child_id)
+                    {
+                        pruned_by_depth
+                            .entry(child_id.depth())
+                            .or_default()
+                            .entry(format!("{}", child_status))
+                            .or_insert((child_status, 0))
+                            .1 += 1;
+                        *virtual_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
                     }
                 }
             }
@@ -479,13 +477,11 @@ impl TreeStats {
 mod tests {
     use crate::{
         logic::{
-            general::{field::BasicField, game_state::GameState},
             single_gamestate_nodes::{
                 node::NodeStatus,
                 tree::tests::create_tree_from_gamestate,
             },
         },
-        read_game_state,
     };
 
     fn check_invariants(stats: &super::TreeStats, label: &str, filename: &str) {
