@@ -25,7 +25,6 @@ pub struct Tree {
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
     fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[bool; SNAKES]>>>,
-    use_nodestatus_conditional: bool,
 }
 
 impl Tree {
@@ -46,7 +45,6 @@ impl Tree {
             all_root_directions: false,
             similarity_distance_fn: None,
             fast_track_fn: None,
-            use_nodestatus_conditional: false,
         }
     }
 
@@ -77,11 +75,6 @@ impl Tree {
 
     pub fn all_root_directions(mut self) -> Self {
         self.all_root_directions = true;
-        self
-    }
-
-    pub fn use_nodestatus_conditional(mut self) -> Self {
-        self.use_nodestatus_conditional = true;
         self
     }
 
@@ -166,7 +159,7 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
         let node = self.nodes.get_mut(&node_id).unwrap();
-        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref(), self.use_nodestatus_conditional);
+        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref());
         let node_status = node.status();
         let node_queue_status = node.read_queue_status();
         self.propagate_status(node_id, node_status);
@@ -661,41 +654,6 @@ mod tests {
         .max_time(Duration::from_millis(200));
         tree.simulate();
         assert_eq!(tree.result()[1], NodeStatus::DeadIn(7));
-    }
-
-    #[test]
-    fn option_use_nodestatus_conditional() {
-        let mut tree = create_tree_from_gamestate("requests/failure_65.json")
-            .all_root_directions()
-            .use_nodestatus_conditional()
-            .max_depth(4);
-        tree.simulate();
-
-        let mut tree_non_conditional = create_tree_from_gamestate("requests/failure_65.json")
-            .all_root_directions()
-            .max_depth(4);
-        tree_non_conditional.simulate();
-
-        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-        println!("{}", root);
-
-        let root_non_conditional = tree_non_conditional.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-        println!("{}", root_non_conditional);
-
-        let root_status = root.status();
-        let root_non_conditional_status = root_non_conditional.status();
-
-        match (root_status, root_non_conditional_status) {
-            (NodeStatus::Conditional(a, b), NodeStatus::DeadIn(c)) => {
-                assert_eq!(a, c, "Conditional safe depth should match DeadIn depth");
-                assert_eq!(b, 4, "Conditional max depth should be 4");
-            }
-            _ => panic!(
-                "Expected root status to be Conditional and non-conditional to be DeadIn, got {:?} and {:?}",
-                root_status, root_non_conditional_status
-            ),
-        }
-
     }
 
     #[test]

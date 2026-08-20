@@ -148,7 +148,6 @@ impl GamestateNodesSnake {
             .all_root_directions()
             .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
-            .use_nodestatus_conditional()
             .fast_track(move |node| {
                 match Self::fast_track_trigger_situation().check(node.gamestate()) {
                     Some(situation_match) => Some(situation_match.0.map(|v| v.is_some())),
@@ -165,37 +164,10 @@ impl GamestateNodesSnake {
             match result {
                 NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n, format!("Dead In {}", n)),
                 NodeStatus::AliveFor(n) => {
-                    let turn_scorer = |n: u8| match n {
-                        0 => 0.0,
-                        1 => 100.0,
-                        2 => 200.0,
-                        3 => 300.0,
-                        _ => 300.0 + (n - 3) as f64,
-                    };
                     evaluation.score(
                         index.try_into().unwrap(),
-                        turn_scorer(n),
+                        n as f64,
                         format!("Alive For {}", n),
-                    );
-                }
-                NodeStatus::Conditional(n, m) => {
-                    let turn_scorer = |n: u8, m| {
-                        let mut score = 0.0;
-                        score += match n {
-                            0 => -300.0,
-                            1 => -200.0,
-                            2 => -100.0,
-                            3 => 0.0,
-                            4..=6 => 0.0 + (n - 3) as f64 * 100.0,
-                            _ => 300.0 + (n - 6) as f64,
-                        };
-                        score += (m - n) as f64 * 10.0;
-                        score
-                    };
-                    evaluation.score(
-                        index.try_into().unwrap(),
-                        turn_scorer(n, m),
-                        format!("Conditional Alive For {} {}", n, m),
                     );
                 }
                 _ => {

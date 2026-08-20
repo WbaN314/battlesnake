@@ -22,13 +22,14 @@ pub enum QueueStatus {
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
     AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),          // Number of steps until inevitable death (if opponents play optimally)
-    Conditional(u8, u8), // Number of steps until death if opponents play optimally, number of steps if not
+    DeadIn(u8),          // Number of steps until inevitable death
+    WinnerIn(u8),        // Number of steps until inevitable victory (if opponents play optimally)
     NotSimulated,        // Status not yet determined as this direction has not been simulated
     PrunedDeadAncestor,  // Node was skipped: an ancestor direction is dead
     PrunedMaxDepth,      // Node was skipped: max depth reached
     PrunedForSimilarity, // Node was skipped: a similar gamestate is already in the node
 }
+
 
 impl NodeStatus {
     pub fn increment(self) -> NodeStatus {
@@ -42,7 +43,7 @@ impl NodeStatus {
     pub fn is_comparable(self) -> bool {
         matches!(
             self,
-            NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_) | NodeStatus::Conditional(_, _)
+            NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_)
         )
     }
 
@@ -65,38 +66,12 @@ impl PartialEq for NodeStatus {
 
 impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        debug_assert!(
-            if let NodeStatus::Conditional(n, m) = self {
-                n <= m
-            } else {
-                true
-            },
-            "Invalid NodeStatus: Conditional(n, m) with n > m"
-        );
-
         match (self, other) {
             (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => Some(n.cmp(m)),
             (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => Some(n.cmp(m)),
-            (NodeStatus::Conditional(n, m), NodeStatus::Conditional(n2, m2)) => {
-                Some(n.cmp(n2).then(m.cmp(m2)))
-            }
 
             (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
             (a @ NodeStatus::DeadIn(_), b @ NodeStatus::AliveFor(_)) => {
-                b.partial_cmp(a).map(|o| o.reverse())
-            }
-
-            (NodeStatus::Conditional(n, m), NodeStatus::AliveFor(n2)) => {
-                Some(n.cmp(n2).then(std::cmp::Ordering::Less))
-            }
-            (a @ NodeStatus::AliveFor(n), b @ NodeStatus::Conditional(n2, m2)) => {
-                b.partial_cmp(a).map(|o| o.reverse())
-            }
-
-            (NodeStatus::Conditional(n, m), NodeStatus::DeadIn(n2)) => {
-                Some(std::cmp::Ordering::Greater)
-            }
-            (a @ NodeStatus::DeadIn(n), b @ NodeStatus::Conditional(n2, m2)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
@@ -120,11 +95,11 @@ impl Display for NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
-            NodeStatus::Conditional(n, m) => write!(f, "Conditional({}, {})", n, m),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::PrunedDeadAncestor => write!(f, "PrunedDeadAncestor"),
             NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
             NodeStatus::PrunedForSimilarity => write!(f, "PrunedForSimilarity"),
+            NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
         }
     }
 }
@@ -210,13 +185,6 @@ impl Node {
                     self.if_alive_initial_status // Best so far is dead but not all directions explored, so we are still alive for now
                 }
             }
-            Some(s @ NodeStatus::Conditional(n, m)) => {
-                if matches!(self.if_alive_initial_status, NodeStatus::Conditional(_, _)) {
-                    NodeStatus::Conditional(n, m + 1)
-                } else {
-                    NodeStatus::Conditional(n + 1, m + 1)
-                }
-            }
             _ => panic!("Invalid best status: {}", best.unwrap()),
         }
     }
@@ -239,18 +207,6 @@ impl Node {
                     .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
                 {
                     return self.if_alive_initial_status;
-                } else if children
-                    .iter()
-                    .any(|(_, status)| matches!(status, NodeStatus::Conditional(_, _)))
-                {
-                    return children
-                        .iter()
-                        .filter_map(|(_, s)| match s {
-                            NodeStatus::Conditional(_, _) => Some(*s),
-                            _ => None,
-                        })
-                        .min_by(|x, y| x.partial_cmp(y).unwrap())
-                        .unwrap_or_else(|| panic!("{:#?}", self.children)); // Direction with children should always contain a comparable child
                 } else {
                     return children
                         .iter()
@@ -279,7 +235,6 @@ impl Node {
         &mut self,
         similarity_distance: Option<u8>,
         fast_track_fn: Option<&dyn Fn(&Node) -> Option<[bool; SNAKES]>>,
-        use_nodestatus_conditional: bool,
     ) -> Option<Vec<Node>> {
         // Check fast track once
 
@@ -287,7 +242,6 @@ impl Node {
             let mut children = Vec::new();
             let direction: Direction = move_matrix.get(0).try_into().unwrap();
             let mut similarity_set: HashSet<u64> = HashSet::new();
-            let mut dead_child_count = 0;
             for moves in move_matrix {
                 let mut child_gamestate = self.gamestate.clone();
                 child_gamestate.next_state(moves);
@@ -305,14 +259,6 @@ impl Node {
 
                 let mut child = Node::new(child_id, child_gamestate);
 
-                if use_nodestatus_conditional {
-                    if matches!(self.if_alive_initial_status, NodeStatus::Conditional(n, m)) {
-                        child.set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
-                    } else if dead_child_count > 0 {
-                        child.set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
-                    }
-                }
-
                 if self.read_queue_status() == QueueStatus::FastTrack {
                     child.set_queue_status(QueueStatus::ChildOfFastTrack);
                 }
@@ -327,30 +273,9 @@ impl Node {
                     .map(|child_vec| child_vec.push((moves, child_status)));
                 match child_status {
                     NodeStatus::DeadIn(0) => {
-                        // Do not return children as this direction is already dead
-                        if use_nodestatus_conditional {
-                            dead_child_count += 1;
-                            // Correct already created children to have conditional status if we have at least one dead child
-                            if dead_child_count == 1 {
-                                for child in children.iter_mut() {
-                                    child
-                                        .set_if_alive_initial_status(NodeStatus::Conditional(0, 0));
-                                }
-                                self.children[direction as usize].as_mut().map(|child_vec| {
-                                    for (_, status) in child_vec.iter_mut() {
-                                        if !matches!(status, NodeStatus::DeadIn(_)) {
-                                            *status = NodeStatus::Conditional(0, 0);
-                                        }
-                                    }
-                                });
-                            }
-                        } else {
-                            // Early exit if we have a dead child and are not using conditional status, as this direction is already dead
-                            continue 'moveset;
-                        }
+                        continue 'moveset;
                     }
                     NodeStatus::AliveFor(0) => {}
-                    NodeStatus::Conditional(0, 0) => {}
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }
@@ -442,7 +367,6 @@ impl Display for Node {
 #[cfg(test)]
 mod tests {
     use crate::read_game_state;
-    use std::assert_matches;
 
     use super::*;
 
@@ -479,19 +403,6 @@ mod tests {
                 .unwrap(),
             NodeStatus::DeadIn(0)
         );
-
-        // Conditional: compared by guaranteed alive, then conditional alive.
-        assert!(NodeStatus::Conditional(5, 6) > NodeStatus::Conditional(4, 10));
-        assert!(NodeStatus::Conditional(5, 7) > NodeStatus::Conditional(5, 6));
-        assert_eq!(NodeStatus::Conditional(3, 4), NodeStatus::Conditional(3, 4));
-
-        // Conditional always beats DeadIn
-        assert!(NodeStatus::Conditional(1, 2) > NodeStatus::DeadIn(10));
-
-        // Conditional vs AliveFor: compared by guaranteed alive, then conditional alive
-        assert!(NodeStatus::Conditional(5, 10) > NodeStatus::AliveFor(3));
-        assert!(NodeStatus::Conditional(3, 10) < NodeStatus::AliveFor(5));
-        assert!(NodeStatus::Conditional(3, 10) < NodeStatus::AliveFor(3));
     }
 
     fn make_root_node(json_path: &str) -> Node {
@@ -504,8 +415,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None, None, false).is_some() {
-            node.simulate(None, None, false);
+        while node.simulate(None, None).is_some() {
+            node.simulate(None, None);
         }
         // After exhaustion, all children slots should be filled
         assert!(
@@ -524,27 +435,18 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None, None, false).is_none());
+        assert!(node.simulate(None, None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate(None, None, false);
+        node.simulate(None, None);
         println!("{}", node);
     }
 
-    #[test]
-    fn use_nodestatus_conditional() {
-        let mut node = make_root_node("requests/failure_64.json");
-        while node.simulate(None, None, true).is_some() {}
-        println!("{}", node);
-        assert_matches!(
-            node.direction_status(Direction::Left),
-            NodeStatus::Conditional(0, 0)
-        );
-    }
+
 }
 
 #[cfg(test)]
@@ -581,7 +483,7 @@ mod benchmarks {
             // Fresh clone per iteration so each call starts from a clean, unsimulated node.
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), black_box(None), false))
+            black_box(node.simulate(black_box(None), black_box(None)))
         });
     }
 
@@ -590,7 +492,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None, None, false); // explore one direction
+                n.simulate(None, None); // explore one direction
                 n
             })
             .collect();
@@ -609,7 +511,7 @@ mod benchmarks {
             .into_iter()
             .filter_map(|mut parent| {
                 // Simulate one direction to populate a children list.
-                let children = parent.simulate(None, None, false)?;
+                let children = parent.simulate(None, None)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })
