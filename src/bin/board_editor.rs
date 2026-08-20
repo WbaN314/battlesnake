@@ -328,7 +328,7 @@ impl AppState {
     }
 }
 
-fn cell_color(cell: &Cell, active_snake: usize) -> (Color, bool) {
+fn cell_color(cell: &Cell, _active_snake: usize) -> (Color, bool) {
     match cell {
         Cell::Empty => (Color::DarkGray, false),
         Cell::Food => (Color::Magenta, false),
@@ -343,8 +343,8 @@ fn cell_color(cell: &Cell, active_snake: usize) -> (Color, bool) {
 fn render_board(f: &mut Frame, app: &AppState, board_area: Rect) {
     // board_area is where we draw the 11x11 grid
     // Each cell is CELL_W wide, CELL_H tall
-    let total_w = BOARD_W as u16 * CELL_W;
-    let total_h = BOARD_H as u16 * CELL_H;
+    let _total_w = BOARD_W as u16 * CELL_W;
+    let _total_h = BOARD_H as u16 * CELL_H;
 
     // Draw column labels (x axis) along the top
     for x in 0..BOARD_W {
@@ -392,7 +392,7 @@ fn render_board(f: &mut Frame, app: &AppState, board_area: Rect) {
                 continue;
             }
 
-            let (color, is_head) = cell_color(cell, app.active_snake);
+            let (color, _is_head) = cell_color(cell, app.active_snake);
 
             let mut style = Style::default().fg(color);
             if is_cursor {
@@ -422,7 +422,7 @@ fn render_board(f: &mut Frame, app: &AppState, board_area: Rect) {
             let top_line = Line::from(Span::styled(content, style));
             // Second row: show segment index for snake cells
             let bottom_content = match cell {
-                Cell::Snake(sid, seg_idx) => {
+                Cell::Snake(_sid, seg_idx) => {
                     format!("{:>4}", seg_idx)
                 }
                 _ => "    ".to_string(),
