@@ -31,7 +31,6 @@ pub struct GamestateNodesSnake;
 
 struct EnvironmentConfig {
     simulation_time: Duration,
-    log_eval: bool,
 }
 
 impl EnvironmentConfig {
@@ -42,11 +41,7 @@ impl EnvironmentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(200),
         );
-        let log_eval = env::var("LOG_EVAL").is_ok();
-        Self {
-            simulation_time,
-            log_eval,
-        }
+        Self { simulation_time }
     }
 }
 
@@ -220,10 +215,7 @@ impl GamestateNodesSnake {
         let turn = gamestate.turn as u8;
         let id = gamestate.game.id.clone();
         let gamestate: GameState<BasicField> = gamestate.into();
-        let mut evaluation = Evaluation::new();
-        if env_config.log_eval {
-            evaluation = evaluation.one_line();
-        }
+        let mut evaluation = Evaluation::from_env();
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
@@ -442,7 +434,7 @@ impl GamestateNodesSnake {
         #[cfg(debug_assertions)]
         println!("{}", eval_string);
 
-        if env_config.log_eval {
+        if evaluation.is_enabled() {
             warn!("ID {} Turn {} Evaluation -> {}", id, turn, eval_string);
         }
 

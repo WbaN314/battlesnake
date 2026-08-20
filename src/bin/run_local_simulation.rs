@@ -63,6 +63,11 @@ enum SnakeFate {
     UnknownAfter(usize), // alive when snake[0]'s log ended, game continued without us
 }
 
+enum DeathCondition {
+    Unknown,
+    NextToWall,
+}
+
 struct GameStats {
     avg_head_x: f64,
     avg_head_y: f64,
@@ -70,6 +75,7 @@ struct GameStats {
     avg_health: f64,
     final_length: i64,
     fate: SnakeFate,
+    death_condition: Option<DeathCondition>,
 }
 
 fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_snake: &str) -> HashMap<String, GameStats> {
@@ -81,6 +87,8 @@ fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_
     let mut sum_health: HashMap<String, f64> = HashMap::new();
     let mut last_length: HashMap<String, i64> = HashMap::new();
     let mut last_turn_seen: HashMap<String, usize> = HashMap::new();
+    let mut last_head_x: HashMap<String, f64> = HashMap::new();
+    let mut last_head_y: HashMap<String, f64> = HashMap::new();
     let mut game_last_turn = 0usize;
 
     for line in log_content.lines() {
@@ -109,6 +117,8 @@ fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_
                         *sum_dist.entry(name.clone()).or_default() += (dx * dx + dy * dy).sqrt();
                         *sum_health.entry(name.clone()).or_default() += health;
                         last_length.insert(name.clone(), length);
+                        last_head_x.insert(name.clone(), x);
+                        last_head_y.insert(name.clone(), y);
                         last_turn_seen.insert(name, turn);
                     }
                 }
@@ -130,6 +140,16 @@ fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_
                     _ => SnakeFate::UnknownAfter(game_last_turn),
                 }
             };
+            let lx = last_head_x.get(name).copied().unwrap_or(5.0);
+            let ly = last_head_y.get(name).copied().unwrap_or(5.0);
+            let death_condition = match &fate {
+                SnakeFate::Survived => None,
+                _ => Some(if lx <= 0.0 || lx >= 10.0 || ly <= 0.0 || ly >= 10.0 {
+                    DeathCondition::NextToWall
+                } else {
+                    DeathCondition::Unknown
+                }),
+            };
             (
                 name.clone(),
                 GameStats {
@@ -139,6 +159,7 @@ fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_
                     avg_health: sum_health[name] / nf,
                     final_length: *last_length.get(name).unwrap_or(&0),
                     fate,
+                    death_condition,
                 },
             )
         })
@@ -319,7 +340,7 @@ fn main() {
                 .env("PORT", port.to_string())
                 .env("VARIANT", &snake.variant)
                 .env("LOG_BOARD", "1")
-                .env("LOG_EVAL", if log { "1" } else { "" })
+                .env("LOG_EVAL", if log { "full" } else { "" })
                 .stdout(log_file.try_clone().unwrap())
                 .stderr(log_file)
                 .spawn()
@@ -500,13 +521,18 @@ fn main() {
                 }
             }
             let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Fate"]);
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Fate", "Death"]);
             for name in &ordered_names {
                 let s = &all_game_stats[*name];
                 let fate = match s.fate {
                     SnakeFate::Eliminated(t) => format!("elim t{}", t),
                     SnakeFate::Survived => "survived".to_string(),
                     SnakeFate::UnknownAfter(t) => format!("t{}+", t),
+                };
+                let death = match &s.death_condition {
+                    None => "-".to_string(),
+                    Some(DeathCondition::NextToWall) => "wall".to_string(),
+                    Some(DeathCondition::Unknown) => "unknown".to_string(),
                 };
                 builder.push_record([
                     name.to_string(),
@@ -515,6 +541,7 @@ fn main() {
                     format!("{:.0}", s.avg_health),
                     s.final_length.to_string(),
                     fate,
+                    death,
                 ]);
             }
             let mut table = builder.build();
@@ -717,6 +744,40 @@ fn main() {
             eprintln!("  Outcome analysis — {}  (center of board is 5.0, 5.0)", snake0);
             for line in table.to_string().lines() { eprintln!("  {}", line); }
             eprintln!();
+
+            // Death condition breakdown for snake[0]
+            let mut death_counts: HashMap<String, usize> = HashMap::new();
+            let mut total_deaths = 0usize;
+            for gs in &game_stats_log {
+                if let Some(s) = gs.get(snake0) {
+                    let label = match &s.death_condition {
+                        None => continue,
+                        Some(DeathCondition::NextToWall) => "wall",
+                        Some(DeathCondition::Unknown) => "unknown",
+                    };
+                    *death_counts.entry(label.to_string()).or_default() += 1;
+                    total_deaths += 1;
+                }
+            }
+            if total_deaths > 0 {
+                let mut builder = TableBuilder::default();
+                builder.push_record(["Death condition", "Count", "%"]);
+                for label in &["wall", "unknown"] {
+                    let count = death_counts.get(*label).copied().unwrap_or(0);
+                    if count > 0 {
+                        builder.push_record([
+                            label.to_string(),
+                            count.to_string(),
+                            format!("{:.1}%", count as f64 * 100.0 / total_deaths as f64),
+                        ]);
+                    }
+                }
+                let mut table = builder.build();
+                table.with(TableStyle::ascii());
+                eprintln!("  Death conditions — {}  ({} deaths total)", snake0, total_deaths);
+                for line in table.to_string().lines() { eprintln!("  {}", line); }
+                eprintln!();
+            }
         }
     }
     // ── END FINAL SUMMARY ─────────────────────────────────────────────────────
