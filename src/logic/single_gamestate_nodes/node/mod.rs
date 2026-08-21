@@ -14,13 +14,6 @@ use crate::logic::{
 pub mod node_id;
 mod node_stats;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum QueueStatus {
-    Normal,
-    FastTrack,
-    ChildOfFastTrack,
-}
-
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
     AliveFor(u8), // Number of steps where we have checked with guaranteed survival
@@ -347,17 +340,17 @@ impl Node {
                 let child_status = child.status();
 
                 self.children_states_per_direction[direction as usize].push((moves, child_status));
-                if !matches!(child_status, NodeStatus::DeadIn(_)) {
-                    children.push(child);
-                }
-
                 match child_status {
                     NodeStatus::DeadIn(0) => {
                         self.update_direction_status(direction.into());
                         continue 'direction;
                     }
-                    NodeStatus::AliveFor(0) => {}
-                    NodeStatus::WinnerIn(0) => {}
+                    NodeStatus::AliveFor(0) => {
+                        children.push(child);
+                    }
+                    NodeStatus::WinnerIn(0) => {
+                        children.push(child);
+                    }
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }

@@ -168,6 +168,13 @@ impl GamestateNodesSnake {
                         n as f64,
                         format!("Alive For {}", n),
                     );
+                },
+                NodeStatus::WinnerIn(n) => {
+                    evaluation.score(
+                        index.try_into().unwrap(),
+                        1000.0,
+                        format!("Winner In {}", n),
+                    );
                 }
                 _ => {
                     panic!("Unexpected NodeStatus: {:?}", result)

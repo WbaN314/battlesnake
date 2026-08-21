@@ -300,7 +300,7 @@ impl<F: Field> GameState<F> {
     pub fn is_winner(&self, id: u8) -> bool {
         self.is_alive(id)
             && (0..SNAKES).all(|other_id| {
-                other_id == id || matches!(self.snakes.cell(other_id).get(), Snake::Dead { .. })
+                other_id == id || matches!(self.snakes.cell(other_id).get(), Snake::Dead { .. } | Snake::NonExistent)
             })
     }
 

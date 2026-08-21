@@ -489,3 +489,13 @@ fn failure_66() {
         "Going Left should be possible here"
     );
 }
+
+#[test]
+fn failure_67() {
+    let chosen_move = get_move_from_json_file("failure_67.json");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Right,
+        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
+    );
+}

@@ -1,0 +1,266 @@
+{
+    "game": {
+        "id": "9e6fed23-79c7-4b36-a630-d2a6d932ac28",
+        "ruleset": {
+            "version": "cli",
+            "name": "standard",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 14,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 25
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 51,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 0,
+                "y": 5
+            }
+        ],
+        "snakes": [
+            {
+                "id": "c3923c8b-4245-4216-8031-604b50fde1a8",
+                "name": "single_gamestate_nodes:main_2",
+                "health": 91,
+                "body": [
+                    {
+                        "x": 2,
+                        "y": 9
+                    },
+                    {
+                        "x": 3,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 2,
+                    "y": 9
+                },
+                "length": 7,
+                "latency": "209",
+                "shout": ""
+            },
+            {
+                "id": "2850d4e3-f5e7-44fe-a044-7794bab967da",
+                "name": "depth_first:main_3",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 10,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 5
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 7,
+                        "y": 5
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 8,
+                        "y": 9
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 10,
+                    "y": 5
+                },
+                "length": 11,
+                "latency": "203",
+                "shout": ""
+            },
+            {
+                "id": "b78f9247-ecb4-45ba-98f8-e5448774ed81",
+                "name": "simple_hungry:main_4",
+                "health": 88,
+                "body": [
+                    {
+                        "x": 0,
+                        "y": 3
+                    },
+                    {
+                        "x": 0,
+                        "y": 2
+                    },
+                    {
+                        "x": 1,
+                        "y": 2
+                    },
+                    {
+                        "x": 2,
+                        "y": 2
+                    },
+                    {
+                        "x": 3,
+                        "y": 2
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 4,
+                        "y": 3
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 0,
+                    "y": 3
+                },
+                "length": 9,
+                "latency": "0",
+                "shout": ""
+            },
+            {
+                "id": "11c1bcad-1486-499e-9b46-c70c2e6ffe26",
+                "name": "single_gamestate_nodes_1",
+                "health": 79,
+                "body": [
+                    {
+                        "x": 1,
+                        "y": 10
+                    },
+                    {
+                        "x": 1,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 8
+                    },
+                    {
+                        "x": 1,
+                        "y": 8
+                    },
+                    {
+                        "x": 1,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 1,
+                    "y": 10
+                },
+                "length": 6,
+                "latency": "0",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "11c1bcad-1486-499e-9b46-c70c2e6ffe26",
+        "name": "single_gamestate_nodes_1",
+        "health": 79,
+        "body": [
+            {
+                "x": 1,
+                "y": 10
+            },
+            {
+                "x": 1,
+                "y": 9
+            },
+            {
+                "x": 0,
+                "y": 9
+            },
+            {
+                "x": 0,
+                "y": 8
+            },
+            {
+                "x": 1,
+                "y": 8
+            },
+            {
+                "x": 1,
+                "y": 7
+            }
+        ],
+        "head": {
+            "x": 1,
+            "y": 10
+        },
+        "length": 6,
+        "latency": "0",
+        "shout": ""
+    }
+}

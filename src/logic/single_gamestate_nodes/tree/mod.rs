@@ -99,7 +99,7 @@ impl Tree {
         // Simulate nodes according to queue
         while let Some(node_id) = self.queue.pop() {
             let node_status = self.nodes.get(&node_id).unwrap().status();
-            
+
             // Simulation stopping conditions
             if deadline.is_some_and(|d| Instant::now() >= d) {
                 debug!("Reached time limit, stopping simulation");
@@ -110,7 +110,10 @@ impl Tree {
             }
 
             // Node skipping conditions
-            if node_id.depth() >= self.max_depth {
+            if matches!(node_status, NodeStatus::WinnerIn(0)) {
+                debug!("Skipping {} because it is a {}", node_id, node_status);
+                continue;
+            } else if node_id.depth() >= self.max_depth {
                 debug!("Pruning {} because of max depth", node_id);
                 self.nodes
                     .get_mut(&node_id)
@@ -120,7 +123,7 @@ impl Tree {
                 continue;
             } else if matches!(
                 node_status,
-                NodeStatus::NotSimulated | NodeStatus::AliveFor(_) | NodeStatus::WinnerIn(_)
+                NodeStatus::NotSimulated | NodeStatus::AliveFor(_)
             ) {
                 if let Some((ancestor_node_id, ancestor_direction_status, direction)) =
                     self.check_node_status_lineage(node_id)
@@ -575,6 +578,22 @@ mod tests {
             root.direction_status(Direction::Right),
             NodeStatus::DeadIn(5)
         );
+    }
+
+    #[test]
+    fn correct_tree_state_propagation_3() {
+        let mut tree = create_tree_from_gamestate("requests/editor_1.json").max_depth(4);
+        tree.simulate();
+
+        println!("{}", tree);
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        println!("{}", tree.nodes.get(&"RL__".parse().unwrap()).unwrap());
+        let winner = tree.nodes.get(&"RL__-RU__".parse().unwrap()).unwrap();
+        println!("{}", winner);
+        assert_eq!(winner.status(), NodeStatus::WinnerIn(0));
+        assert_eq!(root.status(), NodeStatus::WinnerIn(2));
     }
 
     #[test]
