@@ -146,7 +146,6 @@ impl GamestateNodesSnake {
     ) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
-            .dead_ancestor_pruning()
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
                 match Self::fast_track_trigger_situation().check(node.gamestate()) {

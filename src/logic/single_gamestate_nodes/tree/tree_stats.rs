@@ -15,7 +15,7 @@ use crate::logic::{
 };
 
 const ALL_PRUNED_STATUSES: &[NodeStatus] = &[
-    NodeStatus::PrunedDeadAncestor,
+    NodeStatus::PrunedFromAncestor,
     NodeStatus::PrunedMaxDepth,
     NodeStatus::PrunedForSimilarity,
 ];
@@ -267,7 +267,7 @@ impl Tree {
             queue_remaining,
             avg_branching_factor,
             memory_estimate_bytes,
-            duration: self.elapsed,
+            duration: self.elapsed_simulation_time,
         }
     }
 
@@ -531,8 +531,7 @@ mod tests {
             check_invariants(&tree.stats(), "baseline", filename);
 
             let mut tree = create_tree_from_gamestate(filename)
-                .max_depth(4)
-                .dead_ancestor_pruning();
+                .max_depth(4);
             tree.simulate();
             let stats = tree.stats();
             check_invariants(&stats, "dead_ancestor_pruning", filename);
@@ -544,7 +543,7 @@ mod tests {
                 .map(|p| {
                     p.pruned
                         .iter()
-                        .find(|(s, _)| *s == NodeStatus::PrunedDeadAncestor)
+                        .find(|(s, _)| *s == NodeStatus::PrunedFromAncestor)
                         .map_or(0, |(_, c)| *c)
                 })
                 .sum();

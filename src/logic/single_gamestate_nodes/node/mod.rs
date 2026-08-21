@@ -1,6 +1,5 @@
 use core::panic;
 use std::{collections::HashSet, fmt::Display};
-
 use crate::logic::{
     general::{
         direction::{DIRECTIONS, Direction},
@@ -29,7 +28,7 @@ pub enum NodeStatus {
     WinnerIn(u8), // Number of steps until inevitable victory (if opponents play optimally)
     // TODO: Conditional(u8, u8), // Number of steps we could stay alive if x suboptimal opponent moves
     NotSimulated, // Status not yet determined as this direction has not been simulated
-    PrunedDeadAncestor, // Node was skipped: an ancestor direction is dead
+    PrunedFromAncestor, // Node was skipped: an ancestor direction is dead
     PrunedMaxDepth, // Node was skipped: max depth reached
     PrunedForSimilarity, // Node was skipped: a similar gamestate is already in the node
 }
@@ -39,12 +38,16 @@ impl NodeStatus {
         match self {
             NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
             NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
+            NodeStatus::WinnerIn(n) => NodeStatus::WinnerIn(n + 1),
             _ => panic!("Cannot increment status: {}", self),
         }
     }
 
     pub fn is_comparable(self) -> bool {
-        matches!(self, NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_))
+        matches!(
+            self,
+            NodeStatus::AliveFor(_) | NodeStatus::DeadIn(_) | NodeStatus::WinnerIn(_)
+        )
     }
 
     pub fn for_comparison(self) -> Option<NodeStatus> {
@@ -65,6 +68,7 @@ impl NodeStatus {
         match best {
             None => NodeStatus::AliveFor(0), // No directions explored yet
             Some(s @ NodeStatus::AliveFor(_)) => s.increment(),
+            Some(s @ NodeStatus::WinnerIn(_)) => s.increment(),
             Some(s @ NodeStatus::DeadIn(_)) => {
                 if direction_states
                     .iter()
@@ -93,13 +97,14 @@ impl NodeStatus {
         match worst {
             Some(s @ NodeStatus::AliveFor(_)) => s,
             Some(s @ NodeStatus::DeadIn(_)) => s,
+            Some(s @ NodeStatus::WinnerIn(_)) => s,
             None => {
                 if child_states
                     .iter()
                     .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
-                    .all(|(_, status)| matches!(status, NodeStatus::PrunedDeadAncestor))
+                    .all(|(_, status)| matches!(status, NodeStatus::PrunedFromAncestor))
                 {
-                    return NodeStatus::PrunedDeadAncestor;
+                    return NodeStatus::PrunedFromAncestor;
                 } else if child_states
                     .iter()
                     .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
@@ -128,14 +133,28 @@ impl PartialOrd for NodeStatus {
         match (self, other) {
             (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => Some(n.cmp(m)),
             (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => Some(n.cmp(m)),
+            (NodeStatus::WinnerIn(n), NodeStatus::WinnerIn(m)) => Some(m.cmp(n)),
 
+            // Alive, Dead
             (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
             (a @ NodeStatus::DeadIn(_), b @ NodeStatus::AliveFor(_)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
+            // Alive, Winner
+            (NodeStatus::AliveFor(_), NodeStatus::WinnerIn(_)) => Some(std::cmp::Ordering::Less),
+            (a @ NodeStatus::WinnerIn(_), b @ NodeStatus::AliveFor(_)) => {
+                b.partial_cmp(a).map(|o| o.reverse())
+            }
+
+            // Dead, Winner
+            (NodeStatus::DeadIn(_), NodeStatus::WinnerIn(_)) => Some(std::cmp::Ordering::Less),
+            (a @ NodeStatus::WinnerIn(_), b @ NodeStatus::DeadIn(_)) => {
+                b.partial_cmp(a).map(|o| o.reverse())
+            }
+
             (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
-            (NodeStatus::PrunedDeadAncestor, NodeStatus::PrunedDeadAncestor) => {
+            (NodeStatus::PrunedFromAncestor, NodeStatus::PrunedFromAncestor) => {
                 Some(std::cmp::Ordering::Equal)
             }
             (NodeStatus::PrunedMaxDepth, NodeStatus::PrunedMaxDepth) => {
@@ -155,7 +174,7 @@ impl Display for NodeStatus {
             NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
-            NodeStatus::PrunedDeadAncestor => write!(f, "PrunedDeadAncestor"),
+            NodeStatus::PrunedFromAncestor => write!(f, "PrunedDeadAncestor"),
             NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
             NodeStatus::PrunedForSimilarity => write!(f, "PrunedForSimilarity"),
             NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
@@ -171,7 +190,7 @@ pub struct Node {
     direction_states: [NodeStatus; 4],
     status: NodeStatus,
     pinned_status: Option<NodeStatus>,
-    queue_status: QueueStatus,
+    priority: i8,
     move_matrix: MoveMatrix,
     simulated_snakes: [bool; SNAKES],
 }
@@ -195,7 +214,7 @@ impl Node {
             direction_states: [NodeStatus::NotSimulated; 4],
             status,
             pinned_status: None,
-            queue_status: QueueStatus::Normal,
+            priority: 0,
             move_matrix,
             simulated_snakes: [true; SNAKES],
         }
@@ -219,12 +238,12 @@ impl Node {
         self.simulated_snakes = simulated_snakes;
     }
 
-    pub fn set_queue_status(&mut self, queue_status: QueueStatus) {
-        self.queue_status = queue_status;
+    pub fn set_priority(&mut self, priority: i8) {
+        self.priority = priority;
     }
 
-    pub fn read_queue_status(&self) -> QueueStatus {
-        self.queue_status
+    pub fn read_priority(&self) -> i8 {
+        self.priority
     }
 
     pub fn id(&self) -> NodeId {
@@ -240,7 +259,11 @@ impl Node {
     }
 
     pub fn direction_status(&self, direction: Direction) -> NodeStatus {
-        self.direction_states[direction as usize]
+        if let Some(pinned) = self.pinned_status {
+            return pinned;
+        } else {
+            self.direction_states[direction as usize]
+        }
     }
 
     fn update_direction_status(&mut self, direction_index: usize) -> bool {
@@ -294,11 +317,12 @@ impl Node {
     /// This method can be called multiple times to simulate the node in a stepwise manner. It will return None when all directions have been simulated.
     pub fn simulate(
         &mut self,
-        similarity_distance: Option<u8>,
-        fast_track_fn: Option<&dyn Fn(&Node) -> Option<[bool; SNAKES]>>,
+        similarity_pruning_distance: Option<u8>,
     ) -> Option<Vec<Node>> {
-
-        debug_assert!(self.status != NodeStatus::WinnerIn(0), "Should never simulate a node that is a new winner");
+        debug_assert!(
+            self.status != NodeStatus::WinnerIn(0),
+            "Should never simulate a node that is a new winner"
+        );
 
         'direction: while let Some((direction, move_matrix)) = self.next_direction() {
             let mut children: Vec<Node> = Vec::new();
@@ -310,7 +334,7 @@ impl Node {
                 child_gamestate.next_state(moves);
 
                 // Similarity pruning: if a similar gamestate has already been simulated, skip this child
-                if let Some(dist) = similarity_distance {
+                if let Some(dist) = similarity_pruning_distance {
                     let hash = child_gamestate.local_environment_hash(dist);
                     if !similarity_set.insert(hash) {
                         self.children_states_per_direction[direction as usize]
@@ -319,10 +343,7 @@ impl Node {
                     }
                 }
 
-                let mut child = Node::new(child_id, child_gamestate);
-                if self.read_queue_status() == QueueStatus::FastTrack {
-                    child.set_queue_status(QueueStatus::ChildOfFastTrack);
-                }
+                let child = Node::new(child_id, child_gamestate);
                 let child_status = child.status();
 
                 self.children_states_per_direction[direction as usize].push((moves, child_status));
@@ -336,6 +357,7 @@ impl Node {
                         continue 'direction;
                     }
                     NodeStatus::AliveFor(0) => {}
+                    NodeStatus::WinnerIn(0) => {}
                     _ => {
                         panic!("Invalid child status: {}", child_status);
                     }
@@ -343,28 +365,13 @@ impl Node {
             }
 
             // All children are dead, mark direction as dead
-            if children.len() == 0 { 
+            if children.len() == 0 {
                 self.update_direction_status(direction.into());
                 continue 'direction;
-            // If only one child, mark it as fast track
-            } else if children.len() == 1 {
-                children
-                    .get_mut(0)
-                    .map(|child| child.set_queue_status(QueueStatus::FastTrack));
-            }
-
-            // If a fast track function is provided, apply it to each child to determine if it should be fast tracked
-            if let Some(fast_track_fn) = fast_track_fn {
-                for child in children.iter_mut() {
-                    if let Some(snake_mask) = fast_track_fn(child) {
-                        child.set_queue_status(QueueStatus::FastTrack);
-                        child.set_simulated_snakes(snake_mask);
-                    }
-                }
             }
 
             // Node must spawn children
-            debug_assert!(!children.is_empty()); 
+            debug_assert!(!children.is_empty());
             self.update_direction_status(direction.into());
             self.update_status();
             return Some(children);
@@ -427,6 +434,10 @@ mod tests {
         assert!(NodeStatus::AliveFor(0) > NodeStatus::DeadIn(100));
         // Cross-variant not equal
         assert_ne!(NodeStatus::AliveFor(3), NodeStatus::DeadIn(3));
+        // WinnerIn: Lower n is better because it means we win sooner
+        assert!(NodeStatus::WinnerIn(1) > NodeStatus::WinnerIn(3));
+        assert!(NodeStatus::WinnerIn(1) > NodeStatus::AliveFor(100));
+        assert!(NodeStatus::WinnerIn(1) > NodeStatus::DeadIn(100));
         // max/min pick correctly
         let statuses = vec![
             NodeStatus::DeadIn(5),
@@ -462,8 +473,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None, None).is_some() {
-            node.simulate(None, None);
+        while node.simulate(None).is_some() {
+            node.simulate(None);
         }
         // All direction statuses should be AliveFor(0) or DeadIn(0)
         for i in DIRECTIONS {
@@ -477,14 +488,14 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None, None).is_none());
+        assert!(node.simulate(None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate(None, None);
+        node.simulate(None);
         println!("{}", node);
     }
 }
@@ -523,7 +534,7 @@ mod benchmarks {
             // Fresh clone per iteration so each call starts from a clean, unsimulated node.
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), black_box(None)))
+            black_box(node.simulate(black_box(None)))
         });
     }
 
@@ -532,7 +543,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None, None); // explore one direction
+                n.simulate(None); // explore one direction
                 n
             })
             .collect();
@@ -551,7 +562,7 @@ mod benchmarks {
             .into_iter()
             .filter_map(|mut parent| {
                 // Simulate one direction to populate a children list.
-                let children = parent.simulate(None, None)?;
+                let children = parent.simulate(None)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })

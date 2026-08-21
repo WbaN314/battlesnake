@@ -1,3 +1,8 @@
+use crate::logic::{
+    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
+    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+};
+use log::{debug, trace};
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
@@ -5,34 +10,25 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::{debug, trace};
-
 mod tree_stats;
-
-use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES}, single_gamestate_nodes::node::{Node, NodeStatus, QueueStatus, node_id::NodeId},
-};
 
 #[derive(Clone)]
 pub struct Tree {
     pub(super) nodes: HashMap<NodeId, Node>,
-    pub(super) queue: DepthQueue,
-    pub(super) elapsed: Duration,
+    pub(super) queue: PriorityQueue,
+    pub(super) elapsed_simulation_time: Duration,
     max_depth: u8,
     max_time: Option<Duration>,
     max_nodes: usize,
-    dead_ancestor_pruning: bool,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
     fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[bool; SNAKES]>>>,
 }
 
 impl Tree {
-    pub const MAX_DEPTH: u8 = NodeId::MAX_DEPTH;
-
     pub fn new(root: GameState<BasicField>) -> Self {
         let node = Node::new(NodeId::new(), root);
-        let queue = DepthQueue::from(node.id());
+        let queue = PriorityQueue::from(node.id());
         let nodes = HashMap::from([(node.id(), node)]);
         Self {
             nodes,
@@ -40,8 +36,7 @@ impl Tree {
             max_depth: NodeId::MAX_DEPTH,
             max_time: None,
             max_nodes: usize::MAX,
-            elapsed: Duration::ZERO,
-            dead_ancestor_pruning: false,
+            elapsed_simulation_time: Duration::ZERO,
             all_root_directions: false,
             similarity_distance_fn: None,
             fast_track_fn: None,
@@ -63,11 +58,6 @@ impl Tree {
         self
     }
 
-    pub fn dead_ancestor_pruning(mut self) -> Self {
-        self.dead_ancestor_pruning = true;
-        self
-    }
-
     pub fn similarity_pruning(mut self, distance_fn: fn(u8) -> u8) -> Self {
         self.similarity_distance_fn = Some(distance_fn);
         self
@@ -78,7 +68,10 @@ impl Tree {
         self
     }
 
-    pub fn fast_track(mut self, fast_track_fn: impl Fn(&Node) -> Option<[bool; SNAKES]> + 'static) -> Self {
+    pub fn fast_track(
+        mut self,
+        fast_track_fn: impl Fn(&Node) -> Option<[bool; SNAKES]> + 'static,
+    ) -> Self {
         self.fast_track_fn = Some(Rc::new(fast_track_fn));
         self
     }
@@ -96,24 +89,27 @@ impl Tree {
     pub fn simulate(&mut self) {
         let start = Instant::now();
         let deadline = self.max_time.map(|d| Instant::now() + d);
-        // Get next node to simulate and check early termination conditions
 
+        // Simulate all root directions first once
         if self.all_root_directions {
             let root_id = self.queue.pop().unwrap();
-            while self.simulate_node(root_id) {
-                // Keep simulating the root until all directions are exhausted. This ensures we have status information for all root directions, which is important for testing and debugging, even if we won't explore all of them in a real simulation due to time/depth constraints.
-            }
+            while self.simulate_node(root_id) {}
         }
 
+        // Simulate nodes according to queue
         while let Some(node_id) = self.queue.pop() {
+            let node_status = self.nodes.get(&node_id).unwrap().status();
+            
+            // Simulation stopping conditions
             if deadline.is_some_and(|d| Instant::now() >= d) {
                 debug!("Reached time limit, stopping simulation");
                 break;
-            }
-            if self.nodes.len() >= self.max_nodes {
+            } else if self.nodes.len() >= self.max_nodes {
                 debug!("Reached node limit, stopping simulation");
                 break;
             }
+
+            // Node skipping conditions
             if node_id.depth() >= self.max_depth {
                 debug!("Pruning {} because of max depth", node_id);
                 self.nodes
@@ -122,90 +118,101 @@ impl Tree {
                     .pin_status(NodeStatus::PrunedMaxDepth);
                 self.propagate_status(node_id, NodeStatus::PrunedMaxDepth);
                 continue;
-            }
-            let node_status = self.nodes.get(&node_id).unwrap().status();
-            if self.dead_ancestor_pruning
-                && !matches!(node_status, NodeStatus::DeadIn(_))
-                && let Some((ancestor_id, ancestor_direction_status, direction)) =
-                    self.dead_ancestor_direction(node_id)
-            {
-                debug!(
-                    "Pruning {} as ancestor {} has direction status {} for direction {}",
-                    node_id, ancestor_id, ancestor_direction_status, direction
-                );
-                self.nodes
-                    .get_mut(&node_id)
-                    .unwrap()
-                    .pin_status(NodeStatus::PrunedDeadAncestor);
-                self.propagate_status(node_id, NodeStatus::PrunedDeadAncestor);
-                if let Some(parent_id) = node_id.parent() {
-                    trace!(
-                        "Adding parent {} to the queue for dead ancestor pruning",
-                        parent_id
+            } else if matches!(
+                node_status,
+                NodeStatus::NotSimulated | NodeStatus::AliveFor(_) | NodeStatus::WinnerIn(_)
+            ) {
+                if let Some((ancestor_node_id, ancestor_direction_status, direction)) =
+                    self.check_node_status_lineage(node_id)
+                {
+                    debug!(
+                        "Pruning {} as ancestor {} has direction status {} for direction {}",
+                        node_id, ancestor_node_id, ancestor_direction_status, direction
                     );
-                    self.queue.push(parent_id);
+                    self.nodes
+                        .get_mut(&node_id)
+                        .unwrap()
+                        .pin_status(NodeStatus::PrunedFromAncestor);
+                    self.propagate_status(node_id, NodeStatus::PrunedFromAncestor);
+                    continue;
                 }
-                continue;
             }
+
+            // Simulate the node
             self.simulate_node(node_id);
         }
-        self.elapsed = start.elapsed();
+        self.elapsed_simulation_time = start.elapsed();
     }
 
     fn simulate_node(&mut self, node_id: NodeId) -> bool {
-        debug!("Simulating {}", node_id);
-        let similarity_distance = self
+        let node = self.nodes.get_mut(&node_id).unwrap();
+        let node_priority = node.read_priority();
+        debug!(
+            "{} -> Simulating with priority {} at depth {}",
+            node_id,
+            node_priority,
+            node_id.depth()
+        );
+
+        // Determine used simularity distance for this node based on its depth
+        let similarity_pruning_distance = self
             .similarity_distance_fn
             .as_ref()
             .map(|f| f(node_id.depth()));
-        let node = self.nodes.get_mut(&node_id).unwrap();
-        let simulation_result = node.simulate(similarity_distance, self.fast_track_fn.as_deref());
+
+        let child_nodes = node.simulate(similarity_pruning_distance);
         let node_status = node.status();
-        let node_queue_status = node.read_queue_status();
         self.propagate_status(node_id, node_status);
-        match simulation_result {
-            Some(children) => {
-                debug!("{} has spawned {} children", node_id, children.len());
-                for child in children {
+
+        match child_nodes {
+            Some(mut children) => {
+                debug!("{} -> Spawned {} children", node_id, children.len());
+
+                self.set_children_priorities(node_status, node_priority, &mut children);
+
+                // Add children to the queue and nodes map
+                for child in children.into_iter() {
                     let child_id = child.id();
-                    if matches!(
-                        child.read_queue_status(),
-                        QueueStatus::FastTrack | QueueStatus::ChildOfFastTrack
-                    ) {
-                        trace!(
-                            "Fast Tracked: Adding child {} to the front of queue",
-                            child_id
-                        );
-                        self.queue.push_front(child_id);
-                    } else {
-                        trace!("Adding child {} to the queue", child_id);
-                        self.queue.push(child_id);
-                    }
+                    let child_priority = child.read_priority();
+                    self.queue.push(child_id, child_priority);
                     self.nodes.insert(child_id, child);
                 }
                 true
             }
             None => {
-                // All directions exhausted. Go one level up to simulate the next direction of the parent
                 debug!("{} has exhausted all directions", node_id);
-                if let Some(parent_id) = node_id.parent()
-                    && matches!(node_status, NodeStatus::DeadIn(_))
-                {
-                    if matches!(
-                        node_queue_status,
-                        QueueStatus::FastTrack | QueueStatus::ChildOfFastTrack
-                    ) {
-                        trace!(
-                            "Fast Tracked: Adding parent {} to the front of queue",
-                            parent_id
-                        );
-                        self.queue.push_front(parent_id);
-                    } else {
-                        trace!("Adding parent {} to the queue", parent_id);
-                        self.queue.push(parent_id);
-                    }
+                if let Some(parent_node_id) = node_id.parent() {
+                    let parent_priority = self.nodes.get(&parent_node_id).unwrap().read_priority();
+                    self.queue.push(parent_node_id, parent_priority);
                 }
                 false
+            }
+        }
+    }
+
+    fn set_children_priorities(
+        &mut self,
+        _parent_status: NodeStatus,
+        parent_priority: i8,
+        children: &mut Vec<Node>,
+    ) {
+        // If the parent has a positive priority, decay it and assign to children
+        if parent_priority > 0 {
+            for child in children.iter_mut() {
+                child.set_priority(parent_priority - 1);
+            }
+        }
+
+        if children.len() == 1 {
+            children[0].set_priority(2);
+        }
+        // If a fast track function is defined, use it to set priorities and simulated snakes for children
+        else if let Some(fast_track_fn) = self.fast_track_fn.as_ref() {
+            for child in children.iter_mut() {
+                if let Some(snake_mask) = fast_track_fn(&child) {
+                    child.set_priority(2);
+                    child.set_simulated_snakes(snake_mask);
+                }
             }
         }
     }
@@ -213,37 +220,49 @@ impl Tree {
     fn propagate_status(&mut self, node_id: NodeId, node_status: NodeStatus) {
         let mut current_node_id = node_id;
         let mut current_node_status = node_status;
+
         while let Some(parent_node_id) = current_node_id.parent() {
             trace!(
                 "Propagating child status {} to parent {}",
                 current_node_status, parent_node_id
             );
             let parent_node = self.nodes.get_mut(&parent_node_id).unwrap();
+
+            // Update and propagate only if the parent node's status has changed
             if parent_node.handle_update_from_child(current_node_id, current_node_status) {
                 current_node_id = parent_node_id;
                 current_node_status = parent_node.status();
-                trace!("Status for {} updated to {}", parent_node_id, current_node_status);
+                trace!(
+                    "Status for {} updated to {}",
+                    parent_node_id, current_node_status
+                );
+                continue;
             } else {
-                trace!("Status for {} unchanged {}", parent_node_id, parent_node.status());
+                trace!(
+                    "Status for {} unchanged {}",
+                    parent_node_id,
+                    parent_node.status()
+                );
                 break;
             }
         }
     }
 
-    fn dead_ancestor_direction(&self, node_id: NodeId) -> Option<(NodeId, NodeStatus, Direction)> {
-        let mut id = node_id;
-        while let Some(parent_id) = id.parent() {
-            if let Some(parent) = self.nodes.get(&parent_id) {
-                let direction = id.last_direction_for(0).unwrap().unwrap();
-                let parent_direction_status = parent.direction_status(direction);
-                if matches!(
-                    parent_direction_status,
-                    NodeStatus::DeadIn(_) | NodeStatus::PrunedDeadAncestor
-                ) {
-                    return Some((parent_id, parent_direction_status, direction));
-                }
+    fn check_node_status_lineage(
+        &self,
+        node_id: NodeId,
+    ) -> Option<(NodeId, NodeStatus, Direction)> {
+        let original_node_id = node_id;
+        let mut current_node_id = original_node_id;
+
+        while let Some(parent_node_id) = current_node_id.parent() {
+            let parent_node = self.nodes.get(&parent_node_id).unwrap();
+            let direction = current_node_id.last_direction_for(0).unwrap().unwrap();
+            let parent_direction_status = parent_node.direction_status(direction);
+            if !matches!(parent_direction_status, NodeStatus::AliveFor(_)) {
+                return Some((parent_node_id, parent_direction_status, direction));
             }
-            id = parent_id;
+            current_node_id = parent_node_id;
         }
         None
     }
@@ -307,53 +326,61 @@ impl fmt::Display for Tree {
 }
 
 #[derive(Clone)]
-pub(super) struct DepthQueue {
-    buckets: BTreeMap<u8, VecDeque<NodeId>>,
+pub(super) struct PriorityQueue {
+    buckets: BTreeMap<(i8, u8), VecDeque<NodeId>>,
+    next: Option<NodeId>,
 }
 
-impl DepthQueue {
+impl PriorityQueue {
     fn new() -> Self {
         Self {
             buckets: BTreeMap::new(),
+            next: None,
         }
     }
 
     fn from(id: NodeId) -> Self {
         let mut q = Self::new();
-        q.push(id);
+        q.push(id, 0);
         q
     }
 
-    fn push(&mut self, id: NodeId) {
-        self.buckets.entry(id.depth()).or_default().push_back(id);
+    fn push(&mut self, id: NodeId, priority: i8) {
+        self.buckets
+            .entry((-priority, id.depth()))
+            .or_default()
+            .push_back(id);
     }
 
-    fn push_front(&mut self, id: NodeId) {
-        self.buckets.entry(0).or_default().push_front(id);
+    /// Push a node to be next in queue, bypassing the priority queue. Panics if there is already a next node set.
+    fn push_next(&mut self, id: NodeId) {
+        debug_assert!(self.next.is_none(), "next should be None before push_next");
+        self.next = Some(id);
     }
 
     fn pop(&mut self) -> Option<NodeId> {
-        let (&depth, queue) = self.buckets.iter_mut().next()?;
+        if let Some(next_id) = self.next.take() {
+            return Some(next_id);
+        }
+        let (&(priority, depth), queue) = self.buckets.iter_mut().next()?;
         let id = queue.pop_front();
         if queue.is_empty() {
-            self.buckets.remove(&depth);
+            self.buckets.remove(&(priority, depth));
         }
         id
     }
 
-    fn is_empty(&self) -> bool {
-        self.buckets.is_empty()
-    }
-
-    pub(super) fn len(&self) -> usize {
-        self.buckets.values().map(|q| q.len()).sum()
+    fn len(&self) -> usize {
+        let mut len = self.buckets.values().map(|q| q.len()).sum();
+        if self.next.is_some() {
+            len += 1;
+        }
+        len
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use log::info;
-
     use super::*;
     use crate::{
         logic::{
@@ -390,7 +417,37 @@ mod tests {
     }
 
     #[test]
-    fn correct_tree_state_propagation() {
+    fn test_priority_queue_ordering() {
+        let mut q = PriorityQueue::new();
+        q.push(NodeId::from("ROOT"), 0);
+        q.push(NodeId::from("UUUU"), 0);
+        q.push(NodeId::from("UDDD"), -1);
+        q.push(NodeId::from("ULLL"), 1);
+        q.push(NodeId::from("UDDD-UDDD"), -1);
+        q.push(NodeId::from("UUUU-UUUU"), 0);
+        q.push(NodeId::from("ULLL-ULLL"), 1);
+
+        let mut popped = Vec::new();
+        while let Some(id) = q.pop() {
+            popped.push(id);
+        }
+
+        assert_eq!(
+            popped,
+            vec![
+                NodeId::from("ULLL"),
+                NodeId::from("ULLL-ULLL"),
+                NodeId::from("ROOT"),
+                NodeId::from("UUUU"),
+                NodeId::from("UUUU-UUUU"),
+                NodeId::from("UDDD"),
+                NodeId::from("UDDD-UDDD")
+            ]
+        );
+    }
+
+    #[test]
+    fn correct_tree_state_propagation_1() {
         let mut tree = create_tree_from_gamestate("requests/failure_1.json").max_depth(4);
         tree.simulate();
 
@@ -447,11 +504,11 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Left),
-            NodeStatus::DeadIn(0)
+            NodeStatus::NotSimulated
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::DeadIn(0)
+            NodeStatus::NotSimulated
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_4.json").max_depth(4);
@@ -471,7 +528,7 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::DeadIn(0)
+            NodeStatus::NotSimulated
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
@@ -492,6 +549,31 @@ mod tests {
         assert_eq!(
             root.direction_status(Direction::Right),
             NodeStatus::DeadIn(0)
+        );
+    }
+
+    #[test]
+    fn correct_tree_state_propagation_2() {
+        let mut tree = create_tree_from_gamestate("requests/failure_64.json").max_depth(8);
+        tree.simulate();
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        println!("{}", tree.nodes.get(&"RU__".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"RU__-RL__".parse().unwrap()).unwrap());
+        assert_eq!(root.status(), NodeStatus::DeadIn(6));
+        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(0));
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::DeadIn(0)
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(0)
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::DeadIn(5)
         );
     }
 
@@ -536,32 +618,6 @@ mod tests {
     }
 
     #[test]
-    fn option_dead_ancestor_pruning() {
-        test_against_base_simulation(
-            |tree| tree.dead_ancestor_pruning(),
-            |baseline_tree, tree, filename| {
-                let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-                let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-                assert_eq!(
-                    root.status(),
-                    baseline_root.status(),
-                    "Root status should be same as baseline for {}",
-                    filename
-                );
-                for i in DIRECTIONS.into_iter() {
-                    assert_eq!(
-                        root.direction_status(i),
-                        baseline_root.direction_status(i),
-                        "Root direction {} should have same status as baseline for {}",
-                        i,
-                        filename
-                    );
-                }
-            },
-        );
-    }
-
-    #[test]
     fn option_similarity_pruning() {
         test_against_base_simulation(
             |tree| tree.similarity_pruning(|_depth| 6),
@@ -600,12 +656,12 @@ mod tests {
                 0.0,
                 "Fast Track",
             )
-            .condition(|snakes| {
-                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+            .condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
                     (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                     _ => false,
-                }
-            }),
+                },
+            ),
         );
         test_against_base_simulation(
             |tree| {
@@ -642,7 +698,6 @@ mod tests {
             "requests/failure_43_going_down_guarantees_getting_killed.json",
         )
         .all_root_directions()
-        .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
@@ -669,19 +724,18 @@ mod tests {
                 0.0,
                 "Fast Track",
             )
-            .condition(|snakes| {
-                match (snakes.cell(0).get(), snakes.cell(1).get()) {
+            .condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
                     (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                     _ => false,
-                }
-            }),
+                },
+            ),
         );
 
         let mut tree = create_tree_from_gamestate(
             "requests/failure_43_going_down_guarantees_getting_killed.json",
         )
         .all_root_directions()
-        .dead_ancestor_pruning()
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
@@ -698,24 +752,6 @@ mod tests {
         println!(
             "{}",
             tree.nodes.get(&"DUDD-DURR".try_into().unwrap()).unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"DUDD-DURR-D_D_".try_into().unwrap())
-                .unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"DUDD-DURR-D_D_-D_L_".try_into().unwrap())
-                .unwrap()
-        );
-        println!(
-            "{}",
-            tree.nodes
-                .get(&"DUDD-DURR-D_D_-D_D_".try_into().unwrap())
-                .unwrap()
         );
     }
 }
@@ -774,8 +810,8 @@ mod benchmarks {
         let mut i = 0;
 
         b.iter(|| {
-            let mut q = DepthQueue::new();
-            q.push(black_box(ids[i % ids.len()]));
+            let mut q = PriorityQueue::new();
+            q.push(black_box(ids[i % ids.len()]), 0);
             let _ = black_box(q.pop());
             i += 1;
         });

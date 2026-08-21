@@ -297,7 +297,7 @@ impl FromStr for NodeId {
     type Err = String;
 
     /// Parses a string like `"DRDL-DUDU-UUDD"` or `"ROOT"` into a `NodeId`.
-    /// Each group is one depth level with one char per snake: U/D/L/R or X (None).
+    /// Each group is one depth level with one char per snake: U/D/L/R or _ (None).
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "ROOT" {
             return Ok(NodeId::new());
