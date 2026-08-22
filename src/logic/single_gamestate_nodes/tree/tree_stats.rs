@@ -16,7 +16,6 @@ use crate::logic::{
 };
 
 const ALL_PRUNED_STATUSES: &[NodeStatus] = &[
-    NodeStatus::PrunedFromAncestor,
     NodeStatus::PrunedMaxDepth,
     NodeStatus::PrunedForSimilarity,
 ];
@@ -531,39 +530,6 @@ mod tests {
             total_tree,
             stats.total_nodes - 1,
         );
-    }
-
-    #[test]
-    fn pruning_stats_are_consistent() {
-        let filenames = ["requests/failure_1.json", "requests/failure_4.json"];
-
-        for filename in &filenames {
-            let mut tree = create_tree_from_gamestate(filename).max_depth(4);
-            tree.simulate();
-            check_invariants(&tree.stats(), "baseline", filename);
-
-            let mut tree = create_tree_from_gamestate(filename)
-                .max_depth(4);
-            tree.simulate();
-            let stats = tree.stats();
-            check_invariants(&stats, "dead_ancestor_pruning", filename);
-
-            // Sanity check: the feature should have actually fired
-            let total_anc: usize = stats
-                .pruning_per_depth
-                .iter()
-                .map(|p| {
-                    p.pruned
-                        .iter()
-                        .find(|(s, _)| *s == NodeStatus::PrunedFromAncestor)
-                        .map_or(0, |(_, c)| *c)
-                })
-                .sum();
-            assert!(
-                total_anc > 0,
-                "[dead_ancestor_pruning] {filename}: expected PrunedDeadAncestor nodes but got 0"
-            );
-        }
     }
 
     #[test]

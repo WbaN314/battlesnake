@@ -21,7 +21,6 @@ pub enum NodeStatus {
     ProbablyDeadIn(u8),  // Number of steps until death if opponents play optimally
     WinnerIn(u8),        // Number of steps until inevitable victory (if opponents play optimally)
     NotSimulated,        // Status not yet determined as this direction has not been simulated
-    PrunedFromAncestor,  // Node was skipped: an ancestor direction is dead
     PrunedMaxDepth,      // Node was skipped: max depth reached
     PrunedForSimilarity, // Node was skipped: a similar gamestate is already in the node
 }
@@ -97,7 +96,7 @@ impl NodeStatus {
             Some(s @ NodeStatus::ProbablyDeadIn(_)) => s,
             Some(NodeStatus::DeadIn(_)) => {
                 let disable_dead_in = child_states.iter().any(|(_, s)| {
-                    matches!(s, NodeStatus::AliveFor(_) | NodeStatus::WinnerIn(_))
+                    matches!(s, NodeStatus::AliveFor(_))
                         | matches!(s, NodeStatus::ProbablyDeadIn(_))
                 });
                 let lowest_n_between_dead_and_probably_dead = child_states
@@ -116,12 +115,6 @@ impl NodeStatus {
             }
             None => {
                 if child_states
-                    .iter()
-                    .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
-                    .all(|(_, status)| matches!(status, NodeStatus::PrunedFromAncestor))
-                {
-                    return NodeStatus::PrunedFromAncestor;
-                } else if child_states
                     .iter()
                     .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
                     .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
@@ -195,9 +188,6 @@ impl PartialOrd for NodeStatus {
             }
 
             (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
-            (NodeStatus::PrunedFromAncestor, NodeStatus::PrunedFromAncestor) => {
-                Some(std::cmp::Ordering::Equal)
-            }
             (NodeStatus::PrunedMaxDepth, NodeStatus::PrunedMaxDepth) => {
                 Some(std::cmp::Ordering::Equal)
             }
@@ -216,7 +206,6 @@ impl Display for NodeStatus {
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
             NodeStatus::ProbablyDeadIn(n) => write!(f, "ProbablyDeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
-            NodeStatus::PrunedFromAncestor => write!(f, "PrunedDeadAncestor"),
             NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
             NodeStatus::PrunedForSimilarity => write!(f, "PrunedForSimilarity"),
             NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
@@ -404,7 +393,10 @@ impl Node {
 
             self.update_direction_status(direction.into());
 
-            if matches!(self.direction_status(direction), NodeStatus::DeadIn(_) | NodeStatus::ProbablyDeadIn(_)) {
+            if matches!(
+                self.direction_status(direction),
+                NodeStatus::DeadIn(_) | NodeStatus::ProbablyDeadIn(_)
+            ) {
                 continue 'direction;
             }
 
@@ -605,34 +597,10 @@ mod tests {
 
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::PrunedFromAncestor),
-                (dummy, NodeStatus::PrunedFromAncestor),
-            ]),
-            NodeStatus::PrunedFromAncestor
-        );
-
-        assert_eq!(
-            NodeStatus::calculate_from_child_states(&vec![
                 (dummy, NodeStatus::PrunedMaxDepth),
                 (dummy, NodeStatus::PrunedMaxDepth),
             ]),
             NodeStatus::AliveFor(0)
-        );
-
-        assert_eq!(
-            NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::PrunedFromAncestor),
-                (dummy, NodeStatus::PrunedForSimilarity),
-            ]),
-            NodeStatus::PrunedFromAncestor
-        );
-
-        assert_eq!(
-            NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::PrunedFromAncestor),
-                (dummy, NodeStatus::DeadIn(1)),
-            ]),
-            NodeStatus::DeadIn(1)
         );
 
         assert_eq!(
@@ -671,6 +639,16 @@ mod tests {
                 (dummy, NodeStatus::ProbablyDeadIn(1)),
             ]),
             NodeStatus::ProbablyDeadIn(1)
+        );
+
+        // Avoid DeadIn -> ProbablyDeadIn conversion through stupid self killing moves of other snakes
+        assert_eq!(
+            NodeStatus::calculate_from_child_states(&vec![
+                (dummy, NodeStatus::WinnerIn(1)),
+                (dummy, NodeStatus::DeadIn(2)),
+                (dummy, NodeStatus::DeadIn(2)),
+            ]),
+            NodeStatus::DeadIn(2)
         );
     }
 }

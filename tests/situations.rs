@@ -499,3 +499,23 @@ fn failure_67() {
         "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
     );
 }
+
+#[test]
+fn failure_68() {
+    let chosen_move = get_move_from_json_file("failure_68.json");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Right,
+        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
+    );
+}
+
+#[test]
+fn failure_69() {
+    let chosen_move = get_move_from_json_file("failure_69.json");
+    assert_eq!(
+        chosen_move,
+        OriginalDirection::Right,
+        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
+    );
+}

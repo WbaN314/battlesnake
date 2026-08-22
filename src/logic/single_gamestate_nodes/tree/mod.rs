@@ -121,24 +121,6 @@ impl Tree {
                     .pin_status(NodeStatus::PrunedMaxDepth);
                 self.propagate_status(node_id, NodeStatus::PrunedMaxDepth);
                 continue;
-            } else if matches!(
-                node_status,
-                NodeStatus::NotSimulated | NodeStatus::AliveFor(_)
-            ) {
-                if let Some((ancestor_node_id, ancestor_direction_status, direction)) =
-                    self.check_node_status_lineage(node_id)
-                {
-                    debug!(
-                        "Pruning {} as ancestor {} has direction status {} for direction {}",
-                        node_id, ancestor_node_id, ancestor_direction_status, direction
-                    );
-                    self.nodes
-                        .get_mut(&node_id)
-                        .unwrap()
-                        .pin_status(NodeStatus::PrunedFromAncestor);
-                    self.propagate_status(node_id, NodeStatus::PrunedFromAncestor);
-                    continue;
-                }
             }
 
             // Simulate the node
@@ -249,25 +231,6 @@ impl Tree {
                 break;
             }
         }
-    }
-
-    fn check_node_status_lineage(
-        &self,
-        node_id: NodeId,
-    ) -> Option<(NodeId, NodeStatus, Direction)> {
-        let original_node_id = node_id;
-        let mut current_node_id = original_node_id;
-
-        while let Some(parent_node_id) = current_node_id.parent() {
-            let parent_node = self.nodes.get(&parent_node_id).unwrap();
-            let direction = current_node_id.last_direction_for(0).unwrap().unwrap();
-            let parent_direction_status = parent_node.direction_status(direction);
-            if !matches!(parent_direction_status, NodeStatus::AliveFor(_)) {
-                return Some((parent_node_id, parent_direction_status, direction));
-            }
-            current_node_id = parent_node_id;
-        }
-        None
     }
 }
 
@@ -464,11 +427,11 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Left),
-            NodeStatus::NotSimulated
+            NodeStatus::AliveFor(3)
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::NotSimulated
+            NodeStatus::AliveFor(3)
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_2.json").max_depth(4);
@@ -500,18 +463,21 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(3)
+        );
         assert_eq!(
             root.direction_status(Direction::Down),
             NodeStatus::AliveFor(3)
         );
         assert_eq!(
             root.direction_status(Direction::Left),
-            NodeStatus::NotSimulated
+            NodeStatus::DeadIn(0)
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::NotSimulated
+            NodeStatus::DeadIn(0)
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_4.json").max_depth(4);
@@ -520,7 +486,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(3)
+        );
         assert_eq!(
             root.direction_status(Direction::Down),
             NodeStatus::DeadIn(0)
@@ -531,7 +500,7 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::NotSimulated
+            NodeStatus::ProbablyDeadIn(0)
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
@@ -540,7 +509,10 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(2));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(1));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(1)
+        );
         assert_eq!(
             root.direction_status(Direction::Down),
             NodeStatus::ProbablyDeadIn(0)
@@ -562,8 +534,9 @@ mod tests {
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
-        println!("{}", tree.nodes.get(&"RU__".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"RU__-RL__".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"RD__".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"RD__-RD__".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"RD__-RD__-RL__".parse().unwrap()).unwrap());
         assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(1));
         assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(0));
         assert_eq!(
@@ -594,6 +567,27 @@ mod tests {
         println!("{}", winner);
         assert_eq!(winner.status(), NodeStatus::WinnerIn(0));
         assert_eq!(root.status(), NodeStatus::WinnerIn(2));
+    }
+
+    #[test]
+    fn correct_tree_state_propagation_4() {
+        let mut tree = create_tree_from_gamestate("requests/failure_69.json").max_depth(3);
+        tree.simulate();
+
+        println!("{}", tree);
+
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        println!("{}", root);
+        assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(1));
+
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(2)
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::ProbablyDeadIn(0)
+        );
     }
 
     #[test]
