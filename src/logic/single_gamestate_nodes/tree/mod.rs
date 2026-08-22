@@ -294,14 +294,12 @@ impl fmt::Display for Tree {
 #[derive(Clone)]
 pub(super) struct PriorityQueue {
     buckets: BTreeMap<(i8, u8), VecDeque<NodeId>>,
-    next: Option<NodeId>,
 }
 
 impl PriorityQueue {
     fn new() -> Self {
         Self {
             buckets: BTreeMap::new(),
-            next: None,
         }
     }
 
@@ -318,16 +316,7 @@ impl PriorityQueue {
             .push_back(id);
     }
 
-    /// Push a node to be next in queue, bypassing the priority queue. Panics if there is already a next node set.
-    fn push_next(&mut self, id: NodeId) {
-        debug_assert!(self.next.is_none(), "next should be None before push_next");
-        self.next = Some(id);
-    }
-
     fn pop(&mut self) -> Option<NodeId> {
-        if let Some(next_id) = self.next.take() {
-            return Some(next_id);
-        }
         let (&(priority, depth), queue) = self.buckets.iter_mut().next()?;
         let id = queue.pop_front();
         if queue.is_empty() {
@@ -337,11 +326,7 @@ impl PriorityQueue {
     }
 
     fn len(&self) -> usize {
-        let mut len = self.buckets.values().map(|q| q.len()).sum();
-        if self.next.is_some() {
-            len += 1;
-        }
-        len
+        self.buckets.values().map(|q| q.len()).sum()
     }
 }
 
