@@ -10,17 +10,21 @@ use serde::{Deserialize, Serialize};
 // ── Tunable parameter definitions ────────────────────────────────────────────
 
 const PARAM_NAMES: &[&str] = &[
-    "WALL_SCORE",
-    "CENTER_SCORE",
-    "ENEMY_MIDPOINT_SCORE",
-    "FOOD_D1_SCORE",
-    "FOOD_D2_SCORE",
-    "FOOD_D3_SCORE",
-    "SQUEEZED_SNAKES_SCORE",
-    "ENEMY_PUSHED_SCORE",
-    "NOT_ENOUGH_AREA_SCORE",
+    "SCORE_FIRST_MOVES_TOWARD_CENTER",
+    "SCORE_AVOID_MOVING_NEXT_TO_WALL",
+    "SCORE_GRAB_FOOD",
+    "SCORE_KILL_BY_LEAD",
+    "SCORE_KILL_BY_FOLLOW",
+    "SCORE_NOT_ENOUGH_AREA",
+    "SCORE_SQUEEZED_SNAKES",
+    "SCORE_FOOD",
+    "SCORE_FOOD_DECAY_COEFFICIENT",
+    "SCORE_ENEMY_PUSHED",
+    "SCORE_NEXT_TO_WALL",
+    "SCORE_ENEMY_MIDPOINT",
+    "SCORE_TOWARDS_CENTER",
 ];
-const PARAM_DEFAULTS: &[f64] = &[-20.0, 10.0, 10.0, 60.0, 40.0, 30.0, 100.0, 100.0, -10.0];
+const PARAM_DEFAULTS: &[f64] = &[200.0, -20.0, 60.0, 100.0, 100.0, -10.0, 100.0, 70.0, 0.2, 20.0, -20.0, 10.0, 5.0];
 
 const MUTATION_SCALES: &[f64] = &[0.5, 0.7, 0.85, 1.15, 1.5, 2.0];
 

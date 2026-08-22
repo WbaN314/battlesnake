@@ -46,7 +46,24 @@ cargo run --release --bin run_generated_tests
 ```
 
 
-## Board Editor
+## Parameter Tuning Tournament
+
+Evolutionary search over `EnvironmentConfig` scoring params. Each round generates 4 mutated candidates, validates each against regression tests (`cargo test failure_`), then runs simulations to find a better champion.
+
+```bash
+# Quick smoke test (1 game per batch, 3 rounds)
+cargo run --release --bin run_tournament -- -n 1 -r 3
+
+# Overnight run (100 games per batch, 20 rounds)
+cargo run --release --bin run_tournament -- -n 100 -r 20
+
+# Continue from a previous best
+cargo run --release --bin run_tournament -- -n 100 -r 20 -i tournament_best.json
+```
+
+Results are saved to `tournament_best.json`. Candidates that fail `cargo test failure_` are automatically discarded and regenerated — only valid configs enter simulation.
+
+
 
 Interactive TUI for building game state JSON files used as test cases.
 
