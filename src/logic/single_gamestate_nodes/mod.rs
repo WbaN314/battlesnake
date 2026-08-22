@@ -161,6 +161,7 @@ impl GamestateNodesSnake {
         evaluation.new_section("Simulation");
         for (index, result) in result.into_iter().enumerate() {
             match result {
+                NodeStatus::ProbablyDeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), 100 + n, format!("Probably Dead In {}", n)),
                 NodeStatus::DeadIn(n) => evaluation.eliminate(index.try_into().unwrap(), n, format!("Dead In {}", n)),
                 NodeStatus::AliveFor(n) => {
                     evaluation.score(

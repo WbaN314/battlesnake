@@ -500,7 +500,7 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(3));
+        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3));
         assert_eq!(
             root.direction_status(Direction::Down),
             NodeStatus::AliveFor(3)
@@ -520,7 +520,7 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(3));
+        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3));
         assert_eq!(
             root.direction_status(Direction::Down),
             NodeStatus::DeadIn(0)
@@ -539,11 +539,11 @@ mod tests {
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
-        assert_eq!(root.status(), NodeStatus::DeadIn(2));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(1));
+        assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(2));
+        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(1));
         assert_eq!(
             root.direction_status(Direction::Down),
-            NodeStatus::DeadIn(0)
+            NodeStatus::ProbablyDeadIn(0)
         );
         assert_eq!(
             root.direction_status(Direction::Left),
@@ -551,7 +551,7 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::DeadIn(0)
+            NodeStatus::ProbablyDeadIn(0)
         );
     }
 
@@ -564,7 +564,7 @@ mod tests {
         println!("{}", root);
         println!("{}", tree.nodes.get(&"RU__".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"RU__-RL__".parse().unwrap()).unwrap());
-        assert_eq!(root.status(), NodeStatus::DeadIn(6));
+        assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(1));
         assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(0));
         assert_eq!(
             root.direction_status(Direction::Down),
@@ -572,7 +572,7 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Left),
-            NodeStatus::DeadIn(0)
+            NodeStatus::ProbablyDeadIn(0)
         );
         assert_eq!(
             root.direction_status(Direction::Right),
@@ -727,7 +727,7 @@ mod tests {
         })
         .max_time(Duration::from_millis(200));
         tree.simulate();
-        assert_eq!(tree.result()[1], NodeStatus::DeadIn(7));
+        assert_eq!(tree.result()[1], NodeStatus::ProbablyDeadIn(7));
     }
 
     #[test]

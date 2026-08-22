@@ -47,7 +47,7 @@ impl Evaluation {
         // Start a new section in the evaluation report
         self.sections.push(EvaluationSection {
             name: name.to_string(),
-            elimination_priority: std::array::from_fn(|_| None),
+            elimination_score: std::array::from_fn(|_| None),
             score_details: std::array::from_fn(|_| Vec::new()),
         });
     }
@@ -58,20 +58,25 @@ impl Evaluation {
         section.score_details[index].push((score, detail.into()));
     }
 
-    pub fn eliminate(&mut self, direction: Direction, priority: u8, detail: impl Into<String>) {
+    pub fn eliminate(&mut self, direction: Direction, score: u8, detail: impl Into<String>) {
         self.sections
             .last_mut()
             .unwrap()
-            .elimination_priority[direction as usize] = Some((priority, detail.into()));
+            .elimination_score[direction as usize] = Some((score, detail.into()));
     }
 
     fn directions_after_elimination(&self) -> [bool; 4] {
+        self.directions_after_each_section().into_iter().last().unwrap_or([true; 4])
+    }
+
+    fn directions_after_each_section(&self) -> Vec<[bool; 4]> {
         let mut directions = [true; 4];
+        let mut result = Vec::new();
         for section in &self.sections {
             let checkpoint = directions;
             let mut max = None;
             for i in 0..4 {
-                if let Some((priority, _)) = section.elimination_priority[i] {
+                if let Some((priority, _)) = section.elimination_score[i] {
                     if max.is_none() || priority > max.unwrap() {
                         max = Some(priority);
                     }
@@ -80,23 +85,26 @@ impl Evaluation {
             }
             if directions.iter().all(|&x| !x) {
                 for i in 0..4 {
-                    if section.elimination_priority[i].as_ref().map(|(p, _)| *p) == max {
+                    if section.elimination_score[i].as_ref().map(|(p, _)| *p) == max {
                         directions[i] = checkpoint[i];
                     }
                 }
             }
 
             let available_count = directions.iter().filter(|&&x| x).count();
-            if available_count == 1 {
-                return directions;
-            }
             if available_count == 0 {
                 // No direction is valid, fall back to previous checkpoint.
                 directions = checkpoint;
             }
+            result.push(directions);
+            if available_count == 1 {
+                while result.len() < self.sections.len() {
+                    result.push(directions);
+                }
+                return result;
+            }
         }
-
-        directions
+        result
     }
 
     pub fn result(&self) -> Direction {
@@ -138,7 +146,7 @@ impl Evaluation {
 
 struct EvaluationSection {
     name: String,
-    elimination_priority: [Option<(u8, String)>; 4],
+    elimination_score: [Option<(u8, String)>; 4],
     score_details: [Vec<(f64, String)>; 4],
 }
 
@@ -194,7 +202,7 @@ impl Display for Evaluation {
                 .filter(|d| !directions[**d as usize])
                 .map(|d| {
                     let reason = self.sections.iter()
-                        .find_map(|s| s.elimination_priority[*d as usize].as_ref().map(|(_, detail)| detail.clone()))
+                        .find_map(|s| s.elimination_score[*d as usize].as_ref().map(|(_, detail)| detail.clone()))
                         .unwrap_or_else(|| "?".to_string());
                     format!("{}({})", d, reason)
                 })
@@ -210,13 +218,21 @@ impl Display for Evaluation {
         let direction_headers: Vec<String> = DIRECTIONS.iter().map(ToString::to_string).collect();
 
         let available_directions = self.directions_after_elimination();
+        let directions_per_section = self.directions_after_each_section();
 
         let mut rows: Vec<(String, Vec<String>)> = self
             .sections
             .iter()
-            .flat_map(|section| {
+            .enumerate()
+            .flat_map(|(section_idx, section)| {
+                let section_directions = directions_per_section.get(section_idx).copied().unwrap_or([true; 4]);
+                let prior_directions = if section_idx == 0 {
+                    [true; 4]
+                } else {
+                    directions_per_section.get(section_idx - 1).copied().unwrap_or([true; 4])
+                };
                 let section_has_scores = section.score_details.iter().any(|d| !d.is_empty());
-                let section_has_eliminations = section.elimination_priority.iter().any(|p| p.is_some());
+                let section_has_eliminations = section.elimination_score.iter().any(|p| p.is_some());
                 if !section_has_scores && !section_has_eliminations {
                     return Vec::new();
                 }
@@ -228,8 +244,10 @@ impl Display for Evaluation {
                     .map(|direction| {
                         let index = *direction as usize;
                         let score = fmt_score(section.score_details[index].iter().map(|(s, _)| *s).sum::<f64>());
-                        if section.elimination_priority[index].is_some() {
+                        if prior_directions[index] && !section_directions[index] {
                             "X".to_string()
+                        } else if score == "0" {
+                            "".to_string()
                         } else {
                             score
                         }
@@ -238,7 +256,7 @@ impl Display for Evaluation {
                 rows.push((section.name.clone(), section_total_cells));
 
                 let mut elim_labels: Vec<String> = Vec::new();
-                for opt in &section.elimination_priority {
+                for opt in &section.elimination_score {
                     if let Some((_, label)) = opt {
                         if !elim_labels.contains(label) {
                             elim_labels.push(label.clone());
@@ -249,13 +267,13 @@ impl Display for Evaluation {
                     let cells = DIRECTIONS
                         .iter()
                         .map(|direction| {
-                            match &section.elimination_priority[*direction as usize] {
+                            match &section.elimination_score[*direction as usize] {
                                 Some((p, l)) if l == &label => p.to_string(),
                                 _ => "".to_string(),
                             }
                         })
                         .collect();
-                    rows.push((format!("  - {}", label), cells));
+                    rows.push((format!("  ! {}", label), cells));
                 }
 
                 let mut detail_labels: Vec<String> = Vec::new();
