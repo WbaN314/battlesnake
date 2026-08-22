@@ -175,25 +175,46 @@ fn render_last_board(log_content: &str) -> Option<&str> {
     Some(after[..end].trim_end())
 }
 
-fn parse_avg_depths(log_content: &str) -> Option<f64> {
+struct DepthStats {
+    avg_depth: f64,
+    avg_nodes: f64,
+}
+
+fn parse_depth_stats(log_content: &str) -> Option<DepthStats> {
     let marker = "DEPTHS ";
-    let mut total = 0.0f64;
-    let mut count = 0usize;
+    let mut total_depth = 0.0f64;
+    let mut total_nodes = 0.0f64;
+    let mut depth_count = 0usize;
+    let mut nodes_count = 0usize;
 
     for line in log_content.lines() {
         if let Some(pos) = line.find(marker) {
-            for part in line[pos + marker.len()..].split_whitespace() {
-                if let Some((_, v)) = part.split_once('=') {
-                    if let Ok(val) = v.parse::<f64>() {
-                        total += val;
-                        count += 1;
+            let json_str = line[pos + marker.len()..].trim();
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+                if let Some(obj) = val.as_object() {
+                    for (_, dir_val) in obj {
+                        if let Some(d) = dir_val["depth"].as_f64() {
+                            total_depth += d;
+                            depth_count += 1;
+                        }
+                        if let Some(n) = dir_val["nodes"].as_f64() {
+                            total_nodes += n;
+                            nodes_count += 1;
+                        }
                     }
                 }
             }
         }
     }
 
-    if count == 0 { None } else { Some(total / count as f64) }
+    if depth_count == 0 && nodes_count == 0 {
+        None
+    } else {
+        Some(DepthStats {
+            avg_depth: if depth_count > 0 { total_depth / depth_count as f64 } else { 0.0 },
+            avg_nodes: if nodes_count > 0 { total_nodes / nodes_count as f64 } else { 0.0 },
+        })
+    }
 }
 
 fn parse_end_turn(log_content: &str) -> Option<usize> {
@@ -413,6 +434,7 @@ fn main() {
     let mut game_winners: Vec<Option<String>> = Vec::new();
     let mut game_lengths: Vec<usize> = Vec::new();
     let mut game_depths: Vec<f64> = Vec::new();
+    let mut game_nodes: Vec<f64> = Vec::new();
 
     let mut play_flags: Vec<String> = Vec::new();
     if watch {
@@ -524,7 +546,7 @@ fn main() {
         let actual_turns: Option<usize> = turns.parse().ok();
         game_lengths.push(actual_turns.unwrap_or(0));
         let all_game_stats = parse_all_game_stats(&new_log_content, actual_turns, &snake_names[0]);
-        let avg_depths = parse_avg_depths(&new_log_content);
+        let depth_stats = parse_depth_stats(&new_log_content);
 
         if let Some(board) = render_last_board(&new_log_content) {
             for line in board.lines() {
@@ -544,7 +566,7 @@ fn main() {
                 }
             }
             let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Avg Depth", "Fate", "Death"]);
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Avg Depth", "Avg Nodes", "Fate", "Death"]);
             for name in &ordered_names {
                 let s = &all_game_stats[*name];
                 let fate = match s.fate {
@@ -558,7 +580,12 @@ fn main() {
                     Some(DeathCondition::Unknown) => "unknown".to_string(),
                 };
                 let depth = if *name == snake_names[0] {
-                    avg_depths.map_or("-".to_string(), |d| format!("{:.1}", d))
+                    depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.1}", ds.avg_depth))
+                } else {
+                    "-".to_string()
+                };
+                let nodes = if *name == snake_names[0] {
+                    depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.0}", ds.avg_nodes))
                 } else {
                     "-".to_string()
                 };
@@ -569,6 +596,7 @@ fn main() {
                     format!("{:.0}", s.avg_health),
                     s.final_length.to_string(),
                     depth,
+                    nodes,
                     fate,
                     death,
                 ]);
@@ -581,8 +609,9 @@ fn main() {
         }
         game_stats_log.push(all_game_stats);
 
-        if let Some(depth) = avg_depths {
-            game_depths.push(depth);
+        if let Some(ds) = depth_stats {
+            game_depths.push(ds.avg_depth);
+            game_nodes.push(ds.avg_nodes);
         }
 
         eprintln!();
@@ -690,13 +719,23 @@ fn main() {
             } else {
                 Some(game_depths.iter().sum::<f64>() / game_depths.len() as f64)
             };
+            let overall_avg_nodes = if game_nodes.is_empty() {
+                None
+            } else {
+                Some(game_nodes.iter().sum::<f64>() / game_nodes.len() as f64)
+            };
             let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Depth"]);
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Depth", "Avg Nodes"]);
             for name in &snake_names {
                 if let Some(e) = per_snake.get(name) {
                     let n = e.0 as f64;
                     let depth = if name == &snake_names[0] {
                         overall_avg_depth.map_or("-".to_string(), |d| format!("{:.1}", d))
+                    } else {
+                        "-".to_string()
+                    };
+                    let nodes = if name == &snake_names[0] {
+                        overall_avg_nodes.map_or("-".to_string(), |n| format!("{:.0}", n))
                     } else {
                         "-".to_string()
                     };
@@ -707,6 +746,7 @@ fn main() {
                         format!("{:.0}", e.4/n),
                         format!("{:.1}", round1(e.5/n)),
                         depth,
+                        nodes,
                     ]);
                 }
             }

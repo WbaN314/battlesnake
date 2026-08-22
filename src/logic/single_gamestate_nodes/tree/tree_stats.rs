@@ -272,23 +272,25 @@ impl Tree {
     }
 
     pub fn log_depths(&self) {
+        let stats = self.stats();
         let results = self.result();
         let depth_str: String = DIRECTIONS
             .iter()
+            .zip(stats.direction_stats.iter())
             .zip(results.iter())
-            .map(|(dir, status)| {
-                let n = match status {
+            .map(|((dir, ds), status)| {
+                let depth = match status {
                     NodeStatus::AliveFor(n)
                     | NodeStatus::DeadIn(n)
                     | NodeStatus::WinnerIn(n)
-                    | NodeStatus::ProbablyDeadIn(n) => n.to_string(),
-                    _ => "-".to_string(),
+                    | NodeStatus::ProbablyDeadIn(n) => format!("{}", n),
+                    _ => "null".to_string(),
                 };
-                format!("{}={}", dir, n)
+                format!("\"{}\":{{\"depth\":{},\"nodes\":{}}}", dir, depth, ds.subtree_size)
             })
             .collect::<Vec<_>>()
-            .join(" ");
-        warn!("DEPTHS {}", depth_str);
+            .join(",");
+        warn!("DEPTHS {{{}}}", depth_str);
     }
 
     fn subtree_stats_for_direction(&self, direction: Direction) -> (usize, u8) {
