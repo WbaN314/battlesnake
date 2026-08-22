@@ -270,36 +270,36 @@ impl GamestateNodesSnake {
                 Snake::Alive { health, .. } if health < 20 => 2.0,
                 _ => 1.0,
             };
-            for &(coord, turn) in &result.food[0] {
-                if turn == 1 {
+            for &(coord, distance) in &result.food[0] {
+                if distance == 1 {
                     evaluation.score(
                         direction,
                         60.0 * length_multiplier * hunger_multiplier,
                         format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
-                if turn == 2 {
+                if distance == 2 {
                     evaluation.score(
                         direction,
                         40.0 * length_multiplier * hunger_multiplier,
                         format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
-                if turn == 3 {
+                if distance == 3 {
                     evaluation.score(
                         direction,
                         30.0 * length_multiplier * hunger_multiplier,
                         format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
-                if turn == 4 {
+                if distance == 4 {
                     evaluation.score(
                         direction,
                         20.0 * length_multiplier * hunger_multiplier,
                         format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
-                if turn == 5 {
+                if distance == 5 {
                     evaluation.score(
                         direction,
                         10.0 * length_multiplier * hunger_multiplier,
@@ -308,7 +308,7 @@ impl GamestateNodesSnake {
                 } else {
                     evaluation.score(
                         direction,
-                        5_f64.max(15.0 - turn as f64) * length_multiplier * hunger_multiplier,
+                        5_f64.max(15.0 - distance as f64) * length_multiplier * hunger_multiplier,
                         format!("Food x {}", length_multiplier * hunger_multiplier),
                     );
                 }
@@ -345,43 +345,12 @@ impl GamestateNodesSnake {
         // Away from trouble / center preference based on snake count
         evaluation.new_section("Positioning");
         if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
-            if number_of_alive_snakes <= 4 {
-                let enemy_heads: Vec<Coord> = gamestate
-                    .snakes()
-                    .clone()
-                    .into_iter()
-                    .skip(1)
-                    .filter_map(|s| {
-                        if let Snake::Alive { head, .. } = s.get() {
-                            Some(head)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                let away_direction = if enemy_heads.iter().all(|e| e.x > head.x) {
-                    Some(Direction::Left)
-                } else if enemy_heads.iter().all(|e| e.x < head.x) {
-                    Some(Direction::Right)
-                } else if enemy_heads.iter().all(|e| e.y > head.y) {
-                    Some(Direction::Down)
-                } else if enemy_heads.iter().all(|e| e.y < head.y) {
-                    Some(Direction::Up)
-                } else {
-                    None
-                };
-                if let Some(d) = away_direction {
-                    evaluation.score(d, 20.0, "Away From Trouble");
-                }
-            }
-            if number_of_alive_snakes <= 3 {
-                let center = Coord::new(WIDTH / 2, HEIGHT / 2);
-                let current_dist = head.distance_to(center);
-                for direction in DIRECTIONS {
-                    let next_head = head + direction;
-                    if next_head.distance_to(center) < current_dist {
-                        evaluation.score(direction, 20.0, "Toward Center");
-                    }
+            let center = Coord::new(WIDTH / 2, HEIGHT / 2);
+            let current_dist = head.distance_to(center);
+            for direction in DIRECTIONS {
+                let next_head = head + direction;
+                if next_head.distance_to(center) < current_dist {
+                    evaluation.score(direction, 10.0, "Toward Center");
                 }
             }
             if number_of_alive_snakes <= 2 {
@@ -406,7 +375,7 @@ impl GamestateNodesSnake {
                     for direction in DIRECTIONS {
                         let next_head = head + direction;
                         if next_head.distance_to(target) < current_dist {
-                            evaluation.score(direction, 20.0, "Toward Enemy Midpoint");
+                            evaluation.score(direction, 10.0, "Toward Enemy Midpoint");
                         }
                     }
                 }
