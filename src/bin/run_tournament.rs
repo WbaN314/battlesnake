@@ -176,9 +176,15 @@ fn pick_survivor(
     r_a: f64, cand_a: &HashMap<String, f64>,
     r_b: f64, cand_b: &HashMap<String, f64>,
     r_bf: f64,
+    threshold: f64,
 ) -> Option<HashMap<String, f64>> {
-    let (best_rate, best_cand) = if r_a >= r_b { (r_a, cand_a) } else { (r_b, cand_b) };
-    if best_rate > r_champ && best_rate > r_bf { Some(best_cand.clone()) } else { None }
+    let (best_rate, best_cand, others) = if r_a >= r_b {
+        (r_a, cand_a, [r_champ, r_b, r_bf])
+    } else {
+        (r_b, cand_b, [r_champ, r_a, r_bf])
+    };
+    let second = others.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    if best_rate >= second + threshold { Some(best_cand.clone()) } else { None }
 }
 
 fn elapsed_str(start: Instant) -> String {
@@ -200,6 +206,7 @@ fn main() {
 
     let mut n_games: usize = 3;
     let mut rounds: usize = 5;
+    let mut threshold: f64 = 0.0;
     let mut initial_params_path: Option<String> = None;
     let mut output_path = "tournament_best.json".to_string();
     let mut snake_variant = "single_gamestate_nodes".to_string();
@@ -210,6 +217,7 @@ fn main() {
         match args[i].as_str() {
             "-n" => { i += 1; n_games = args[i].parse().expect("-n needs a number"); }
             "-r" => { i += 1; rounds = args[i].parse().expect("-r needs a number"); }
+            "-t" => { i += 1; threshold = args[i].parse().expect("-t needs a number"); }
             "-i" => { i += 1; initial_params_path = Some(args[i].clone()); }
             "-o" => { i += 1; output_path = args[i].clone(); }
             "-v" => { i += 1; snake_variant = args[i].clone(); }
@@ -303,7 +311,7 @@ fn main() {
             Some((r0, r1, r2, r3)) => {
                 total_games += n_games;
                 eprintln!("{:.1}% | {:.1}% | {:.1}% | {:.1}%", r0, r1, r2, r3);
-                pick_survivor(r0, r1, &cands[0], r2, &cands[1], r3)
+                pick_survivor(r0, r1, &cands[0], r2, &cands[1], r3, threshold)
             }
             None => { eprintln!("failed"); None }
         };
@@ -315,7 +323,7 @@ fn main() {
             Some((r0, r1, r2, r3)) => {
                 total_games += n_games;
                 eprintln!("{:.1}% | {:.1}% | {:.1}% | {:.1}%", r0, r1, r2, r3);
-                pick_survivor(r0, r1, &cands[2], r2, &cands[3], r3)
+                pick_survivor(r0, r1, &cands[2], r2, &cands[3], r3, threshold)
             }
             None => { eprintln!("failed"); None }
         };
@@ -339,7 +347,9 @@ fn main() {
                         total_games += n_games;
                         eprintln!("{:.1}% | {:.1}% | {:.1}% | {:.1}%", r_champ, r_a, r_b, r_bf);
                         let (new_rate, new_params) = if r_a >= r_b { (r_a, final_a) } else { (r_b, final_b) };
-                        if new_rate > r_champ && new_rate > r_bf {
+                        let second = if new_rate == r_a { [r_champ, r_b, r_bf] } else { [r_champ, r_a, r_bf] }
+                            .iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                        if new_rate >= second + threshold {
                             let old_params = best.params.clone();
                             best.params = new_params;
                             best.win_rate = new_rate;

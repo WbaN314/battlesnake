@@ -57,6 +57,9 @@ cargo run --release --bin run_tournament -- -n 1 -r 3
 # Overnight run (100 games per batch, 20 rounds)
 cargo run --release --bin run_tournament -- -n 100 -r 20
 
+# Require a 5 percentage point margin over 2nd place to accept a new winner
+cargo run --release --bin run_tournament -- -n 100 -r 20 -t 5
+
 # Continue from a previous best
 cargo run --release --bin run_tournament -- -n 100 -r 20 -i tournament_best.json
 ```
