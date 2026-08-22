@@ -175,6 +175,27 @@ fn render_last_board(log_content: &str) -> Option<&str> {
     Some(after[..end].trim_end())
 }
 
+fn parse_avg_depths(log_content: &str) -> Option<f64> {
+    let marker = "DEPTHS ";
+    let mut total = 0.0f64;
+    let mut count = 0usize;
+
+    for line in log_content.lines() {
+        if let Some(pos) = line.find(marker) {
+            for part in line[pos + marker.len()..].split_whitespace() {
+                if let Some((_, v)) = part.split_once('=') {
+                    if let Ok(val) = v.parse::<f64>() {
+                        total += val;
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if count == 0 { None } else { Some(total / count as f64) }
+}
+
 fn parse_end_turn(log_content: &str) -> Option<usize> {
     let arrow = " End -> ";
     for line in log_content.lines().rev() {
@@ -340,7 +361,7 @@ fn main() {
                 .env("PORT", port.to_string())
                 .env("VARIANT", &snake.variant)
                 .env("LOG_BOARD", "1")
-                .env("LOG_EVAL", if log { "full" } else { "" })
+                .env("LOCAL_SIMULATION", "1")
                 .stdout(log_file.try_clone().unwrap())
                 .stderr(log_file)
                 .spawn()
@@ -391,6 +412,7 @@ fn main() {
     let mut game_stats_log: Vec<HashMap<String, GameStats>> = Vec::new();
     let mut game_winners: Vec<Option<String>> = Vec::new();
     let mut game_lengths: Vec<usize> = Vec::new();
+    let mut game_depths: Vec<f64> = Vec::new();
 
     let mut play_flags: Vec<String> = Vec::new();
     if watch {
@@ -502,6 +524,7 @@ fn main() {
         let actual_turns: Option<usize> = turns.parse().ok();
         game_lengths.push(actual_turns.unwrap_or(0));
         let all_game_stats = parse_all_game_stats(&new_log_content, actual_turns, &snake_names[0]);
+        let avg_depths = parse_avg_depths(&new_log_content);
 
         if let Some(board) = render_last_board(&new_log_content) {
             for line in board.lines() {
@@ -521,7 +544,7 @@ fn main() {
                 }
             }
             let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Fate", "Death"]);
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Fin Len", "Avg Depth", "Fate", "Death"]);
             for name in &ordered_names {
                 let s = &all_game_stats[*name];
                 let fate = match s.fate {
@@ -534,12 +557,18 @@ fn main() {
                     Some(DeathCondition::NextToWall) => "wall".to_string(),
                     Some(DeathCondition::Unknown) => "unknown".to_string(),
                 };
+                let depth = if *name == snake_names[0] {
+                    avg_depths.map_or("-".to_string(), |d| format!("{:.1}", d))
+                } else {
+                    "-".to_string()
+                };
                 builder.push_record([
                     name.to_string(),
                     format!("({:.1}, {:.1})", s.avg_head_x, s.avg_head_y),
                     format!("{:.1}", s.avg_dist_from_center),
                     format!("{:.0}", s.avg_health),
                     s.final_length.to_string(),
+                    depth,
                     fate,
                     death,
                 ]);
@@ -551,6 +580,10 @@ fn main() {
             }
         }
         game_stats_log.push(all_game_stats);
+
+        if let Some(depth) = avg_depths {
+            game_depths.push(depth);
+        }
 
         eprintln!();
         {
@@ -652,17 +685,28 @@ fn main() {
                     e.5 += s.final_length as f64;
                 }
             }
+            let overall_avg_depth = if game_depths.is_empty() {
+                None
+            } else {
+                Some(game_depths.iter().sum::<f64>() / game_depths.len() as f64)
+            };
             let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len"]);
+            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Depth"]);
             for name in &snake_names {
                 if let Some(e) = per_snake.get(name) {
                     let n = e.0 as f64;
+                    let depth = if name == &snake_names[0] {
+                        overall_avg_depth.map_or("-".to_string(), |d| format!("{:.1}", d))
+                    } else {
+                        "-".to_string()
+                    };
                     builder.push_record([
                         name.clone(),
                         format!("({:.1}, {:.1})", e.1/n, e.2/n),
                         format!("{:.1}", round1(e.3/n)),
                         format!("{:.0}", e.4/n),
                         format!("{:.1}", round1(e.5/n)),
+                        depth,
                     ]);
                 }
             }

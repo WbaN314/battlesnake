@@ -1,6 +1,6 @@
 use std::{env, time::Duration};
 
-use log::{info, warn};
+use log::warn;
 
 use crate::{
     OriginalDirection, OriginalGameState,
@@ -29,19 +29,22 @@ mod tree;
 
 pub struct GamestateNodesSnake;
 
+#[allow(non_snake_case)]
 struct EnvironmentConfig {
-    simulation_time: Duration,
+    SIMULATION_TIME_MS: Duration,
+    LOCAL_SIMULATION: bool,
 }
 
 impl EnvironmentConfig {
     fn read() -> Self {
-        let simulation_time = Duration::from_millis(
+        let SIMULATION_TIME_MS = Duration::from_millis(
             env::var("SIMULATION_TIME_MS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(200),
         );
-        Self { simulation_time }
+        let LOCAL_SIMULATION = env::var("LOCAL_SIMULATION").is_ok_and(|v| !v.is_empty());
+        Self { SIMULATION_TIME_MS, LOCAL_SIMULATION }
     }
 }
 
@@ -153,8 +156,11 @@ impl GamestateNodesSnake {
                     None => None,
                 }
             })
-            .max_time(env_config.simulation_time);
+            .max_time(env_config.SIMULATION_TIME_MS);
         tree.simulate();
+        if env_config.LOCAL_SIMULATION {
+            tree.log_depths();
+        }
         let result = tree.result();
 
         // Exclude DeadIn directions
@@ -194,7 +200,7 @@ impl GamestateNodesSnake {
         let turn = gamestate.turn as u8;
         let id = gamestate.game.id.clone();
         let gamestate: GameState<BasicField> = gamestate.into();
-        let mut evaluation = Evaluation::from_env();
+        let mut evaluation = Evaluation::for_mode(env_config.LOCAL_SIMULATION);
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);

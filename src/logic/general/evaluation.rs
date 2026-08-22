@@ -1,5 +1,4 @@
 use crate::logic::general::direction::{Direction, DIRECTIONS};
-use std::env;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use tabled::{
     builder::Builder,
@@ -21,11 +20,11 @@ impl Evaluation {
         }
     }
 
-    pub fn from_env() -> Self {
-        match env::var("LOG_EVAL").as_deref() {
-            Ok("full") => Self { sections: Vec::new(), one_line: false, enabled: true },
-            Ok("oneline") => Self { sections: Vec::new(), one_line: true, enabled: true },
-            _ => Self::new(),
+    pub fn for_mode(local_simulation: bool) -> Self {
+        if local_simulation {
+            Self { sections: Vec::new(), one_line: false, enabled: true }
+        } else {
+            Self::new()
         }
     }
 

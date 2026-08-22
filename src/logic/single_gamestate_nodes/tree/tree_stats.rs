@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::time::Duration;
 
+use log::warn;
 use tabled::{
     Table,
     builder::Builder,
@@ -269,6 +270,17 @@ impl Tree {
             memory_estimate_bytes,
             duration: self.elapsed_simulation_time,
         }
+    }
+
+    pub fn log_depths(&self) {
+        let stats = self.stats();
+        let depth_str: String = stats
+            .direction_stats
+            .iter()
+            .map(|ds| format!("{}={}", ds.direction, ds.max_depth))
+            .collect::<Vec<_>>()
+            .join(" ");
+        warn!("DEPTHS {}", depth_str);
     }
 
     fn subtree_stats_for_direction(&self, direction: Direction) -> (usize, u8) {
