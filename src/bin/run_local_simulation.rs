@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use serde::{Deserialize, Serialize};
 use tabled::{builder::Builder as TableBuilder, settings::Style as TableStyle};
 
 struct SnakeSpec {
@@ -76,6 +77,60 @@ struct GameStats {
     final_length: i64,
     fate: SnakeFate,
     death_condition: Option<DeathCondition>,
+}
+
+// ── Per-snake env config read from -c <file> ──────────────────────────────
+
+#[derive(Default, Deserialize)]
+struct SnakeConfig {
+    #[serde(default)]
+    env: HashMap<String, String>,
+}
+
+#[derive(Default, Deserialize)]
+struct SimulationConfig {
+    #[serde(default)]
+    snakes: Vec<SnakeConfig>,
+}
+
+// ── JSON results written after each game, read for final summary ──────────
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SnakeGameRecord {
+    avg_head_x: f64,
+    avg_head_y: f64,
+    avg_dist: f64,
+    avg_health: f64,
+    final_length: i64,
+    fate: String,
+    death_condition: Option<String>,
+    win_length_relation: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct GameRecord {
+    game_num: usize,
+    winner: Option<String>,
+    turns: usize,
+    seed: String,
+    per_snake: HashMap<String, SnakeGameRecord>,
+    depth: Option<f64>,
+    nodes: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct SimulationResults {
+    pub snake_names: Vec<String>,
+    pub games: Vec<GameRecord>,
+}
+
+impl SimulationResults {
+    pub fn win_rate(&self, snake_name: &str) -> f64 {
+        let total = self.games.len();
+        if total == 0 { return 0.0; }
+        let wins = self.games.iter().filter(|g| g.winner.as_deref() == Some(snake_name)).count();
+        wins as f64 * 100.0 / total as f64
+    }
 }
 
 fn parse_all_game_stats(log_content: &str, actual_turns: Option<usize>, logging_snake: &str) -> HashMap<String, GameStats> {
@@ -262,6 +317,217 @@ fn parse_last_decisive_lengths(log_content: &str, winner_name: &str) -> Option<(
     last_state
 }
 
+fn write_results_json(results: &SimulationResults, path: &str) {
+    match serde_json::to_string_pretty(results) {
+        Ok(json) => { let _ = fs::write(path, json); }
+        Err(e) => eprintln!("Warning: could not serialize results: {}", e),
+    }
+}
+
+fn print_final_summary_from_json(results: &SimulationResults) {
+    let total = results.games.len();
+    if total == 0 { return; }
+
+    let snake_names = &results.snake_names;
+    let sep = "=".repeat(66);
+    eprintln!("\n{}", sep);
+    eprintln!("  FINAL SUMMARY  ({} games)", total);
+    eprintln!("{}\n", sep);
+
+    let mut wins: HashMap<String, usize> = snake_names.iter().map(|n| (n.clone(), 0)).collect();
+    let mut wins_as_longer: HashMap<String, usize> = wins.clone();
+    let mut wins_as_same: HashMap<String, usize> = wins.clone();
+    let mut wins_as_shorter: HashMap<String, usize> = wins.clone();
+    let mut draws = 0usize;
+
+    for game in &results.games {
+        match &game.winner {
+            Some(w) => {
+                *wins.entry(w.clone()).or_default() += 1;
+                if let Some(sr) = game.per_snake.get(w) {
+                    match sr.win_length_relation.as_deref() {
+                        Some("longer")  => *wins_as_longer.entry(w.clone()).or_default() += 1,
+                        Some("same")    => *wins_as_same.entry(w.clone()).or_default() += 1,
+                        Some("shorter") => *wins_as_shorter.entry(w.clone()).or_default() += 1,
+                        _ => {}
+                    }
+                }
+            }
+            None => draws += 1,
+        }
+    }
+
+    {
+        let mut builder = TableBuilder::default();
+        builder.push_record(["Snake", "Win%", "Wins", "Longer", "Same", "Shorter"]);
+        for name in snake_names {
+            let w = wins.get(name).copied().unwrap_or(0);
+            let pct = w as f64 * 100.0 / total as f64;
+            builder.push_record([
+                name.clone(),
+                format!("{:.1}%", pct),
+                w.to_string(),
+                wins_as_longer.get(name).copied().unwrap_or(0).to_string(),
+                wins_as_same.get(name).copied().unwrap_or(0).to_string(),
+                wins_as_shorter.get(name).copied().unwrap_or(0).to_string(),
+            ]);
+        }
+        if draws > 0 {
+            builder.push_record([
+                "(draws)".to_string(),
+                format!("{:.1}%", draws as f64 * 100.0 / total as f64),
+                draws.to_string(), "-".to_string(), "-".to_string(), "-".to_string(),
+            ]);
+        }
+        let mut table = builder.build();
+        table.with(TableStyle::ascii());
+        eprintln!("  Results");
+        for line in table.to_string().lines() { eprintln!("  {}", line); }
+        eprintln!();
+    }
+
+    let round1 = |v: f64| (v * 10.0).round() / 10.0;
+    let mut per_snake: HashMap<String, (usize, f64, f64, f64, f64, f64)> = HashMap::new();
+    let mut depth_sum = 0.0f64;
+    let mut depth_count = 0usize;
+    let mut nodes_sum = 0.0f64;
+    let mut nodes_count = 0usize;
+
+    for game in &results.games {
+        for (name, sr) in &game.per_snake {
+            let e = per_snake.entry(name.clone()).or_default();
+            e.0 += 1; e.1 += sr.avg_head_x; e.2 += sr.avg_head_y;
+            e.3 += sr.avg_dist; e.4 += sr.avg_health; e.5 += sr.final_length as f64;
+        }
+        if let Some(d) = game.depth { depth_sum += d; depth_count += 1; }
+        if let Some(n) = game.nodes { nodes_sum += n; nodes_count += 1; }
+    }
+
+    let overall_avg_depth = if depth_count > 0 { Some(depth_sum / depth_count as f64) } else { None };
+    let overall_avg_nodes = if nodes_count > 0 { Some(nodes_sum / nodes_count as f64) } else { None };
+
+    {
+        let mut builder = TableBuilder::default();
+        builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Depth", "Avg Nodes"]);
+        for name in snake_names {
+            if let Some(e) = per_snake.get(name) {
+                let n = e.0 as f64;
+                let depth_s = if name == &snake_names[0] {
+                    overall_avg_depth.map_or("-".to_string(), |d| format!("{:.1}", d))
+                } else { "-".to_string() };
+                let nodes_s = if name == &snake_names[0] {
+                    overall_avg_nodes.map_or("-".to_string(), |n| format!("{:.0}", n))
+                } else { "-".to_string() };
+                builder.push_record([
+                    name.clone(),
+                    format!("({:.1}, {:.1})", e.1/n, e.2/n),
+                    format!("{:.1}", round1(e.3/n)),
+                    format!("{:.0}", e.4/n),
+                    format!("{:.1}", round1(e.5/n)),
+                    depth_s, nodes_s,
+                ]);
+            }
+        }
+        let mut table = builder.build();
+        table.with(TableStyle::ascii());
+        eprintln!("  Average game stats  (across all games)");
+        for line in table.to_string().lines() { eprintln!("  {}", line); }
+        eprintln!();
+    }
+
+    let snake0 = &snake_names[0];
+    let mut won  = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let mut lost = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let mut wvl  = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let mut len_sum_won = 0usize;
+    let mut len_sum_lost = 0usize;
+
+    for game in &results.games {
+        if let Some(sr) = game.per_snake.get(snake0) {
+            let is_winner = game.winner.as_deref() == Some(snake0.as_str());
+            let acc = if is_winner { &mut won } else { &mut lost };
+            acc.0 += 1; acc.1 += sr.avg_head_x; acc.2 += sr.avg_head_y;
+            acc.3 += sr.avg_dist; acc.4 += sr.avg_health; acc.5 += sr.final_length as f64;
+            if is_winner {
+                len_sum_won += game.turns;
+            } else {
+                let elim = if let Some(t) = sr.fate.strip_prefix("eliminated_") {
+                    t.parse::<usize>().unwrap_or(game.turns)
+                } else { game.turns };
+                len_sum_lost += elim;
+            }
+            if !is_winner {
+                if let Some(w_name) = &game.winner {
+                    if let Some(ws) = game.per_snake.get(w_name) {
+                        wvl.0 += 1; wvl.1 += ws.avg_head_x; wvl.2 += ws.avg_head_y;
+                        wvl.3 += ws.avg_dist; wvl.4 += ws.avg_health; wvl.5 += ws.final_length as f64;
+                    }
+                }
+            }
+        }
+    }
+
+    {
+        let mut builder = TableBuilder::default();
+        builder.push_record(["Outcome", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Duration"]);
+        for (label, acc, len_sum) in [
+            (format!("Won ({})", won.0), &won, len_sum_won),
+            (format!("Lost/Draw ({})", lost.0), &lost, len_sum_lost),
+            (format!("Winner vs us ({})", wvl.0), &wvl, 0usize),
+        ] {
+            if acc.0 > 0 {
+                let n = acc.0 as f64;
+                let avg_len = if len_sum > 0 {
+                    format!("{:.1}", len_sum as f64 / acc.0 as f64)
+                } else { "-".to_string() };
+                builder.push_record([
+                    label,
+                    format!("({:.1}, {:.1})", acc.1/n, acc.2/n),
+                    format!("{:.1}", round1(acc.3/n)),
+                    format!("{:.0}", acc.4/n),
+                    format!("{:.1}", round1(acc.5/n)),
+                    avg_len,
+                ]);
+            }
+        }
+        let mut table = builder.build();
+        table.with(TableStyle::ascii());
+        eprintln!("  Outcome analysis — {}  (center of board is 5.0, 5.0)", snake0);
+        for line in table.to_string().lines() { eprintln!("  {}", line); }
+        eprintln!();
+    }
+
+    let mut death_counts: HashMap<String, usize> = HashMap::new();
+    let mut total_deaths = 0usize;
+    for game in &results.games {
+        if let Some(sr) = game.per_snake.get(snake0) {
+            if let Some(dc) = &sr.death_condition {
+                *death_counts.entry(dc.clone()).or_default() += 1;
+                total_deaths += 1;
+            }
+        }
+    }
+    if total_deaths > 0 {
+        let mut builder = TableBuilder::default();
+        builder.push_record(["Death condition", "Count", "%"]);
+        for label in &["wall", "unknown"] {
+            let count = death_counts.get(*label).copied().unwrap_or(0);
+            if count > 0 {
+                builder.push_record([
+                    label.to_string(),
+                    count.to_string(),
+                    format!("{:.1}%", count as f64 * 100.0 / total_deaths as f64),
+                ]);
+            }
+        }
+        let mut table = builder.build();
+        table.with(TableStyle::ascii());
+        eprintln!("  Death conditions — {}  ({} deaths total)", snake0, total_deaths);
+        for line in table.to_string().lines() { eprintln!("  {}", line); }
+        eprintln!();
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -269,6 +535,9 @@ fn main() {
     let mut watch = false;
     let mut log = false;
     let mut raw_snakes: Vec<String> = Vec::new();
+    let mut sim_config_path: Option<String> = None;
+    let mut results_path = "simulation_results.json".to_string();
+    let mut no_build = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -279,6 +548,15 @@ fn main() {
             }
             "-w" => watch = true,
             "-l" => log = true,
+            "-c" => {
+                i += 1;
+                sim_config_path = Some(args[i].clone());
+            }
+            "-o" => {
+                i += 1;
+                results_path = args[i].clone();
+            }
+            "--no-build" => no_build = true,
             arg if arg.starts_with('-') && arg[1..].chars().all(|c| c.is_ascii_digit()) => {
                 n_games = arg[1..].parse().unwrap();
             }
@@ -288,18 +566,24 @@ fn main() {
     }
 
     if raw_snakes.len() < 2 {
-        eprintln!("Usage: run_local_simulation [-n NUM_GAMES|-NUM_GAMES] [-w] [-l] snake1 snake2 [snake3 snake4]");
+        eprintln!("Usage: run_local_simulation [-n NUM] [-w] [-l] [-c config.json] [-o results.json] [--no-build] snake1 snake2 [snake3 snake4]");
         eprintln!("Variants: depth_first breadth_first simple_tree_search simple_hungry single_gamestate_nodes");
         eprintln!("Append :<git-ref> to build that snake from a specific tag/commit:");
         eprintln!("  single_gamestate_nodes:v2025-06-01  depth_first:abc1234");
         std::process::exit(1);
     }
 
+    let sim_config: SimulationConfig = sim_config_path
+        .as_deref()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+
     let snakes: Vec<SnakeSpec> = raw_snakes.iter().map(|s| SnakeSpec::parse(s)).collect();
 
     // Build current version (covers all snakes without a git_ref)
     let needs_current = snakes.iter().any(|s| s.git_ref.is_none());
-    if needs_current {
+    if needs_current && !no_build {
         eprintln!("Building current version...");
         let status = Command::new("cargo")
             .args(["build", "--release"])
@@ -378,20 +662,26 @@ fn main() {
         let child = if idx == 0 {
             let log_file =
                 fs::File::create("game_logs/.server.log").expect("Cannot create log file");
-            Command::new(&binary)
-                .env("PORT", port.to_string())
+            let mut cmd = Command::new(&binary);
+            cmd.env("PORT", port.to_string())
                 .env("VARIANT", &snake.variant)
                 .env("LOG_BOARD", "1")
-                .env("LOCAL_SIMULATION", "1")
-                .stdout(log_file.try_clone().unwrap())
+                .env("LOCAL_SIMULATION", "1");
+            if let Some(sc) = sim_config.snakes.get(idx) {
+                cmd.envs(&sc.env);
+            }
+            cmd.stdout(log_file.try_clone().unwrap())
                 .stderr(log_file)
                 .spawn()
                 .expect("Failed to start server")
         } else {
-            Command::new(&binary)
-                .env("PORT", port.to_string())
-                .env("VARIANT", &snake.variant)
-                .stdout(Stdio::null())
+            let mut cmd = Command::new(&binary);
+            cmd.env("PORT", port.to_string())
+                .env("VARIANT", &snake.variant);
+            if let Some(sc) = sim_config.snakes.get(idx) {
+                cmd.envs(&sc.env);
+            }
+            cmd.stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
                 .expect("Failed to start server")
@@ -431,10 +721,7 @@ fn main() {
     let mut total: usize = 0;
     let mut log_position: u64 = 0;
     let mut game_stats_log: Vec<HashMap<String, GameStats>> = Vec::new();
-    let mut game_winners: Vec<Option<String>> = Vec::new();
-    let mut game_lengths: Vec<usize> = Vec::new();
-    let mut game_depths: Vec<f64> = Vec::new();
-    let mut game_nodes: Vec<f64> = Vec::new();
+    let mut results = SimulationResults { snake_names: snake_names.clone(), games: Vec::new() };
 
     let mut play_flags: Vec<String> = Vec::new();
     if watch {
@@ -521,7 +808,6 @@ fn main() {
                 );
             }
         }
-        game_winners.push(winner_name.clone());
 
         if let Some(winner) = &winner_name {
             if let Some((wl, mo)) = parse_last_decisive_lengths(&new_log_content, winner) {
@@ -544,7 +830,6 @@ fn main() {
         }
 
         let actual_turns: Option<usize> = turns.parse().ok();
-        game_lengths.push(actual_turns.unwrap_or(0));
         let all_game_stats = parse_all_game_stats(&new_log_content, actual_turns, &snake_names[0]);
         let depth_stats = parse_depth_stats(&new_log_content);
 
@@ -609,9 +894,50 @@ fn main() {
         }
         game_stats_log.push(all_game_stats);
 
-        if let Some(ds) = depth_stats {
-            game_depths.push(ds.avg_depth);
-            game_nodes.push(ds.avg_nodes);
+        // Build and persist GameRecord to JSON
+        {
+            let win_rel: Option<String> = if let Some(winner) = &winner_name {
+                parse_last_decisive_lengths(&new_log_content, winner).map(|(wl, mo)| {
+                    if wl > mo { "longer".to_string() }
+                    else if wl == mo { "same".to_string() }
+                    else { "shorter".to_string() }
+                })
+            } else { None };
+            let gs = game_stats_log.last().unwrap();
+            let mut per_snake: HashMap<String, SnakeGameRecord> = HashMap::new();
+            for (name, stats) in gs {
+                let fate_str = match &stats.fate {
+                    SnakeFate::Survived => "survived".to_string(),
+                    SnakeFate::Eliminated(t) => format!("eliminated_{}", t),
+                    SnakeFate::UnknownAfter(t) => format!("unknown_after_{}", t),
+                };
+                let dc_str = match &stats.death_condition {
+                    None => None,
+                    Some(DeathCondition::NextToWall) => Some("wall".to_string()),
+                    Some(DeathCondition::Unknown) => Some("unknown".to_string()),
+                };
+                let is_winner = winner_name.as_deref() == Some(name.as_str());
+                per_snake.insert(name.clone(), SnakeGameRecord {
+                    avg_head_x: stats.avg_head_x,
+                    avg_head_y: stats.avg_head_y,
+                    avg_dist: stats.avg_dist_from_center,
+                    avg_health: stats.avg_health,
+                    final_length: stats.final_length,
+                    fate: fate_str,
+                    death_condition: dc_str,
+                    win_length_relation: if is_winner { win_rel.clone() } else { None },
+                });
+            }
+            results.games.push(GameRecord {
+                game_num: total,
+                winner: winner_name.clone(),
+                turns: actual_turns.unwrap_or(0),
+                seed: seed.clone(),
+                per_snake,
+                depth: depth_stats.as_ref().map(|ds| ds.avg_depth),
+                nodes: depth_stats.as_ref().map(|ds| ds.avg_nodes),
+            });
+            write_results_json(&results, &results_path);
         }
 
         eprintln!();
@@ -664,204 +990,9 @@ fn main() {
     cleanup_all_worktrees(&worktrees);
 
     // ── FINAL SUMMARY ─────────────────────────────────────────────────────────
-    if total > 0 {
-        let sep = "=".repeat(66);
-        eprintln!("\n{}", sep);
-        eprintln!("  FINAL SUMMARY  ({} games)", total);
-        eprintln!("{}\n", sep);
-
-        // Results table
-        {
-            let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Win%", "Wins", "Longer", "Same", "Shorter"]);
-            for name in &snake_names {
-                let w = wins[name];
-                let pct = w as f64 * 100.0 / total as f64;
-                builder.push_record([
-                    name.clone(),
-                    format!("{:.1}%", pct),
-                    w.to_string(),
-                    wins_as_longer[name].to_string(),
-                    wins_as_same[name].to_string(),
-                    wins_as_shorter[name].to_string(),
-                ]);
-            }
-            if draws > 0 {
-                builder.push_record([
-                    "(draws)".to_string(),
-                    format!("{:.1}%", draws as f64 * 100.0 / total as f64),
-                    draws.to_string(), "-".to_string(), "-".to_string(), "-".to_string(),
-                ]);
-            }
-            let mut table = builder.build();
-            table.with(TableStyle::ascii());
-            eprintln!("  Results");
-            for line in table.to_string().lines() { eprintln!("  {}", line); }
-            eprintln!();
-        }
-
-        // Aggregate game stats per snake
-        let non_empty: Vec<&HashMap<String, GameStats>> =
-            game_stats_log.iter().filter(|m| !m.is_empty()).collect();
-        if !non_empty.is_empty() {
-            let round1 = |v: f64| (v * 10.0).round() / 10.0;
-            let mut per_snake: HashMap<String, (usize, f64, f64, f64, f64, f64)> = HashMap::new();
-            for gs in &non_empty {
-                for (name, s) in *gs {
-                    let e = per_snake.entry(name.clone()).or_default();
-                    e.0 += 1; e.1 += s.avg_head_x; e.2 += s.avg_head_y;
-                    e.3 += s.avg_dist_from_center; e.4 += s.avg_health;
-                    e.5 += s.final_length as f64;
-                }
-            }
-            let overall_avg_depth = if game_depths.is_empty() {
-                None
-            } else {
-                Some(game_depths.iter().sum::<f64>() / game_depths.len() as f64)
-            };
-            let overall_avg_nodes = if game_nodes.is_empty() {
-                None
-            } else {
-                Some(game_nodes.iter().sum::<f64>() / game_nodes.len() as f64)
-            };
-            let mut builder = TableBuilder::default();
-            builder.push_record(["Snake", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Depth", "Avg Nodes"]);
-            for name in &snake_names {
-                if let Some(e) = per_snake.get(name) {
-                    let n = e.0 as f64;
-                    let depth = if name == &snake_names[0] {
-                        overall_avg_depth.map_or("-".to_string(), |d| format!("{:.1}", d))
-                    } else {
-                        "-".to_string()
-                    };
-                    let nodes = if name == &snake_names[0] {
-                        overall_avg_nodes.map_or("-".to_string(), |n| format!("{:.0}", n))
-                    } else {
-                        "-".to_string()
-                    };
-                    builder.push_record([
-                        name.clone(),
-                        format!("({:.1}, {:.1})", e.1/n, e.2/n),
-                        format!("{:.1}", round1(e.3/n)),
-                        format!("{:.0}", e.4/n),
-                        format!("{:.1}", round1(e.5/n)),
-                        depth,
-                        nodes,
-                    ]);
-                }
-            }
-            let mut table = builder.build();
-            table.with(TableStyle::ascii());
-            eprintln!("  Average game stats  (across all games)");
-            for line in table.to_string().lines() { eprintln!("  {}", line); }
-            eprintln!();
-
-            // Outcome analysis for snake[0]: won vs lost
-            let snake0 = &snake_names[0];
-            let mut won = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
-            let mut lost = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
-            let mut winner_when_lost = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
-            let mut len_sum_won = 0usize;
-            let mut len_sum_lost = 0usize;
-            for (i, gs) in game_stats_log.iter().enumerate() {
-                if let Some(s) = gs.get(snake0) {
-                    let game_len = game_lengths.get(i).copied().unwrap_or(0);
-                    let winner = game_winners.get(i).and_then(|w| w.as_deref());
-                    let acc = if winner == Some(snake0.as_str()) {
-                        &mut won
-                    } else {
-                        &mut lost
-                    };
-                    acc.0 += 1; acc.1 += s.avg_head_x; acc.2 += s.avg_head_y;
-                    acc.3 += s.avg_dist_from_center; acc.4 += s.avg_health;
-                    acc.5 += s.final_length as f64;
-                    if winner == Some(snake0.as_str()) {
-                        len_sum_won += game_len;
-                    } else {
-                        len_sum_lost += match s.fate {
-                            SnakeFate::Eliminated(t) => t,
-                            SnakeFate::Survived => game_len,
-                            SnakeFate::UnknownAfter(t) => t,
-                        };
-                    }
-                    // accumulate the winning opponent's stats when we lost
-                    if winner != Some(snake0.as_str()) {
-                        if let Some(w_name) = winner {
-                            if let Some(ws) = gs.get(w_name) {
-                                winner_when_lost.0 += 1;
-                                winner_when_lost.1 += ws.avg_head_x;
-                                winner_when_lost.2 += ws.avg_head_y;
-                                winner_when_lost.3 += ws.avg_dist_from_center;
-                                winner_when_lost.4 += ws.avg_health;
-                                winner_when_lost.5 += ws.final_length as f64;
-                            }
-                        }
-                    }
-                }
-            }
-            let mut builder = TableBuilder::default();
-            builder.push_record(["Outcome", "Avg Pos", "Avg Dist", "Avg Health", "Avg Fin Len", "Avg Duration"]);
-            for (label, acc, len_sum) in [
-                (format!("Won ({})", won.0), &won, len_sum_won),
-                (format!("Lost/Draw ({})", lost.0), &lost, len_sum_lost),
-                (format!("Winner vs us ({})", winner_when_lost.0), &winner_when_lost, 0usize),
-            ] {
-                if acc.0 > 0 {
-                    let n = acc.0 as f64;
-                    let avg_len = if len_sum > 0 {
-                        format!("{:.1}", len_sum as f64 / acc.0 as f64)
-                    } else {
-                        "-".to_string()
-                    };
-                    builder.push_record([
-                        label,
-                        format!("({:.1}, {:.1})", acc.1/n, acc.2/n),
-                        format!("{:.1}", round1(acc.3/n)),
-                        format!("{:.0}", acc.4/n),
-                        format!("{:.1}", round1(acc.5/n)),
-                        avg_len,
-                    ]);
-                }
-            }
-            let mut table = builder.build();
-            table.with(TableStyle::ascii());
-            eprintln!("  Outcome analysis — {}  (center of board is 5.0, 5.0)", snake0);
-            for line in table.to_string().lines() { eprintln!("  {}", line); }
-            eprintln!();
-
-            // Death condition breakdown for snake[0]
-            let mut death_counts: HashMap<String, usize> = HashMap::new();
-            let mut total_deaths = 0usize;
-            for gs in &game_stats_log {
-                if let Some(s) = gs.get(snake0) {
-                    let label = match &s.death_condition {
-                        None => continue,
-                        Some(DeathCondition::NextToWall) => "wall",
-                        Some(DeathCondition::Unknown) => "unknown",
-                    };
-                    *death_counts.entry(label.to_string()).or_default() += 1;
-                    total_deaths += 1;
-                }
-            }
-            if total_deaths > 0 {
-                let mut builder = TableBuilder::default();
-                builder.push_record(["Death condition", "Count", "%"]);
-                for label in &["wall", "unknown"] {
-                    let count = death_counts.get(*label).copied().unwrap_or(0);
-                    if count > 0 {
-                        builder.push_record([
-                            label.to_string(),
-                            count.to_string(),
-                            format!("{:.1}%", count as f64 * 100.0 / total_deaths as f64),
-                        ]);
-                    }
-                }
-                let mut table = builder.build();
-                table.with(TableStyle::ascii());
-                eprintln!("  Death conditions — {}  ({} deaths total)", snake0, total_deaths);
-                for line in table.to_string().lines() { eprintln!("  {}", line); }
-                eprintln!();
-            }
+    if let Ok(json) = fs::read_to_string(&results_path) {
+        if let Ok(r) = serde_json::from_str::<SimulationResults>(&json) {
+            print_final_summary_from_json(&r);
         }
     }
     // ── END FINAL SUMMARY ─────────────────────────────────────────────────────

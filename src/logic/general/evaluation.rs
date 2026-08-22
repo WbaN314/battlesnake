@@ -150,7 +150,7 @@ struct EvaluationSection {
 }
 
 fn fmt_score(v: f64) -> String {
-    if v == 0.0 { "0".to_string() } else { v.to_string() }
+    if v == 0.0 { "0".to_string() } else { format!("{:.1}", v) }
 }
 
 impl Display for Evaluation {

@@ -22,6 +22,10 @@ name = "run_local_simulation"
 path = "src/bin/run_local_simulation.rs"
 
 [[bin]]
+name = "run_tournament"
+path = "src/bin/run_tournament.rs"
+
+[[bin]]
 name = "run_generated_tests"
 path = "src/bin/run_generated_tests.rs"
 
