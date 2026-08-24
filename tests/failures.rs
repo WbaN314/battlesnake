@@ -1,503 +1,74 @@
 #[cfg(test)]
 use battlesnake_game_of_chicken_lib::{OriginalDirection, get_move_from_json_file};
-
-#[test]
-fn failure_1() {
-    let chosen_move = get_move_from_json_file("failure_1.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_2() {
-    let chosen_move = get_move_from_json_file("failure_2.json");
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_3() {
-    let chosen_move = get_move_from_json_file("failure_3.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_4() {
-    let chosen_move = get_move_from_json_file("failure_4.json");
-    assert_ne!(chosen_move, OriginalDirection::Right);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_05() {
-    let chosen_move = get_move_from_json_file("failure_5.json");
-    assert_eq!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_6() {
-    let chosen_move = get_move_from_json_file("failure_6.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_7() {
-    let chosen_move = get_move_from_json_file("failure_7.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_8() {
-    let chosen_move = get_move_from_json_file("failure_8.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_9() {
-    let chosen_move = get_move_from_json_file("failure_9.json");
-    // All other situations are barely survivable by using all available space
-    assert_ne!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_10() {
-    let chosen_move = get_move_from_json_file("failure_10.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_11() {
-    let chosen_move = get_move_from_json_file("failure_11.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_12() {
-    let chosen_move = get_move_from_json_file("failure_12.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_13() {
-    let chosen_move = get_move_from_json_file("failure_13.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_14() {
-    let chosen_move = get_move_from_json_file("failure_14.json");
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_15() {
-    let chosen_move = get_move_from_json_file("failure_15.json");
-    assert_ne!(chosen_move, OriginalDirection::Down);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_16() {
-    let chosen_move = get_move_from_json_file("failure_16.json");
-    assert_ne!(chosen_move, OriginalDirection::Down);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_17() {
-    let chosen_move = get_move_from_json_file("failure_17.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_18() {
-    let chosen_move = get_move_from_json_file("failure_18.json");
-    assert!([OriginalDirection::Down, OriginalDirection::Left].contains(&chosen_move));
-}
-
-#[test]
-fn failure_19() {
-    let chosen_move = get_move_from_json_file("failure_19.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_20_for_improved_area_evaluation() {
-    // Going left leads to death when B goes up and then right, as there is not enough space
-    let chosen_move = get_move_from_json_file("failure_20_for_improved_area_evaluation.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_21_bait_into_trap_with_top_wall() {
-    let chosen_move = get_move_from_json_file("failure_21_bait_into_trap_with_top_wall.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_22_bait_into_trap_with_top_wall_modified() {
-    let chosen_move =
-        get_move_from_json_file("failure_22_bait_into_trap_with_top_wall_modified.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_23_go_for_kill_here() {
-    // Down leads to guaranteed kill in 2, right leads to guaranteed kill in 4
-    let chosen_move = get_move_from_json_file("failure_23_go_for_kill_here.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_24_debug_space() {
-    let chosen_move = get_move_from_json_file("failure_24_debug_space.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_25_continue_down_for_kill() {
-    let chosen_move = get_move_from_json_file("failure_25_continue_down_for_kill.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_26_continue_down_for_kill() {
-    let chosen_move = get_move_from_json_file("failure_26_continue_down_for_kill.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_27_grab_food() {
-    let chosen_move = get_move_from_json_file("failure_27_grab_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_28_grab_food() {
-    let chosen_move = get_move_from_json_file("failure_28_grab_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_29_move_down_towards_food() {
-    let chosen_move = get_move_from_json_file("failure_29_move_down_towards_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_30_grab_food_leads_to_death() {
-    let chosen_move = get_move_from_json_file("failure_30_grab_food_leads_to_death.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_31_going_right_leads_to_death() {
-    let chosen_move = get_move_from_json_file("failure_31_going_right_leads_to_death.json");
-    assert_ne!(chosen_move, OriginalDirection::Right);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_32_right_certain_death_down_maybe_death() {
-    let chosen_move =
-        get_move_from_json_file("failure_32_right_certain_death_down_maybe_death.json");
-    // Assuming perfect opponent play, right is the best move as it leads to certain death in 3 turns whereas down is in 2 turns
-    // If opponents do not play perfectly, down is better as it might not lead to death
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_33_do_not_move_left_as_you_can_get_killed() {
-    let chosen_move =
-        get_move_from_json_file("failure_33_do_not_move_left_as_you_can_get_killed.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_34_follow_own_tail() {
-    // Too long to really evaluate with current visualisation tools, therefore left and right accepted
-    let chosen_move = get_move_from_json_file("failure_34_follow_own_tail.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_35_up_2() {
-    // Up is dead in 3
-    // Down is dead in 8
-    let chosen_move = get_move_from_json_file("failure_35_up_2.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_36_tail_2_food_4() {
-    let chosen_move = get_move_from_json_file("failure_36_tail_2_food_4.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_37_unclear_best_move() {
-    let chosen_move = get_move_from_json_file("failure_37_unclear_best_move.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_38_left_possible_wall_squeeze() {
-    // Moving right would equally allow for squeeze
-    let chosen_move = get_move_from_json_file("failure_38_left_possible_wall_squeeze.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_39_grab_food_in_middle() {
-    // This might be fixed with chicken logic
-    // or adding length to simulate timed evaluation
-    let chosen_move = get_move_from_json_file("failure_39_grab_food_in_middle.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_40_should_go_up_to_food() {
-    // Food can be secured in both ways either up or right
-    let chosen_move = get_move_from_json_file("failure_40_should_go_up_to_food.json");
-    assert_ne!(chosen_move, OriginalDirection::Down);
-    assert_ne!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_41_area_suggests_right_but_left_might_be_better() {
-    let chosen_move =
-        get_move_from_json_file("failure_41_area_suggests_right_but_left_might_be_better.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_42_going_right_enables_getting_killed() {
-    let chosen_move = get_move_from_json_file("failure_42_going_right_enables_getting_killed.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_43_going_down_guarantees_getting_killed() {
-    let chosen_move =
-        get_move_from_json_file("failure_43_going_down_guarantees_getting_killed.json");
-    assert_eq!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_44_panic() {
-    let chosen_move = get_move_from_json_file("failure_44_panic.json");
-    assert_ne!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_45_panic_again() {
-    let chosen_move = get_move_from_json_file("failure_45_panic_again.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_46_go_for_kill() {
-    let chosen_move = get_move_from_json_file("failure_46_go_for_kill.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_47_grab_food() {
-    let chosen_move = get_move_from_json_file("failure_47_grab_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_48_grab_food() {
-    // Depending on what B does in the next move it is always possible to escape
-    // But after moving left, decision where to move must depend on which move B took and go in opposite direction
-    let chosen_move = get_move_from_json_file("failure_48_grab_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_49() {
-    // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
-    let chosen_move = get_move_from_json_file("failure_49.json");
-    assert_eq!(chosen_move, OriginalDirection::Down);
-}
-
-#[test]
-fn failure_50() {
-    // Failed when L,D,R reached depth 10 by only selecting L as viable from simulation
-    let chosen_move = get_move_from_json_file("failure_50.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_51_grab_food_after_other_moved_down_in_48() {
-    let chosen_move =
-        get_move_from_json_file("failure_51_grab_food_after_other_moved_down_in_48.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_52_grab_food_after_other_moved_up_in_48() {
-    let chosen_move =
-        get_move_from_json_file("failure_52_grab_food_after_other_moved_up_in_48.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_53_go_for_kill() {
-    let chosen_move = get_move_from_json_file("failure_53_go_for_kill.json");
-    assert_eq!(chosen_move, OriginalDirection::Left);
-}
-
-#[test]
-fn failure_54_grab_food() {
-    let chosen_move = get_move_from_json_file("failure_54_grab_food.json");
-    assert_eq!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_55() {
-    let chosen_move = get_move_from_json_file("failure_55.json");
-    assert_ne!(chosen_move, OriginalDirection::Right);
-}
-
-#[test]
-fn failure_56() {
-    let chosen_move = get_move_from_json_file("failure_56.json");
-    assert_ne!(chosen_move, OriginalDirection::Left);
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_57() {
-    let chosen_move = get_move_from_json_file("failure_57.json");
-    assert_eq!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_58() {
-    let chosen_move = get_move_from_json_file("failure_58.json");
-    assert_ne!(chosen_move, OriginalDirection::Up);
-}
-
-#[test]
-fn failure_59() {
-    let chosen_move = get_move_from_json_file("failure_59.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Up,
-        "Going up should be possible but is being excluded by capture logic"
-    );
-}
-
-#[test]
-fn failure_60() {
-    let chosen_move = get_move_from_json_file("failure_60.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Up,
-        "Going up is preferrable here to fight for the food"
-    );
-}
-
-#[test]
-fn failure_61() {
-    let chosen_move = get_move_from_json_file("failure_61.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Up,
-        "Squeezing logic from flood prefers down but there is too much going on"
-    );
-}
-
-#[test]
-fn failure_62() {
-    let chosen_move = get_move_from_json_file("failure_62.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Left,
-        "Moved to wall because of food, but should move away again now"
-    );
-}
-
-#[test]
-fn failure_63() {
-    let chosen_move = get_move_from_json_file("failure_63.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Up,
-        "Is grabbing food preferred here?"
-    );
-}
-
-#[test]
-fn failure_64() {
-    let chosen_move = get_move_from_json_file("failure_64.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Left,
-        "Left is preferable to right as death relies on opponent move, whereas right is inevitable death"
-    );
-}
-
-#[test]
-fn failure_65() {
-    let chosen_move = get_move_from_json_file("failure_65.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Right,
-        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
-    );
-}
-
-#[test]
-fn failure_66() {
-    let chosen_move = get_move_from_json_file("failure_66.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Left,
-        "Going Left should be possible here"
-    );
-}
-
-#[test]
-fn failure_67() {
-    let chosen_move = get_move_from_json_file("failure_67.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Right,
-        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
-    );
-}
-
-#[test]
-fn failure_68() {
-    let chosen_move = get_move_from_json_file("failure_68.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Right,
-        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
-    );
-}
-
-#[test]
-fn failure_69() {
-    let chosen_move = get_move_from_json_file("failure_69.json");
-    assert_eq!(
-        chosen_move,
-        OriginalDirection::Right,
-        "Right is preferable to left as death relies on opponent move, whereas left is inevitable death"
-    );
-}
+#[macro_use]
+mod common;
+
+situation_test!(failure_01, Down, Left, Right);
+situation_test!(failure_02, Up, Down, Left);
+situation_test!(failure_03, Down);
+situation_test!(failure_04, Up, Left);
+situation_test!(failure_05, Up);
+situation_test!(failure_06, Left, Right);
+situation_test!(failure_07, Left, Right);
+situation_test!(failure_08, Down);
+situation_test!(failure_09, Up, Down, Right => "All other situations are barely survivable by using all available space");
+situation_test!(failure_10, Left);
+situation_test!(failure_11, Left);
+situation_test!(failure_12, Left);
+situation_test!(failure_13, Left, Right);
+situation_test!(failure_14, Up, Left, Right);
+situation_test!(failure_15, Left, Right);
+situation_test!(failure_16, Left, Right);
+situation_test!(failure_17, Down);
+situation_test!(failure_18, Down, Left);
+situation_test!(failure_19, Up, Down);
+situation_test!(failure_20, Down => "Going left leads to death when B goes up and then right, as there is not enough space");
+situation_test!(failure_21, Right => "bait into trap with top wall");
+situation_test!(failure_22, Right => "bait into trap with top wall modified");
+situation_test!(failure_23, Down, Right => "Down leads to guaranteed kill in 2, right leads to guaranteed kill in 4");
+situation_test!(failure_24, Down, Left, Right => "debug space");
+situation_test!(failure_25, Down => "continue down for kill");
+situation_test!(failure_26, Down => "continue down for kill");
+situation_test!(failure_27, Left => "grab food");
+situation_test!(failure_28, Down => "grab food");
+situation_test!(failure_29, Down => "move down towards food");
+situation_test!(failure_30, Down, Right => "grab food leads to death");
+situation_test!(failure_31, Down, Left => "going right leads to death");
+situation_test!(failure_32, Down, Right => "Assuming perfect opponent play, right is best (certain death in 3 turns); down better if opponents play imperfectly");
+situation_test!(failure_33, Up, Right => "do not move left as you can get killed");
+situation_test!(failure_34, Left, Right => "Too long to really evaluate with current visualisation tools, therefore left and right accepted");
+situation_test!(failure_35, Up, Down => "Up is dead in 3, down is dead in 8");
+situation_test!(failure_36, Right => "tail 2 food 4");
+situation_test!(failure_37, Down, Left, Right => "unclear best move");
+situation_test!(failure_38, Left, Right => "Moving right would equally allow for squeeze");
+situation_test!(failure_39, Left => "This might be fixed with chicken logic or adding length to simulate timed evaluation");
+situation_test!(failure_40, Up, Right => "should go up to food");
+situation_test!(failure_41, Left => "area suggests right but left might be better");
+situation_test!(failure_42, Down, Right => "going right enables getting killed");
+situation_test!(failure_43, Up => "going down guarantees getting killed");
+situation_test!(failure_44, Up, Left, Right => "panic");
+situation_test!(failure_45, Right => "panic again");
+situation_test!(failure_46, Right => "go for kill");
+situation_test!(failure_47, Down => "grab food");
+situation_test!(failure_48, Left => "Depending on what B does next it is always possible to escape; move choice must depend on B's response");
+situation_test!(failure_49, Down => "Failed when L,D,R reached depth 10 by only selecting L as viable from simulation");
+situation_test!(failure_50, Left => "Failed when L,D,R reached depth 10 by only selecting L as viable from simulation");
+situation_test!(failure_51, Up, Down => "grab food after other moved down in 48");
+situation_test!(failure_52, Up, Down => "grab food after other moved up in 48");
+situation_test!(failure_53, Left => "go for kill");
+situation_test!(failure_54, Right => "grab food");
+situation_test!(failure_55, Up, Down, Left);
+situation_test!(failure_56, Down, Right);
+situation_test!(failure_57, Up);
+situation_test!(failure_58, Down, Left, Right);
+situation_test!(failure_59, Up => "Going up should be possible but is being excluded by capture logic");
+situation_test!(failure_60, Up => "Going up is preferrable here to fight for the food");
+situation_test!(failure_61, Up => "Squeezing logic from flood prefers down but there is too much going on");
+situation_test!(failure_62, Left => "Moved to wall because of food, but should move away again now");
+situation_test!(failure_63, Up => "Is grabbing food preferred here?");
+situation_test!(failure_64, Left => "Left is preferable to right as death relies on opponent move, whereas right is inevitable death");
+situation_test!(failure_65, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
+situation_test!(failure_66, Left => "Going Left should be possible here");
+situation_test!(failure_67, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
+situation_test!(failure_68, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
+situation_test!(failure_69, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
