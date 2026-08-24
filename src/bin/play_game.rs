@@ -302,6 +302,19 @@ impl AppState {
                     SNAKE_NAMES[sid], snake.segments.len()
                 ));
             }
+            if snake.health <= 0 {
+                return Err(format!(
+                    "Snake {} has health {} (must be > 0)",
+                    SNAKE_NAMES[sid], snake.health
+                ));
+            }
+            let (hx, hy) = snake.segments[0];
+            if (hx + hy) % 2 != (self.setup_turn.unsigned_abs() as usize) % 2 {
+                return Err(format!(
+                    "Snake {} head ({},{}) parity mismatch for turn {} — (x+y) % 2 must equal turn % 2",
+                    SNAKE_NAMES[sid], hx, hy, self.setup_turn
+                ));
+            }
             for w in snake.segments.windows(2) {
                 let (x1, y1) = w[0];
                 let (x2, y2) = w[1];
@@ -317,6 +330,19 @@ impl AppState {
         }
         if self.snakes.iter().all(|s| s.segments.is_empty()) {
             return Err("No snakes on board".to_string());
+        }
+        // Check no two different snakes share a cell
+        for sid in 0..MAX_SNAKES {
+            for seg in &self.snakes[sid].segments {
+                for other_sid in (sid + 1)..MAX_SNAKES {
+                    if self.snakes[other_sid].segments.contains(seg) {
+                        return Err(format!(
+                            "Snakes {} and {} overlap at ({},{})",
+                            SNAKE_NAMES[sid], SNAKE_NAMES[other_sid], seg.0, seg.1
+                        ));
+                    }
+                }
+            }
         }
         Ok(())
     }
