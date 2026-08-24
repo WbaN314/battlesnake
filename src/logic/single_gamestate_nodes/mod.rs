@@ -84,7 +84,7 @@ impl GamestateNodesSnake {
         Self
     }
 
-    pub fn fast_track_trigger_situation() -> SituationSet {
+    pub fn child_priority_situations() -> SituationSet {
         SituationSet::new(vec![Situation::multi_recommending(
             "
                 W . .
@@ -119,7 +119,7 @@ impl GamestateNodesSnake {
         )])
     }
 
-    pub fn special_situation_set(env_config: &EnvironmentConfig) -> SituationSet {
+    pub fn root_evaluation_situations(env_config: &EnvironmentConfig) -> SituationSet {
         // Evaluate situations and return or avoid direction
         let situation_set = SituationSet::new(vec![
             Situation::recommending(
@@ -202,8 +202,8 @@ impl GamestateNodesSnake {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .similarity_pruning(|_| 6)
-            .fast_track(move |node| {
-                match Self::fast_track_trigger_situation().check(node.gamestate()) {
+            .child_priority_function(move |node| {
+                match Self::child_priority_situations().check(node.gamestate()) {
                     Some(situation_match) => Some(*situation_match),
                     None => None,
                 }
@@ -270,7 +270,7 @@ impl GamestateNodesSnake {
         Self::simulation(gamestate.clone(), &mut evaluation, &env_config);
 
         // Situations
-        let situation_set = Self::special_situation_set(&env_config);
+        let situation_set = Self::root_evaluation_situations(&env_config);
         situation_set.evaluate(&gamestate, &mut evaluation);
 
         // Area

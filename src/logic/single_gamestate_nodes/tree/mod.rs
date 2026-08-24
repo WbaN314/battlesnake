@@ -21,7 +21,7 @@ pub struct Tree {
     max_nodes: usize,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
-    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<Moves>>>,
+    child_priority_situations: Option<Rc<dyn Fn(&Node) -> Option<Moves>>>,
 }
 
 impl Tree {
@@ -38,7 +38,7 @@ impl Tree {
             elapsed_simulation_time: Duration::ZERO,
             all_root_directions: false,
             similarity_distance_fn: None,
-            fast_track_fn: None,
+            child_priority_situations: None,
         }
     }
 
@@ -67,11 +67,11 @@ impl Tree {
         self
     }
 
-    pub fn fast_track(
+    pub fn child_priority_function(
         mut self,
-        fast_track_fn: impl Fn(&Node) -> Option<Moves> + 'static,
+        child_priority_fn: impl Fn(&Node) -> Option<Moves> + 'static,
     ) -> Self {
-        self.fast_track_fn = Some(Rc::new(fast_track_fn));
+        self.child_priority_situations = Some(Rc::new(child_priority_fn));
         self
     }
 
@@ -191,7 +191,7 @@ impl Tree {
             children[0].set_priority(2);
         }
         // If a fast track function is defined, use it to set priorities and simulated snakes for children
-        else if let Some(fast_track_fn) = self.fast_track_fn.as_ref() {
+        else if let Some(fast_track_fn) = self.child_priority_situations.as_ref() {
             for child in children.iter_mut() {
                 if let Some(moves) = fast_track_fn(&child) {
                     child.set_priority(2);
@@ -647,7 +647,7 @@ mod tests {
         test_against_base_simulation(
             |tree| {
                 let situation = situation.clone();
-                tree.fast_track(move |node| {
+                tree.child_priority_function(move |node| {
                     if let Some(situation_match) = situation.check(node.gamestate()) {
                         Some(*situation_match)
                     } else {
@@ -680,7 +680,7 @@ mod tests {
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
-        .fast_track(move |node| {
+        .child_priority_function(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
                 Some(*situation_match)
             } else {
@@ -718,7 +718,7 @@ mod tests {
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
-        .fast_track(move |node| {
+        .child_priority_function(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
                 Some(*situation_match)
             } else {
