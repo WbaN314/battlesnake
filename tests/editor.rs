@@ -5,7 +5,9 @@ mod common;
 
 // A: Row 1, B: Row 0
 // Kill Situations
+// 1 Ahead
 situation_test!(editor_01, Right => "Always right to win.");
+// 1 Behind
 situation_test!(editor_02, Right => "If longer, right to win.");
 
 // A: Row 2, B: Row 0

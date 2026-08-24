@@ -61,8 +61,8 @@ env_config! {
     // Situation Matches
     SCORE_AVOID_MOVING_NEXT_TO_WALL = -20.0,
     SCORE_GRAB_FOOD = 60.0,
-    SCORE_KILL_BY_LEAD = 100.0,
-    SCORE_KILL_BY_FOLLOW = 100.0,
+    SCORE_KILL_SITUATION = 100.0,
+    SCORE_RESTRICT_SITUATION = 50.0,
 
     // Capture
     SCORE_NOT_ENOUGH_AREA = -10.0,
@@ -125,23 +125,42 @@ impl GamestateNodesSnake {
             .condition(|snakes| snakes.length_gap_to_longest_other_snake() <= 2),
             Situation::recommending(
                 "
-                W N *
-                W B N
-                W . A
+                * N A
+                N B .
+                W W W
                 ",
-                Direction::Down,
-                env_config.SCORE_KILL_BY_LEAD,
-                "Kill by Lead",
+                Direction::Right,
+                env_config.SCORE_KILL_SITUATION,
+                "editor_01",
             ),
-            // Kill by follow
             Situation::recommending(
                 "
-                W B .
-                W N A
+                A .
+                N B
+                W W
                 ",
-                Direction::Up,
-                env_config.SCORE_KILL_BY_FOLLOW,
-                "Kill by Follow",
+                Direction::Right,
+                env_config.SCORE_KILL_SITUATION,
+                "editor_02",
+            )
+            .condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
+                },
+            ),
+            // editor_06.json
+            Situation::recommending(
+                "
+                A .
+                . .
+                . .
+                N B
+                W W
+                ",
+                Direction::Right,
+                env_config.SCORE_RESTRICT_SITUATION,
+                "editor_06",
             )
             .condition(
                 |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
