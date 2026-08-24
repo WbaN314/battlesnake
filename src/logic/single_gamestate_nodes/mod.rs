@@ -100,6 +100,22 @@ impl GamestateNodesSnake {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                 _ => false,
             },
+        ),
+        Situation::multi_recommending(
+            "
+                W . .
+                W B .
+                W N A
+                ",
+            [Some(Direction::Up), Some(Direction::Up), None, None],
+            0.0,
+            "Fast Track 2",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
         )])
     }
 
@@ -188,7 +204,7 @@ impl GamestateNodesSnake {
             .similarity_pruning(|_| 6)
             .fast_track(move |node| {
                 match Self::fast_track_trigger_situation().check(node.gamestate()) {
-                    Some(situation_match) => Some(situation_match.0.map(|v| v.is_some())),
+                    Some(situation_match) => Some(*situation_match),
                     None => None,
                 }
             })

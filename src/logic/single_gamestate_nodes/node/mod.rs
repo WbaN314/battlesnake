@@ -223,7 +223,6 @@ pub struct Node {
     pinned_status: Option<NodeStatus>,
     priority: i8,
     move_matrix: MoveMatrix,
-    simulated_snakes: [bool; SNAKES],
 }
 
 impl Node {
@@ -247,7 +246,6 @@ impl Node {
             pinned_status: None,
             priority: 0,
             move_matrix,
-            simulated_snakes: [true; SNAKES],
         }
     }
 
@@ -265,8 +263,8 @@ impl Node {
         self.pinned_status = Some(status);
     }
 
-    pub fn set_simulated_snakes(&mut self, simulated_snakes: [bool; SNAKES]) {
-        self.simulated_snakes = simulated_snakes;
+    pub fn set_moves(&mut self, moves: Moves) {
+        self.move_matrix = moves.into();
     }
 
     pub fn set_priority(&mut self, priority: i8) {

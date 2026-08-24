@@ -290,7 +290,7 @@ impl<F: Field> GameState<F> {
         for id in 0..SNAKES {
             possible_moves[id as usize] = moved_tails.valid_moves_for(id);
         }
-        MoveMatrix::new(possible_moves)
+        MoveMatrix::from(possible_moves)
     }
 
     pub fn is_alive(&self, id: u8) -> bool {

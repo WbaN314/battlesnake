@@ -55,7 +55,13 @@ pub struct MoveMatrix {
 }
 
 impl MoveMatrix {
-    pub fn new(moves: [MoveVector; SNAKES as usize]) -> Self {
+    pub fn new() -> Self {
+        Self {
+            moves: [MoveVector::default(); SNAKES as usize],
+        }
+    }
+
+    pub fn from(moves: [MoveVector; SNAKES as usize]) -> Self {
         Self { moves }
     }
 
@@ -141,6 +147,18 @@ impl MoveMatrix {
     #[allow(dead_code, reason = "Accessed only via IntoIterator")]
     fn generate(&self) -> MoveMatrixIter {
         MoveMatrixIter::new(self.moves)
+    }
+}
+
+impl From<Moves> for MoveMatrix {
+    fn from(moves: Moves) -> Self {
+        MoveMatrix::from(moves.map(|mv| {
+            if let Some(dir) = mv {
+                MoveVector::from(dir)
+            } else {
+                MoveVector::new(None)
+            }
+        }))
     }
 }
 
@@ -233,7 +251,7 @@ mod tests {
     #[test]
     fn test_pregenerate() {
         let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(no_moves);
+        let no_moves_set = MoveMatrix::from(no_moves);
         let no_moves_list = no_moves_set.pregenerate();
         // All trapped snakes default to Up
         assert_eq!(no_moves_list.len(), 1);
@@ -248,13 +266,13 @@ mod tests {
         );
 
         let none = [MoveVector::new(None); SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_set = MoveMatrix::from(none);
         let no_moves_list: Vec<Moves> = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 1);
         assert_eq!(no_moves_list[0], [None, None, None, None]);
 
         let all = [MoveVector::new(Some([true; 4])); SNAKES as usize];
-        let all_moves_set = MoveMatrix::new(all);
+        let all_moves_set = MoveMatrix::from(all);
         let all_moves_list = all_moves_set.pregenerate();
         assert_eq!(all_moves_list.len(), 256);
         assert_eq!(
@@ -304,7 +322,7 @@ mod tests {
         let moves_list = moves_set.pregenerate();
         assert_eq!(moves_list.len(), 36);
 
-        let one_with_no_moves = MoveMatrix::new([
+        let one_with_no_moves = MoveMatrix::from([
             MoveVector::new(Some([true, true, false, true])),
             MoveVector::new(Some([false, false, false, false])),
             MoveVector::new(Some([true, false, true, false])),
@@ -314,7 +332,7 @@ mod tests {
         // Trapped snake defaults to Up, so 3 * 1 * 2 * 3 = 18
         assert_eq!(moves_list.len(), 3 * 1 * 2 * 3);
 
-        let one_with_none = MoveMatrix::new([
+        let one_with_none = MoveMatrix::from([
             MoveVector::new(Some([true, true, false, true])),
             MoveVector::new(None),
             MoveVector::new(Some([true, false, true, false])),
@@ -327,7 +345,7 @@ mod tests {
     #[test]
     fn test_generate() {
         let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(no_moves);
+        let no_moves_set = MoveMatrix::from(no_moves);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
         // All trapped snakes default to Up
         assert_eq!(no_moves_list.len(), 1);
@@ -342,13 +360,13 @@ mod tests {
         );
 
         let none = [MoveVector::new(None); SNAKES as usize];
-        let no_moves_set = MoveMatrix::new(none);
+        let no_moves_set = MoveMatrix::from(none);
         let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
         assert_eq!(no_moves_list.len(), 1);
         assert_eq!(no_moves_list[0], [None, None, None, None]);
 
         let all = [MoveVector::new(Some([true; 4])); SNAKES as usize];
-        let all_moves_set = MoveMatrix::new(all);
+        let all_moves_set = MoveMatrix::from(all);
         let all_moves_list: Vec<Moves> = all_moves_set.generate().collect();
         assert_eq!(all_moves_list.len(), 256);
         assert_eq!(
@@ -398,7 +416,7 @@ mod tests {
         let moves_list: Vec<Moves> = moves_set.generate().collect();
         assert_eq!(moves_list.len(), 36);
 
-        let one_with_no_moves = MoveMatrix::new([
+        let one_with_no_moves = MoveMatrix::from([
             MoveVector::new(Some([true, true, false, true])),
             MoveVector::new(Some([false, false, false, false])),
             MoveVector::new(Some([true, false, true, false])),
@@ -408,7 +426,7 @@ mod tests {
         // Trapped snake defaults to Up, so 3 * 1 * 2 * 3 = 18
         assert_eq!(moves_list.len(), 3 * 1 * 2 * 3);
 
-        let one_with_none = MoveMatrix::new([
+        let one_with_none = MoveMatrix::from([
             MoveVector::new(Some([true, true, false, true])),
             MoveVector::new(None),
             MoveVector::new(Some([true, false, true, false])),

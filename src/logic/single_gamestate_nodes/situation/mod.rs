@@ -2,14 +2,21 @@ mod situation_field;
 
 use log::debug;
 use situation_field::SituationField;
-use std::fmt;
+use std::{fmt, ops::Deref};
 
 use crate::logic::general::{
-    direction::{Direction}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::{Snakes, SNAKES}
+    direction::Direction, evaluation::Evaluation, field::BasicField, game_state::GameState, moves::Moves, snake::Snake, snakes::{SNAKES, Snakes}
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct SituationMatch(pub [Option<Direction>; SNAKES]);
+pub struct SituationMatch(Moves);
+
+impl Deref for SituationMatch {
+    type Target = Moves;
+    fn deref(&self) -> &Moves {
+        &self.0
+    }
+}
 
 struct SituationPattern {
     fields: Vec<SituationField>,

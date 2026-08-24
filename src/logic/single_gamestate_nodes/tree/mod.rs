@@ -1,6 +1,5 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
-    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
 };
 use log::{debug, trace};
 use std::{
@@ -22,7 +21,7 @@ pub struct Tree {
     max_nodes: usize,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
-    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<[bool; SNAKES]>>>,
+    fast_track_fn: Option<Rc<dyn Fn(&Node) -> Option<Moves>>>,
 }
 
 impl Tree {
@@ -70,7 +69,7 @@ impl Tree {
 
     pub fn fast_track(
         mut self,
-        fast_track_fn: impl Fn(&Node) -> Option<[bool; SNAKES]> + 'static,
+        fast_track_fn: impl Fn(&Node) -> Option<Moves> + 'static,
     ) -> Self {
         self.fast_track_fn = Some(Rc::new(fast_track_fn));
         self
@@ -194,9 +193,9 @@ impl Tree {
         // If a fast track function is defined, use it to set priorities and simulated snakes for children
         else if let Some(fast_track_fn) = self.fast_track_fn.as_ref() {
             for child in children.iter_mut() {
-                if let Some(snake_mask) = fast_track_fn(&child) {
+                if let Some(moves) = fast_track_fn(&child) {
                     child.set_priority(2);
-                    child.set_simulated_snakes(snake_mask);
+                    child.set_moves(moves);
                 }
             }
         }
@@ -666,7 +665,7 @@ mod tests {
                 let situation = situation.clone();
                 tree.fast_track(move |node| {
                     if let Some(situation_match) = situation.check(node.gamestate()) {
-                        Some(situation_match.0.map(|v| v.is_some()))
+                        Some(*situation_match)
                     } else {
                         None
                     }
@@ -699,7 +698,7 @@ mod tests {
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
-                Some(situation_match.0.map(|v| v.is_some()))
+                Some(*situation_match)
             } else {
                 None
             }
@@ -737,7 +736,7 @@ mod tests {
         .similarity_pruning(|_| 6)
         .fast_track(move |node| {
             if let Some(situation_match) = situation.check(node.gamestate()) {
-                Some(situation_match.0.map(|v| v.is_some()))
+                Some(*situation_match)
             } else {
                 None
             }
