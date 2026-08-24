@@ -545,7 +545,7 @@ mod tests {
 
     #[test]
     fn similarity_pruning_shows_in_stats() {
-        let filenames = ["requests/failure_1.json", "requests/failure_4.json"];
+        let filenames = ["requests/failure_01.json", "requests/failure_04.json"];
         for filename in &filenames {
             let mut tree = create_tree_from_gamestate(filename)
                 .max_depth(4)

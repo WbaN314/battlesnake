@@ -580,7 +580,7 @@ mod tests {
 
     #[test]
     fn test_simulate_with_optimistic_capture_node() {
-        let gamestate = read_game_state("requests/failure_8.json");
+        let gamestate = read_game_state("requests/failure_08.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -626,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_simulate_correct_alive_substate_propagation() {
-        let gamestate = read_game_state("requests/failure_20_for_improved_area_evaluation.json");
+        let gamestate = read_game_state("requests/failure_20.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn test_capture_contact_depth() {
-        let gamestate = read_game_state("requests/failure_45_panic_again.json");
+        let gamestate = read_game_state("requests/failure_45.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -739,7 +739,7 @@ mod tests {
             result_without_ccd.direction_results[2]
         );
 
-        let gamestate = read_game_state("requests/failure_2.json");
+        let gamestate = read_game_state("requests/failure_02.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -797,7 +797,7 @@ mod tests {
 
     #[test]
     fn test_split_processing_time_equal_between_directions() {
-        let gamestate = read_game_state("requests/failure_8.json");
+        let gamestate = read_game_state("requests/failure_08.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -853,7 +853,7 @@ mod tests {
     #[test]
     fn test_that_fast_nodes_are_not_inserted_multiple_time() {
         let gamestate =
-            read_game_state("requests/failure_33_do_not_move_left_as_you_can_get_killed.json");
+            read_game_state("requests/failure_33.json");
         let mut state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -877,7 +877,7 @@ mod tests {
         assert_eq!(tree.statistics.ignored_fast_nodes, 1);
 
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let mut state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -904,7 +904,7 @@ mod tests {
     #[test]
     fn test_dead_end_propagation_to_spawn_node() {
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let mut state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -955,7 +955,7 @@ mod tests {
     #[test]
     fn test_dead_end() {
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let mut state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,

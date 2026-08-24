@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn print_board_3() {
-        let game_state = read_game_state("requests/failure_1.json");
+        let game_state = read_game_state("requests/failure_01.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{board}");
     }

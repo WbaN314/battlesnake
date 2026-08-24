@@ -312,7 +312,7 @@ mod json_requests {
     #[ignore]
     #[test]
     fn test_evaluate_best_move() {
-        let filename = "failure_33_do_not_move_left_as_you_can_get_killed.json";
+        let filename = "failure_33.json";
         let s = String::from("requests/") + filename;
         let game_state = read_game_state(&s);
         let e_game_state = EGameState::from(&game_state.board, &game_state.you);

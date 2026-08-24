@@ -1041,7 +1041,7 @@ mod tests {
 
     #[test]
     fn test_print_capture_iteration() {
-        let game_state = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
+        let game_state = read_game_state("requests/failure_21.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         board.initialize_capture(EDirection::Up).unwrap();
@@ -1054,7 +1054,7 @@ mod tests {
 
     #[test]
     fn test_print_capture() {
-        let game_state = read_game_state("requests/failure_21_bait_into_trap_with_top_wall.json");
+        let game_state = read_game_state("requests/failure_21.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let result = board.capture();
@@ -1064,7 +1064,7 @@ mod tests {
     #[test]
     fn test_print_capture_in_direction() {
         let game_state =
-            read_game_state("requests/failure_42_going_right_enables_getting_killed.json");
+            read_game_state("requests/failure_42.json");
         let mut board = EGameState::from(&game_state.board, &game_state.you);
         println!("{}", &board);
         let result = board.capture_in_direction(EDirection::Right);

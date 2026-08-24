@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_calc_children_3() {
-        let gamestate = read_game_state("requests/failure_2.json");
+        let gamestate = read_game_state("requests/failure_02.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -614,7 +614,7 @@ mod tests {
         let request = read_game_state("requests/test_move_request.json");
         let gamestate =
             DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
-        let request = read_game_state("requests/failure_2.json");
+        let request = read_game_state("requests/failure_02.json");
         let gamestate_2 =
             DGameState::<DFastField>::from_request(&request.board, &request.you, &request.turn);
 

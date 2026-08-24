@@ -225,7 +225,7 @@ mod benchmarks {
 
     #[bench]
     fn bench_remove_snake(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/failure_34_follow_own_tail.json");
+        let gamestate = read_game_state("requests/failure_34.json");
         let snake = Snake::from_request(&gamestate.board.snakes[1], 1);
         let board = Board::<BasicField>::from(gamestate);
         b.iter(|| {
@@ -237,7 +237,7 @@ mod benchmarks {
 
     #[bench]
     fn bench_set_field_get_field_via_cell(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/failure_34_follow_own_tail.json");
+        let gamestate = read_game_state("requests/failure_34.json");
         let board = Board::<BasicField>::from(gamestate);
         b.iter(|| {
             board

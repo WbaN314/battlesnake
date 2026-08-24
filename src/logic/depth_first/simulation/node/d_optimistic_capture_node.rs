@@ -227,7 +227,7 @@ mod tests {
         let moves = new_node.calc_moves();
         assert_eq!(moves.len(), 0);
 
-        let request = read_game_state("requests/failure_7.json");
+        let request = read_game_state("requests/failure_07.json");
         let gamestate =
             DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
         let mut node = DOptimisticCaptureNode::new(
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_relevant_snakes() {
-        let request = read_game_state("requests/failure_2.json");
+        let request = read_game_state("requests/failure_02.json");
         let gamestate =
             DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
         let node = DOptimisticCaptureNode::new(
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_relevant_snakes_2() {
         let request =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let gamestate =
             DGameState::<DSlowField>::from_request(&request.board, &request.you, &request.turn);
         let node = DOptimisticCaptureNode::new(

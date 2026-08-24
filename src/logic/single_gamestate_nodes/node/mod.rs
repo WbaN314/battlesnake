@@ -663,10 +663,10 @@ mod benchmarks {
 
     fn test_nodes() -> Vec<Node> {
         [
-            "requests/failure_1.json",
-            "requests/failure_3.json",
-            "requests/failure_4.json",
-            "requests/failure_5.json",
+            "requests/failure_01.json",
+            "requests/failure_03.json",
+            "requests/failure_04.json",
+            "requests/failure_05.json",
             "requests/example_move_request_2.json",
             "requests/example_move_request_3.json",
         ]

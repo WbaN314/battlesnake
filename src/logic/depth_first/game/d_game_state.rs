@@ -959,7 +959,7 @@ mod tests {
         assert!(!result.contains(&DDirection::Left));
         assert!(!result.contains(&DDirection::Right));
 
-        let gamestate = read_game_state("requests/failure_9.json");
+        let gamestate = read_game_state("requests/failure_09.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let result = state.scope_moves_optimistic(1);
@@ -997,7 +997,7 @@ mod tests {
         let result = state.scope_moves_pessimistic(5);
         assert!(result.is_empty());
 
-        let gamestate = read_game_state("requests/failure_9.json");
+        let gamestate = read_game_state("requests/failure_09.json");
         let state = DGameState::from_request(&gamestate.board, &gamestate.you, &gamestate.turn);
         println!("{}", state);
         let result = state.scope_moves_pessimistic(6);
@@ -1151,7 +1151,7 @@ mod tests {
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
-        let gamestate = read_game_state("requests/failure_9.json");
+        let gamestate = read_game_state("requests/failure_09.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -1161,7 +1161,7 @@ mod tests {
         let moves = state.possible_moves([true, true, true, true]);
         assert_eq!(moves.get(0), [true, true, false, true]);
 
-        let gamestate = read_game_state("requests/failure_2.json");
+        let gamestate = read_game_state("requests/failure_02.json");
         let state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -1241,7 +1241,7 @@ mod tests {
     #[test]
     fn test_next_state_2() {
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let mut state = DGameState::<DFastField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -1540,7 +1540,7 @@ mod tests {
 
     #[test]
     fn test_better_capture_propagation_order() {
-        let gamestate = read_game_state("requests/failure_6.json");
+        let gamestate = read_game_state("requests/failure_06.json");
         let mut state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
@@ -1642,7 +1642,7 @@ mod tests {
 
     #[test]
     fn play_state() {
-        let gamestate = read_game_state("requests/failure_53_go_for_kill.json");
+        let gamestate = read_game_state("requests/failure_53.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,

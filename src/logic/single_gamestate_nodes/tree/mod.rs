@@ -352,11 +352,11 @@ mod tests {
         tree_comparator: impl Fn(&Tree, &Tree, &str) -> (),
     ) {
         let test_gamestates = vec![
-            "requests/failure_1.json",
-            "requests/failure_2.json",
-            "requests/failure_3.json",
-            "requests/failure_4.json",
-            "requests/failure_5.json",
+            "requests/failure_01.json",
+            "requests/failure_02.json",
+            "requests/failure_03.json",
+            "requests/failure_04.json",
+            "requests/failure_05.json",
         ];
         for filename in test_gamestates {
             let mut base_tree = create_tree_from_gamestate(filename).max_depth(4);
@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn correct_tree_state_propagation_1() {
-        let mut tree = create_tree_from_gamestate("requests/failure_1.json").max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_01.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -419,7 +419,7 @@ mod tests {
             NodeStatus::AliveFor(3)
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_2.json").max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_02.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -442,7 +442,7 @@ mod tests {
             NodeStatus::NotSimulated
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_3.json").max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_03.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -465,7 +465,7 @@ mod tests {
             NodeStatus::DeadIn(0)
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_4.json").max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_04.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -488,7 +488,7 @@ mod tests {
             NodeStatus::ProbablyDeadIn(0)
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_5.json").max_depth(4);
+        let mut tree = create_tree_from_gamestate("requests/failure_05.json").max_depth(4);
         tree.simulate();
 
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -693,7 +693,7 @@ mod tests {
             },
         );
         let mut tree = create_tree_from_gamestate(
-            "requests/failure_43_going_down_guarantees_getting_killed.json",
+            "requests/failure_43.json",
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
@@ -731,7 +731,7 @@ mod tests {
         );
 
         let mut tree = create_tree_from_gamestate(
-            "requests/failure_43_going_down_guarantees_getting_killed.json",
+            "requests/failure_43.json",
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
@@ -764,10 +764,10 @@ mod benchmarks {
 
     fn test_gamestates() -> Vec<GameState<BasicField>> {
         [
-            "requests/failure_1.json",
-            "requests/failure_3.json",
-            "requests/failure_4.json",
-            "requests/failure_5.json",
+            "requests/failure_01.json",
+            "requests/failure_03.json",
+            "requests/failure_04.json",
+            "requests/failure_05.json",
             "requests/example_move_request_2.json",
             "requests/example_move_request_3.json",
         ]

@@ -814,7 +814,7 @@ mod tests {
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
-        let gamestate = read_game_state("requests/failure_9.json");
+        let gamestate = read_game_state("requests/failure_09.json");
         let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let moves = state.valid_moves();
@@ -893,7 +893,7 @@ mod tests {
     #[test]
     fn test_next_state_2() {
         let gamestate =
-            read_game_state("requests/failure_43_going_down_guarantees_getting_killed.json");
+            read_game_state("requests/failure_43.json");
         let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let moves = [
@@ -1246,11 +1246,11 @@ mod tests {
     fn test_flood_fill() {
         let cases = [
             (
-                "requests/failure_21_bait_into_trap_with_top_wall.json",
+                "requests/failure_21.json",
                 Direction::Right,
             ),
             (
-                "requests/failure_21_bait_into_trap_with_top_wall.json",
+                "requests/failure_21.json",
                 Direction::Up,
             ),
         ];
@@ -1277,7 +1277,7 @@ mod tests {
 
     #[test]
     fn play_state() {
-        let gamestate = read_game_state("requests/failure_53_go_for_kill.json");
+        let gamestate = read_game_state("requests/failure_53.json");
         let state = GameState::<BasicField>::from_request(
             &gamestate.board,
             &gamestate.you,

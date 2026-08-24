@@ -549,11 +549,11 @@ mod benchmarks {
             "requests/test_move_request_2.json",
             "requests/example_move_request_2.json",
             "requests/example_move_request_3.json",
-            "requests/failure_1.json",
-            "requests/failure_2.json",
-            "requests/failure_3.json",
-            "requests/failure_4.json",
-            "requests/failure_5.json",
+            "requests/failure_01.json",
+            "requests/failure_02.json",
+            "requests/failure_03.json",
+            "requests/failure_04.json",
+            "requests/failure_05.json",
         ]
         .iter()
         .map(|p| GameState::<BasicField>::from(&read_game_state(p)))

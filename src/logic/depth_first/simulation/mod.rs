@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_keep_worst_node_on_sameness_reduction() {
-        let gamestate = read_game_state("requests/failure_53_go_for_kill.json");
+        let gamestate = read_game_state("requests/failure_53.json");
         let state = DGameState::<DSlowField>::from_request(
             &gamestate.board,
             &gamestate.you,
