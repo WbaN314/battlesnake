@@ -84,8 +84,8 @@ impl GamestateNodesSnake {
         Self
     }
 
-    pub fn fast_track_trigger_situation() -> Situation {
-        Situation::multi_recommending(
+    pub fn fast_track_trigger_situation() -> SituationSet {
+        SituationSet::new(vec![Situation::multi_recommending(
             "
                 W . .
                 W A .
@@ -100,7 +100,7 @@ impl GamestateNodesSnake {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                 _ => false,
             },
-        )
+        )])
     }
 
     pub fn special_situation_set(env_config: &EnvironmentConfig) -> SituationSet {

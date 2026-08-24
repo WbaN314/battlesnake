@@ -197,6 +197,10 @@ impl SituationSet {
         Self { situations }
     }
 
+    pub fn check(&self, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
+        self.situations.iter().find_map(|s| s.check(gamestate))
+    }
+
     pub fn evaluate(
         &self,
         gamestate: &GameState<BasicField>,
