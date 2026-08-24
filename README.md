@@ -68,14 +68,20 @@ Results are saved to `tournament_best.json`. Candidates that fail `cargo test fa
 
 
 
-Interactive TUI for building game state JSON files used as test cases.
+## Interactive Game TUI
+
+Interactive TUI for building game state JSON files and playing them against the AI.
 
 ```bash
 # Open empty board
-cargo run --bin board_editor
+cargo run --bin play_game
 
 # Load an existing file as a starting point
-cargo run --bin board_editor -- requests/example_move_request_2.json
+cargo run --bin play_game -- requests/example_move_request_2.json
+
+# Start directly in play mode (skip setup)
+cargo run --bin play_game -- -p
+cargo run --bin play_game -- -p requests/example_move_request_2.json
 ```
 
 ## Flamegraph
