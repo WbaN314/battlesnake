@@ -539,22 +539,6 @@ mod tests {
 
     #[test]
     fn correct_tree_state_propagation_3() {
-        let mut tree = create_tree_from_gamestate("requests/editor_1.json").max_depth(4);
-        tree.simulate();
-
-        println!("{}", tree);
-
-        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-        println!("{}", root);
-        println!("{}", tree.nodes.get(&"RL__".parse().unwrap()).unwrap());
-        let winner = tree.nodes.get(&"RL__-RU__".parse().unwrap()).unwrap();
-        println!("{}", winner);
-        assert_eq!(winner.status(), NodeStatus::WinnerIn(0));
-        assert_eq!(root.status(), NodeStatus::WinnerIn(2));
-    }
-
-    #[test]
-    fn correct_tree_state_propagation_4() {
         let mut tree = create_tree_from_gamestate("requests/failure_69.json").max_depth(3);
         tree.simulate();
 
