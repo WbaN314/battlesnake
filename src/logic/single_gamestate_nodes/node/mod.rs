@@ -4,6 +4,7 @@ use crate::logic::{
         field::BasicField,
         game_state::GameState,
         moves::{MoveMatrix, MoveVector, Moves},
+        snake::Snake,
         snakes::SNAKES,
     },
     single_gamestate_nodes::node::node_id::NodeId,
@@ -408,7 +409,40 @@ impl Node {
     }
 
     fn next_direction(&mut self) -> Option<(Direction, MoveMatrix)> {
-        for d in DIRECTIONS {
+        let mut preferred_directions = DIRECTIONS;
+        let mut distance = u8::MAX;
+        if let Snake::Alive { head: my_head, .. } = self.gamestate.snakes().cell(0).get() {
+            for i in 1..SNAKES {
+                if let Snake::Alive { head, .. } = self.gamestate.snakes().cell(i as u8).get() {
+                    if my_head.distance_to(head) < distance {
+                        distance = my_head.distance_to(head);
+                        let directions = my_head.directions_to(head);
+                        if let Some(dir1) = directions[1] {
+                            let dir0 = directions[0].unwrap();
+                            preferred_directions[0] = dir0;
+                            preferred_directions[1] = dir1;
+                            preferred_directions[2] = dir0.inverse();
+                            preferred_directions[3] = dir1.inverse();
+                        } else if let Some(dir0) = directions[0] {
+                            if matches!(dir0, Direction::Up | Direction::Down) {
+                                preferred_directions[0] = dir0;
+                                preferred_directions[1] = dir0.inverse();
+                                preferred_directions[2] = Direction::Left;
+                                preferred_directions[3] = Direction::Right;
+                            } else {
+                                preferred_directions[0] = dir0;
+                                preferred_directions[1] = dir0.inverse();
+                                preferred_directions[2] = Direction::Up;
+                                preferred_directions[3] = Direction::Down;
+                            }
+                            preferred_directions[0] = dir0;
+                        }
+                    }
+                }
+            }
+        };
+
+        for d in preferred_directions {
             if self.direction_states[d as usize] == NodeStatus::NotSimulated {
                 if self.move_matrix.get(0).is_valid(d) {
                     let new_move_vector = MoveVector::from(d);

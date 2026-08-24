@@ -434,11 +434,11 @@ mod tests {
         );
         assert_eq!(
             root.direction_status(Direction::Left),
-            NodeStatus::NotSimulated
+            NodeStatus::DeadIn(0)
         );
         assert_eq!(
             root.direction_status(Direction::Right),
-            NodeStatus::NotSimulated
+            NodeStatus::ProbablyDeadIn(0)
         );
 
         let mut tree = create_tree_from_gamestate("requests/failure_03.json").max_depth(4);

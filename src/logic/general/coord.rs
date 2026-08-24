@@ -19,6 +19,24 @@ impl Coord {
     pub fn king_distance_to(&self, other: Coord) -> u8 {
         (self.x - other.x).unsigned_abs().max((self.y - other.y).unsigned_abs())
     }
+
+    pub fn directions_to(&self, other: Coord) -> [Option<Direction>; 2] {
+        let mut directions = [None, None];
+        let mut i = 0;
+        if self.y < other.y {
+            directions[i] = Some(Direction::Up);
+            i += 1;
+        } else if self.y > other.y {
+            directions[i] = Some(Direction::Down);
+            i += 1;
+        }
+        if self.x < other.x {
+            directions[i] = Some(Direction::Right);
+        } else if self.x > other.x {
+            directions[i] = Some(Direction::Left);
+        }
+        directions
+    }
 }
 
 impl From<&OriginalCoord> for Coord {
@@ -106,5 +124,20 @@ mod tests {
         assert_eq!(a.distance_to(b), 1);
         assert_eq!(a.distance_to(c), 1);
         assert_eq!(a.distance_to(d), 2);
+    }
+
+    #[test]
+    fn test_directions_to() {
+        use super::*;
+
+        let a = Coord::new(0, 0);
+        let b = Coord::new(0, 1);
+        let c = Coord::new(1, 0);
+        let d = Coord::new(1, 1);
+
+        assert_eq!(a.directions_to(a), [None, None]);
+        assert_eq!(a.directions_to(b), [Some(Direction::Up), None]);
+        assert_eq!(a.directions_to(c), [Some(Direction::Right), None]);
+        assert_eq!(a.directions_to(d), [Some(Direction::Up), Some(Direction::Right)]);
     }
 }
