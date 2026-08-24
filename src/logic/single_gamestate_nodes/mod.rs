@@ -100,22 +100,6 @@ impl GamestateNodesSnake {
                 (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                 _ => false,
             },
-        ),
-        Situation::multi_recommending(
-            "
-                W . .
-                W B .
-                W N A
-                ",
-            [Some(Direction::Up), Some(Direction::Up), None, None],
-            0.0,
-            "Fast Track 2",
-        )
-        .condition(
-            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                _ => false,
-            },
         )])
     }
 
