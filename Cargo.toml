@@ -29,9 +29,10 @@ path = "src/bin/run_tournament.rs"
 name = "run_generated_tests"
 path = "src/bin/run_generated_tests.rs"
 
+
 [[bin]]
-name = "board_editor"
-path = "src/bin/board_editor.rs"
+name = "play_game"
+path = "src/bin/play_game.rs"
 
 
 [dependencies]
@@ -48,3 +49,4 @@ tabled = "0.20.0"
 time = "=0.3.36"
 ratatui = "0.29"
 crossterm = "0.28"
+libc = "0.2"

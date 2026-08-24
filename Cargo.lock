@@ -96,6 +96,7 @@ dependencies = [
  "crossterm",
  "env_logger",
  "itertools",
+ "libc",
  "log",
  "rand",
  "ratatui",
