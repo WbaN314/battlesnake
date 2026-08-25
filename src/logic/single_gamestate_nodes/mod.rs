@@ -1,7 +1,3 @@
-use std::{env, time::Duration};
-
-use log::warn;
-
 use crate::{
     OriginalDirection, OriginalGameState,
     logic::{
@@ -22,62 +18,15 @@ use crate::{
         },
     },
 };
+use env_config::EnvironmentConfig;
+use log::warn;
 
+mod env_config;
 mod node;
 mod situation;
 mod tree;
 
 pub struct GamestateNodesSnake;
-
-macro_rules! env_config {
-    ( $( $name:ident = $default:expr ),+ $(,)? ) => {
-        #[allow(non_snake_case)]
-        pub struct EnvironmentConfig {
-            SIMULATION_TIME_MS: Duration,
-            LOCAL_SIMULATION: bool,
-            $( $name: f64, )+
-        }
-        impl EnvironmentConfig {
-            fn read() -> Self {
-                let ef = |name: &str, default: f64| -> f64 {
-                    env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
-                };
-                Self {
-                    SIMULATION_TIME_MS: Duration::from_millis(
-                        env::var("SIMULATION_TIME_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(200),
-                    ),
-                    LOCAL_SIMULATION: env::var("LOCAL_SIMULATION").is_ok_and(|v| !v.is_empty()),
-                    $( $name: ef(stringify!($name), $default), )+
-                }
-            }
-        }
-    }
-}
-
-env_config! {
-    // First Moves
-    SCORE_FIRST_MOVES_TOWARD_CENTER = 200.0,
-
-    // Situation Matches
-    SCORE_AVOID_MOVING_NEXT_TO_WALL = -20.0,
-    SCORE_GRAB_FOOD = 60.0,
-    SCORE_KILL_SITUATION = 100.0,
-    SCORE_RESTRICT_SITUATION = 50.0,
-
-    // Capture
-    SCORE_NOT_ENOUGH_AREA = -10.0,
-    SCORE_SQUEEZED_SNAKES = 100.0,
-    SCORE_FOOD = 70.0,
-    SCORE_FOOD_DECAY_COEFFICIENT = 0.2,
-    SCORE_ENEMY_PUSHED = 20.0,
-
-    // Wall Avoidance
-    SCORE_NEXT_TO_WALL = -20.0,
-
-    // Positioning
-    SCORE_ENEMY_MIDPOINT = 10.0,
-    SCORE_TOWARDS_CENTER = 5.0,
-}
 
 impl GamestateNodesSnake {
     pub fn new() -> Self {
@@ -85,22 +34,24 @@ impl GamestateNodesSnake {
     }
 
     pub fn child_priority_situations() -> SituationSet {
-        SituationSet::new(vec![Situation::multi_recommending(
-            "
+        SituationSet::new(vec![
+            Situation::multi_recommending(
+                "
                 W . .
                 W A .
                 W N B
                 ",
-            [Some(Direction::Up), Some(Direction::Up), None, None],
-            0.0,
-            "Fast Track",
-        )
-        .condition(
-            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
-                _ => false,
-            },
-        )])
+                [Some(Direction::Up), Some(Direction::Up), None, None],
+                0.0,
+                "Fast Track",
+            )
+            .condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                    _ => false,
+                },
+            ),
+        ])
     }
 
     pub fn root_evaluation_situations(env_config: &EnvironmentConfig) -> SituationSet {
