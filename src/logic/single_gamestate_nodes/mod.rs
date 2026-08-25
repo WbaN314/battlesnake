@@ -18,7 +18,7 @@ use crate::{
         },
     },
 };
-use env_config::EnvironmentConfig;
+use env_config::ENV_CONFIG;
 use log::warn;
 use std::sync::LazyLock;
 
@@ -110,14 +110,14 @@ static NODE_DIRECTION_PREFERENCE_SITUATIONS: LazyLock<SituationSet> = LazyLock::
     ])
 });
 
-static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {    let env_config = EnvironmentConfig::read();
+static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {
     SituationSet::new(vec![
         Situation::recommending(
             "
             W . A
             ",
             Direction::Left,
-            env_config.SCORE_AVOID_MOVING_NEXT_TO_WALL,
+            ENV_CONFIG.SCORE_AVOID_MOVING_NEXT_TO_WALL,
             "Avoid Moving Next to Wall",
         ),
         Situation::recommending(
@@ -125,7 +125,7 @@ static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {  
             X A
             ",
             Direction::Left,
-            env_config.SCORE_GRAB_FOOD,
+            ENV_CONFIG.SCORE_GRAB_FOOD,
             "Grab Food",
         )
         .condition(|snakes| snakes.length_gap_to_longest_other_snake() <= 2),
@@ -136,7 +136,7 @@ static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {  
             W W W
             ",
             Direction::Right,
-            env_config.SCORE_KILL_SITUATION,
+            ENV_CONFIG.SCORE_KILL_SITUATION,
             "editor_01",
         ),
         Situation::recommending(
@@ -146,7 +146,7 @@ static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {  
             W W
             ",
             Direction::Right,
-            env_config.SCORE_KILL_SITUATION,
+            ENV_CONFIG.SCORE_KILL_SITUATION,
             "editor_02",
         )
         .condition(
@@ -164,7 +164,7 @@ static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {  
             W W
             ",
             Direction::Right,
-            env_config.SCORE_RESTRICT_SITUATION,
+            ENV_CONFIG.SCORE_RESTRICT_SITUATION,
             "editor_06",
         )
         .condition(
@@ -185,7 +185,6 @@ impl GamestateNodesSnake {
         turn: u8,
         gamestate: &GameState<BasicField>,
         evaluation: &mut Evaluation,
-        env_config: &EnvironmentConfig,
     ) {
         evaluation.new_section("First Moves");
         if let Snake::Alive { head, .. } = gamestate.snakes().cell(0).get() {
@@ -197,7 +196,7 @@ impl GamestateNodesSnake {
                     if next_head.distance_to(center) < current_dist {
                         evaluation.score(
                             direction,
-                            env_config.SCORE_FIRST_MOVES_TOWARD_CENTER,
+                            ENV_CONFIG.SCORE_FIRST_MOVES_TOWARD_CENTER,
                             "Toward Center",
                         );
                     }
@@ -209,18 +208,17 @@ impl GamestateNodesSnake {
     fn simulation(
         gamestate: GameState<BasicField>,
         evaluation: &mut Evaluation,
-        env_config: &EnvironmentConfig,
     ) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .similarity_pruning(|_| 6)
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
-            .max_time(env_config.SIMULATION_TIME_MS);
+            .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();
 
-        if env_config.LOCAL_SIMULATION {
+        if ENV_CONFIG.LOCAL_SIMULATION {
             tree.log_depths();
         }
 
@@ -263,19 +261,18 @@ impl GamestateNodesSnake {
         &self,
         gamestate: &OriginalGameState,
     ) -> (OriginalDirection, String) {
-        let env_config = EnvironmentConfig::read();
         let turn = gamestate.turn as u8;
         let id = gamestate.game.id.clone();
         let gamestate: GameState<BasicField> = gamestate.into();
-        let mut evaluation = Evaluation::for_mode(env_config.LOCAL_SIMULATION);
+        let mut evaluation = Evaluation::for_mode(ENV_CONFIG.LOCAL_SIMULATION);
 
         #[cfg(debug_assertions)]
         println!("{}", gamestate);
 
-        Self::move_to_middle_first(turn, &gamestate, &mut evaluation, &env_config);
+        Self::move_to_middle_first(turn, &gamestate, &mut evaluation);
 
         // Simulation
-        Self::simulation(gamestate.clone(), &mut evaluation, &env_config);
+        Self::simulation(gamestate.clone(), &mut evaluation);
 
         // Situations
         ROOT_EVALUATION_SITUATIONS.evaluate(&gamestate, &mut evaluation);
@@ -291,7 +288,7 @@ impl GamestateNodesSnake {
             if let Some(turn) = result.not_enough_area_in_turn[0] {
                 evaluation.score(
                     direction,
-                    0.max(10 - turn as i8) as f64 * env_config.SCORE_NOT_ENOUGH_AREA,
+                    0.max(10 - turn as i8) as f64 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
                     "Not Enough Area",
                 );
             }
@@ -304,7 +301,7 @@ impl GamestateNodesSnake {
                     .count() as f64;
                 evaluation.score(
                     direction,
-                    squeezed_snakes * env_config.SCORE_SQUEEZED_SNAKES,
+                    squeezed_snakes * ENV_CONFIG.SCORE_SQUEEZED_SNAKES,
                     "Squeezed Snakes",
                 );
             }
@@ -323,10 +320,10 @@ impl GamestateNodesSnake {
             }
 
             for &(_, distance) in &result.food[0] {
-                let multiplier = (-env_config.SCORE_FOOD_DECAY_COEFFICIENT * distance as f64).exp();
+                let multiplier = (-ENV_CONFIG.SCORE_FOOD_DECAY_COEFFICIENT * distance as f64).exp();
                 evaluation.score(
                     direction,
-                    env_config.SCORE_FOOD * multiplier,
+                    ENV_CONFIG.SCORE_FOOD * multiplier,
                     format!("Food x {:.1}", multiplier),
                 );
             }
@@ -340,7 +337,7 @@ impl GamestateNodesSnake {
                     .copied()
                     .collect();
                 for d in best_dirs {
-                    evaluation.score(d, env_config.SCORE_ENEMY_PUSHED, "Enemy Pushed to Side");
+                    evaluation.score(d, ENV_CONFIG.SCORE_ENEMY_PUSHED, "Enemy Pushed to Side");
                 }
             }
         }
@@ -354,7 +351,7 @@ impl GamestateNodesSnake {
                     || next_head.y == 0
                     || next_head.y == HEIGHT - 1
                 {
-                    evaluation.score(direction, env_config.SCORE_NEXT_TO_WALL, "Next to Wall");
+                    evaluation.score(direction, ENV_CONFIG.SCORE_NEXT_TO_WALL, "Next to Wall");
                 }
             }
         }
@@ -367,7 +364,7 @@ impl GamestateNodesSnake {
             for direction in DIRECTIONS {
                 let next_head = head + direction;
                 if next_head.distance_to(center) < current_dist {
-                    evaluation.score(direction, env_config.SCORE_TOWARDS_CENTER, "Towards Center");
+                    evaluation.score(direction, ENV_CONFIG.SCORE_TOWARDS_CENTER, "Towards Center");
                 }
             }
             if number_of_alive_snakes <= 2 {
@@ -394,7 +391,7 @@ impl GamestateNodesSnake {
                         if next_head.distance_to(target) < current_dist {
                             evaluation.score(
                                 direction,
-                                env_config.SCORE_ENEMY_MIDPOINT,
+                                ENV_CONFIG.SCORE_ENEMY_MIDPOINT,
                                 "Toward Enemy Midpoint",
                             );
                         }

@@ -1,4 +1,6 @@
-use std::{env, time::Duration};
+use std::{env, sync::LazyLock, time::Duration};
+
+pub static ENV_CONFIG: LazyLock<EnvironmentConfig> = LazyLock::new(EnvironmentConfig::read);
 
 macro_rules! env_config {
     ( $( $name:ident = $default:expr ),+ $(,)? ) => {
