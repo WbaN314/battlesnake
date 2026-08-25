@@ -7,7 +7,7 @@ use crate::logic::{
         snake::Snake,
         snakes::SNAKES,
     },
-    single_gamestate_nodes::node::node_id::NodeId,
+    single_gamestate_nodes::{node::node_id::NodeId, situation::SituationSet},
 };
 use core::panic;
 use std::{collections::HashSet, fmt::Display};
@@ -23,11 +23,11 @@ pub enum PruneReason {
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
-    AliveFor(u8),       // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),         // Number of steps until certain death
-    ProbablyDeadIn(u8), // Number of steps until death if opponents play optimally
-    WinnerIn(u8),       // Number of steps until inevitable victory (if opponents play optimally)
-    NotSimulated,       // Status not yet determined as this direction has not been simulated
+    AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
+    DeadIn(u8),          // Number of steps until certain death
+    ProbablyDeadIn(u8),  // Number of steps until death if opponents play optimally
+    WinnerIn(u8),        // Number of steps until inevitable victory (if opponents play optimally)
+    NotSimulated,        // Status not yet determined as this direction has not been simulated
     Pruned(PruneReason), // Node was skipped: reason given by PruneReason
 }
 
@@ -122,7 +122,9 @@ impl NodeStatus {
             None => {
                 if child_states
                     .iter()
-                    .filter(|(_, status)| !matches!(status, NodeStatus::Pruned(PruneReason::LocalHashSimilarity)))
+                    .filter(|(_, status)| {
+                        !matches!(status, NodeStatus::Pruned(PruneReason::LocalHashSimilarity))
+                    })
                     .all(|(_, status)| matches!(status, NodeStatus::Pruned(PruneReason::MaxDepth)))
                 {
                     return NodeStatus::AliveFor(0);
@@ -210,7 +212,9 @@ impl Display for NodeStatus {
             NodeStatus::ProbablyDeadIn(n) => write!(f, "ProbablyDeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
-            NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => write!(f, "Pruned(LocalHashSimilarity)"),
+            NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => {
+                write!(f, "Pruned(LocalHashSimilarity)")
+            }
             NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
         }
     }
@@ -226,6 +230,7 @@ pub struct Node {
     pinned_status: Option<NodeStatus>,
     priority: i8,
     move_matrix: MoveMatrix,
+    ordered_directions: Option<[Direction; 4]>, // Order in which directions should be simulated
 }
 
 impl Node {
@@ -249,6 +254,7 @@ impl Node {
             pinned_status: None,
             priority: 0,
             move_matrix,
+            ordered_directions: None,
         }
     }
 
@@ -347,13 +353,19 @@ impl Node {
     }
 
     /// This method can be called multiple times to simulate the node in a stepwise manner. It will return None when all directions have been simulated.
-    pub fn simulate(&mut self, similarity_pruning_distance: Option<u8>) -> Option<Vec<Node>> {
+    pub fn simulate(
+        &mut self,
+        similarity_pruning_distance: Option<u8>,
+        direction_preference_situations: Option<&SituationSet>,
+    ) -> Option<Vec<Node>> {
         debug_assert!(
             self.status != NodeStatus::WinnerIn(0),
             "Should never simulate a node that is a new winner"
         );
 
-        'direction: while let Some((direction, move_matrix)) = self.next_direction() {
+        'direction: while let Some((direction, move_matrix)) =
+            self.next_direction(direction_preference_situations)
+        {
             let mut children: Vec<Node> = Vec::new();
             let mut similarity_set: HashSet<u64> = HashSet::new();
 
@@ -410,7 +422,41 @@ impl Node {
         return None;
     }
 
-    fn next_direction(&mut self) -> Option<(Direction, MoveMatrix)> {
+    fn next_direction(
+        &mut self,
+        direction_preference_situations: Option<&SituationSet>,
+    ) -> Option<(Direction, MoveMatrix)> {
+        if self.ordered_directions.is_none() {
+            self.ordered_directions = Some(self.order_directions(direction_preference_situations));
+        }
+
+        for d in self.ordered_directions.unwrap() {
+            if self.direction_states[d as usize] == NodeStatus::NotSimulated {
+                if self.move_matrix.get(0).is_valid(d) {
+                    let new_move_vector = MoveVector::from(d);
+                    let mut stripped_move_matrix = self.move_matrix.clone();
+                    stripped_move_matrix.set(0, new_move_vector);
+                    return Some((d, stripped_move_matrix));
+                } else {
+                    self.update_direction_status(d.into());
+                }
+            }
+        }
+        self.update_status();
+        None
+    }
+
+    fn order_directions(
+        &self,
+        direction_preference_situations: Option<&SituationSet>,
+    ) -> [Direction; 4] {
+        
+        if let Some(situations) = direction_preference_situations {
+            if let Some(directions) = situations.check(&self.gamestate) {
+                return directions.map(|d| d.unwrap());
+            }
+        }
+
         let mut preferred_directions = DIRECTIONS;
         let mut distance = u8::MAX;
         if let Snake::Alive { head: my_head, .. } = self.gamestate.snakes().cell(0).get() {
@@ -442,22 +488,8 @@ impl Node {
                     }
                 }
             }
-        };
-
-        for d in preferred_directions {
-            if self.direction_states[d as usize] == NodeStatus::NotSimulated {
-                if self.move_matrix.get(0).is_valid(d) {
-                    let new_move_vector = MoveVector::from(d);
-                    let mut stripped_move_matrix = self.move_matrix.clone();
-                    stripped_move_matrix.set(0, new_move_vector);
-                    return Some((d, stripped_move_matrix));
-                } else {
-                    self.update_direction_status(d.into());
-                }
-            }
         }
-        self.update_status();
-        None
+        preferred_directions
     }
 }
 
@@ -536,8 +568,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None).is_some() {
-            node.simulate(None);
+        while node.simulate(None, None).is_some() {
+            node.simulate(None, None);
         }
         // All direction statuses should be AliveFor(0) or DeadIn(0)
         for i in DIRECTIONS {
@@ -551,14 +583,14 @@ mod tests {
         }
         // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None).is_none());
+        assert!(node.simulate(None, None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
         // Simulate only the first two directions
-        node.simulate(None);
+        node.simulate(None, None);
         println!("{}", node);
     }
 
@@ -721,7 +753,7 @@ mod benchmarks {
             // Fresh clone per iteration so each call starts from a clean, unsimulated node.
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None)))
+            black_box(node.simulate(black_box(None), None))
         });
     }
 
@@ -730,7 +762,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None); // explore one direction
+                n.simulate(None, None); // explore one direction
                 n
             })
             .collect();
@@ -749,7 +781,7 @@ mod benchmarks {
             .into_iter()
             .filter_map(|mut parent| {
                 // Simulate one direction to populate a children list.
-                let children = parent.simulate(None)?;
+                let children = parent.simulate(None, None)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })

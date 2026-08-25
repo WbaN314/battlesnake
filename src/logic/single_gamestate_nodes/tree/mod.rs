@@ -1,5 +1,5 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::node::{Node, NodeStatus, PruneReason, node_id::NodeId},
+    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::{node::{Node, NodeStatus, PruneReason, node_id::NodeId}, situation::SituationSet},
 };
 use log::{debug, trace};
 use std::{
@@ -21,7 +21,8 @@ pub struct Tree {
     max_nodes: usize,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
-    child_priority_situations: Option<Rc<dyn Fn(&Node) -> Option<Moves>>>,
+    child_priority_situations: Option<SituationSet>,
+    node_direction_preference_situations: Option<SituationSet>,
 }
 
 impl Tree {
@@ -39,6 +40,7 @@ impl Tree {
             all_root_directions: false,
             similarity_distance_fn: None,
             child_priority_situations: None,
+            node_direction_preference_situations: None,
         }
     }
 
@@ -67,11 +69,11 @@ impl Tree {
         self
     }
 
-    pub fn child_priority_function(
+    pub fn child_priority_situations(
         mut self,
-        child_priority_fn: impl Fn(&Node) -> Option<Moves> + 'static,
+        child_priority_situations: SituationSet,
     ) -> Self {
-        self.child_priority_situations = Some(Rc::new(child_priority_fn));
+        self.child_priority_situations = Some(child_priority_situations);
         self
     }
 
@@ -144,7 +146,7 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
 
-        let child_nodes = node.simulate(similarity_pruning_distance);
+        let child_nodes = node.simulate(similarity_pruning_distance, self.node_direction_preference_situations.as_ref());
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
 
@@ -191,11 +193,11 @@ impl Tree {
             children[0].set_priority(2);
         }
         // If a fast track function is defined, use it to set priorities and simulated snakes for children
-        else if let Some(fast_track_fn) = self.child_priority_situations.as_ref() {
+        else if let Some(child_priority_situations) = self.child_priority_situations.as_ref() {
             for child in children.iter_mut() {
-                if let Some(moves) = fast_track_fn(&child) {
+                if let Some(moves) = child_priority_situations.check(&child.gamestate()) {
                     child.set_priority(2);
-                    child.set_moves(moves);
+                    child.set_moves(*moves);
                 }
             }
         }
@@ -626,8 +628,7 @@ mod tests {
 
     #[test]
     fn option_fast_track() {
-        let situation = Rc::new(
-            Situation::multi_recommending(
+        let situation = Situation::multi_recommending(
                 "
                 W . *
                 W A .
@@ -642,18 +643,10 @@ mod tests {
                     (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                     _ => false,
                 },
-            ),
-        );
+            );
         test_against_base_simulation(
             |tree| {
-                let situation = situation.clone();
-                tree.child_priority_function(move |node| {
-                    if let Some(situation_match) = situation.check(node.gamestate()) {
-                        Some(*situation_match)
-                    } else {
-                        None
-                    }
-                })
+                tree.child_priority_situations(SituationSet::new(vec![situation.clone()]))
             },
             |baseline_tree, tree, filename| {
                 let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -680,13 +673,7 @@ mod tests {
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
-        .child_priority_function(move |node| {
-            if let Some(situation_match) = situation.check(node.gamestate()) {
-                Some(*situation_match)
-            } else {
-                None
-            }
-        })
+        .child_priority_situations(SituationSet::new(vec![situation]))
         .max_time(Duration::from_millis(200));
         tree.simulate();
         assert_eq!(tree.result()[1], NodeStatus::ProbablyDeadIn(7));
@@ -694,8 +681,7 @@ mod tests {
 
     #[test]
     fn display_tree() {
-        let situation = Rc::new(
-            Situation::multi_recommending(
+        let situation = Situation::multi_recommending(
                 "
                 W . .
                 W A .
@@ -710,21 +696,14 @@ mod tests {
                     (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
                     _ => false,
                 },
-            ),
-        );
+            );
 
         let mut tree = create_tree_from_gamestate(
             "requests/failure_43.json",
         )
         .all_root_directions()
         .similarity_pruning(|_| 6)
-        .child_priority_function(move |node| {
-            if let Some(situation_match) = situation.check(node.gamestate()) {
-                Some(*situation_match)
-            } else {
-                None
-            }
-        })
+        .child_priority_situations(SituationSet::new(vec![situation]))
         .max_time(Duration::from_millis(200));
         tree.simulate();
         // println!("{}", tree);

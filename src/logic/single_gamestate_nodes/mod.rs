@@ -54,9 +54,66 @@ impl GamestateNodesSnake {
         ])
     }
 
+    pub fn direction_priority_situations() -> SituationSet {
+        SituationSet::new(vec![
+            Situation::multi_recommending(
+                "
+                A
+                .
+                .
+                .
+                B
+                W
+                ",
+                [Some(Direction::Down), Some(Direction::Up), Some(Direction::Left), Some(Direction::Right)],
+                0.0,
+                "editor_07",
+            ).condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
+                },
+            ),
+            Situation::multi_recommending(
+                "
+                A .
+                . .
+                . .
+                N B
+                W W
+                ",
+                [Some(Direction::Right), Some(Direction::Down), Some(Direction::Up), Some(Direction::Left)],
+                0.0,
+                "editor_06",
+            ).condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
+                },
+            ),
+            Situation::multi_recommending(
+                "
+                * A
+                . .
+                . .
+                B .
+                W W
+                ",
+                [Some(Direction::Down), Some(Direction::Left), Some(Direction::Up), Some(Direction::Right)],
+                0.0,
+                "editor_05",
+            ).condition(
+                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                    _ => false,
+                },
+            ),
+        ])
+    }
+
     pub fn root_evaluation_situations(env_config: &EnvironmentConfig) -> SituationSet {
         // Evaluate situations and return or avoid direction
-        let situation_set = SituationSet::new(vec![
+        SituationSet::new(vec![
             Situation::recommending(
                 "
                 W . A
@@ -119,8 +176,7 @@ impl GamestateNodesSnake {
                     _ => false,
                 },
             ),
-        ]);
-        situation_set
+        ])
     }
 
     fn move_to_middle_first(
@@ -156,12 +212,7 @@ impl GamestateNodesSnake {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .similarity_pruning(|_| 6)
-            .child_priority_function(move |node| {
-                match Self::child_priority_situations().check(node.gamestate()) {
-                    Some(situation_match) => Some(*situation_match),
-                    None => None,
-                }
-            })
+            .child_priority_situations(Self::child_priority_situations())
             .max_time(env_config.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();

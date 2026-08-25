@@ -18,6 +18,7 @@ impl Deref for SituationMatch {
     }
 }
 
+#[derive(Clone)]
 struct SituationPattern {
     fields: Vec<SituationField>,
     width: usize,
@@ -195,6 +196,7 @@ impl fmt::Display for SituationPattern {
     }
 }
 
+#[derive(Clone)]
 pub struct SituationSet {
     situations: Vec<Situation>,
 }
@@ -225,6 +227,7 @@ impl SituationSet {
     }
 }
 
+#[derive(Clone)]
 pub struct Situation {
     patterns: Vec<SituationPattern>,
     condition: Option<fn(Snakes) -> bool>,
