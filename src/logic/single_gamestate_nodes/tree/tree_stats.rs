@@ -36,7 +36,7 @@ pub struct TreeStats {
     pub root_status: NodeStatus,
     pub direction_stats: Vec<DirectionStats>,
     pub queue_remaining: usize,
-    pub avg_branching_factor: f64,
+    pub avg_branching_factor: f32,
     pub memory_estimate_bytes: usize,
     pub duration: Duration,
 }
@@ -218,7 +218,7 @@ impl Tree {
             .nodes
             .iter()
             .filter(|(id, n)| {
-                !children_map.contains_key(id) && matches!(n.status(), NodeStatus::AliveFor(_))
+                !children_map.contains_key(id) && matches!(n.status(), NodeStatus::AliveFor(_, _))
             })
             .count();
 
@@ -230,8 +230,8 @@ impl Tree {
         let avg_branching_factor = if internal_nodes.is_empty() {
             0.0
         } else {
-            internal_nodes.iter().map(|(_, c)| c.len()).sum::<usize>() as f64
-                / internal_nodes.len() as f64
+            internal_nodes.iter().map(|(_, c)| c.len()).sum::<usize>() as f32
+                / internal_nodes.len() as f32
         };
 
         // Per-direction stats for root
@@ -280,10 +280,10 @@ impl Tree {
             .zip(results.iter())
             .map(|((dir, ds), status)| {
                 let depth = match status {
-                    NodeStatus::AliveFor(n)
-                    | NodeStatus::DeadIn(n)
-                    | NodeStatus::WinnerIn(n)
-                    | NodeStatus::ProbablyDeadIn(n) => format!("{}", n),
+                    NodeStatus::AliveFor(n, _)
+                    | NodeStatus::DeadIn(n, _)
+                    | NodeStatus::WinnerIn(n, _)
+                    | NodeStatus::ProbablyDeadIn(n, _) => format!("{}", n),
                     _ => "null".to_string(),
                 };
                 format!("\"{}\":{{\"depth\":{},\"nodes\":{}}}", dir, depth, ds.subtree_size)

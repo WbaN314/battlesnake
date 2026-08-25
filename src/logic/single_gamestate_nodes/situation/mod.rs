@@ -210,6 +210,12 @@ impl SituationSet {
         self.situations.iter().find_map(|s| s.check(gamestate))
     }
 
+    pub fn score(&self, gamestate: &GameState<BasicField>) -> Option<f32> {
+        self.situations
+            .iter()
+            .find_map(|s| s.score(gamestate))
+    }
+
     pub fn evaluate(
         &self,
         gamestate: &GameState<BasicField>,
@@ -231,12 +237,12 @@ impl SituationSet {
 pub struct Situation {
     patterns: Vec<SituationPattern>,
     condition: Option<fn(Snakes) -> bool>,
-    score: f64,
+    score: f32,
     detail: String,
 }
 
 impl Situation {
-    pub fn recommending(str: &str, direction: Direction, score: f64, detail: impl Into<String>) -> Self {
+    pub fn recommending(str: &str, direction: Direction, score: f32, detail: impl Into<String>) -> Self {
         Self::build(
             str,
             SituationMatch([Some(direction), None, None, None]),
@@ -248,13 +254,13 @@ impl Situation {
     pub fn multi_recommending(
         str: &str,
         directions: [Option<Direction>; SNAKES],
-        score: f64,
+        score: f32,
         detail: impl Into<String>,
     ) -> Self {
         Self::build(str, SituationMatch(directions), score, detail)
     }
 
-    fn build(str: &str, result: SituationMatch, score: f64, detail: impl Into<String>) -> Self {
+    fn build(str: &str, result: SituationMatch, score: f32, detail: impl Into<String>) -> Self {
         Self {
             patterns: vec![SituationPattern::parse(str, result)],
             condition: None,
@@ -300,6 +306,10 @@ impl Situation {
 
     pub fn check(&self, gamestate: &GameState<BasicField>) -> Option<SituationMatch> {
         self.patterns.iter().find_map(|p| self.check_pattern(p, gamestate))
+    }
+
+    pub fn score(&self, gamestate: &GameState<BasicField>) -> Option<f32> {
+        self.check(gamestate).map(|_| self.score)
     }
 
     pub fn check_all(&self, gamestate: &GameState<BasicField>) -> Vec<SituationMatch> {

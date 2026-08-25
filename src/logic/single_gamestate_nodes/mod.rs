@@ -226,22 +226,22 @@ impl GamestateNodesSnake {
         evaluation.new_section("Simulation");
         for (index, result) in result.into_iter().enumerate() {
             match result {
-                NodeStatus::ProbablyDeadIn(n) => evaluation.eliminate(
+                NodeStatus::ProbablyDeadIn(n, _) => evaluation.eliminate(
                     index.try_into().unwrap(),
                     100 + n,
                     format!("Probably Dead In {}", n),
                 ),
-                NodeStatus::DeadIn(n) => {
+                NodeStatus::DeadIn(n, _) => {
                     evaluation.eliminate(index.try_into().unwrap(), n, format!("Dead In {}", n))
                 }
-                NodeStatus::AliveFor(n) => {
+                NodeStatus::AliveFor(n, _) => {
                     evaluation.score(
                         index.try_into().unwrap(),
-                        n as f64 * 0.1,
+                        n as f32 * 0.1,
                         format!("Alive For {}", n),
                     );
                 }
-                NodeStatus::WinnerIn(n) => {
+                NodeStatus::WinnerIn(n, _) => {
                     evaluation.score(
                         index.try_into().unwrap(),
                         1000.0,
@@ -288,7 +288,7 @@ impl GamestateNodesSnake {
             if let Some(turn) = result.not_enough_area_in_turn[0] {
                 evaluation.score(
                     direction,
-                    0.max(10 - turn as i8) as f64 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
+                    0.max(10 - turn as i8) as f32 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
                     "Not Enough Area",
                 );
             }
@@ -298,7 +298,7 @@ impl GamestateNodesSnake {
                 let squeezed_snakes = result.not_enough_area_in_turn[1..]
                     .iter()
                     .filter(|x| x.is_some())
-                    .count() as f64;
+                    .count() as f32;
                 evaluation.score(
                     direction,
                     squeezed_snakes * ENV_CONFIG.SCORE_SQUEEZED_SNAKES,
@@ -307,7 +307,7 @@ impl GamestateNodesSnake {
             }
             evaluation.score(
                 direction,
-                result.flooded_area[0].len() as f64,
+                result.flooded_area[0].len() as f32,
                 "Flooded Area",
             );
 
@@ -320,7 +320,7 @@ impl GamestateNodesSnake {
             }
 
             for &(_, distance) in &result.food[0] {
-                let multiplier = (-ENV_CONFIG.SCORE_FOOD_DECAY_COEFFICIENT * distance as f64).exp();
+                let multiplier = (-ENV_CONFIG.SCORE_FOOD_DECAY_COEFFICIENT * distance as f32).exp();
                 evaluation.score(
                     direction,
                     ENV_CONFIG.SCORE_FOOD * multiplier,

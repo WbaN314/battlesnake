@@ -8,11 +8,11 @@ macro_rules! env_config {
         pub struct EnvironmentConfig {
             pub SIMULATION_TIME_MS: Duration,
             pub LOCAL_SIMULATION: bool,
-            $( pub $name: f64, )+
+            $( pub $name: f32, )+
         }
         impl EnvironmentConfig {
             pub fn read() -> Self {
-                let ef = |name: &str, default: f64| -> f64 {
+                let ef = |name: &str, default: f32| -> f32 {
                     env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
                 };
                 Self {

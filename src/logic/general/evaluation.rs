@@ -51,7 +51,7 @@ impl Evaluation {
         });
     }
 
-    pub fn score(&mut self, direction: Direction, score: f64, detail: impl Into<String>) {
+    pub fn score(&mut self, direction: Direction, score: f32, detail: impl Into<String>) {
         let section = self.sections.last_mut().unwrap();
         let index = direction as usize;
         section.score_details[index].push((score, detail.into()));
@@ -131,11 +131,11 @@ impl Evaluation {
         Direction::Up
     }
 
-    fn total_scores(&self) -> [f64; 4] {
-        let mut totals = [0.0; 4];
+    fn total_scores(&self) -> [f32; 4] {
+        let mut totals = [0.0f32; 4];
         for section in &self.sections {
             for (i, details) in section.score_details.iter().enumerate() {
-                totals[i] += details.iter().map(|(score, _)| *score).sum::<f64>();
+                totals[i] += details.iter().map(|(score, _)| *score).sum::<f32>();
             }
         }
         totals
@@ -146,10 +146,10 @@ impl Evaluation {
 struct EvaluationSection {
     name: String,
     elimination_score: [Option<(u8, String)>; 4],
-    score_details: [Vec<(f64, String)>; 4],
+    score_details: [Vec<(f32, String)>; 4],
 }
 
-fn fmt_score(v: f64) -> String {
+fn fmt_score(v: f32) -> String {
     if v == 0.0 { "0".to_string() } else { format!("{:.1}", v) }
 }
 
@@ -179,7 +179,7 @@ impl Display for Evaluation {
                     let scores: Vec<String> = DIRECTIONS
                         .iter()
                         .map(|d| {
-                            let total: f64 = s.score_details[*d as usize]
+                            let total: f32 = s.score_details[*d as usize]
                                 .iter()
                                 .filter(|(_, l)| l == label)
                                 .map(|(v, _)| *v)
@@ -242,7 +242,7 @@ impl Display for Evaluation {
                     .iter()
                     .map(|direction| {
                         let index = *direction as usize;
-                        let score = fmt_score(section.score_details[index].iter().map(|(s, _)| *s).sum::<f64>());
+                        let score = fmt_score(section.score_details[index].iter().map(|(s, _)| *s).sum::<f32>());
                         if prior_directions[index] && !section_directions[index] {
                             "X".to_string()
                         } else if score == "0" {
@@ -288,7 +288,7 @@ impl Display for Evaluation {
                         .iter()
                         .map(|direction| {
                             let index = *direction as usize;
-                            let entries: Vec<f64> = section.score_details[index]
+                            let entries: Vec<f32> = section.score_details[index]
                                 .iter()
                                 .filter(|(_, l)| l == &label)
                                 .map(|(s, _)| *s)

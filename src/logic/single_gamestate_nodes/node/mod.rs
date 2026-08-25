@@ -15,6 +15,9 @@ use std::{collections::HashSet, fmt::Display};
 pub mod node_id;
 mod node_stats;
 
+#[derive(Copy, Clone, Debug, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct NodeScore(pub i16);
+
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PruneReason {
     MaxDepth,
@@ -23,21 +26,21 @@ pub enum PruneReason {
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
-    AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),          // Number of steps until certain death
-    ProbablyDeadIn(u8),  // Number of steps until death if opponents play optimally
-    WinnerIn(u8),        // Number of steps until inevitable victory (if opponents play optimally)
-    NotSimulated,        // Status not yet determined as this direction has not been simulated
-    Pruned(PruneReason), // Node was skipped: reason given by PruneReason
+    AliveFor(u8, NodeScore), // Number of steps where we have checked with guaranteed survival
+    DeadIn(u8, NodeScore),   // Number of steps until certain death
+    ProbablyDeadIn(u8, NodeScore), // Number of steps until death if opponents play optimally
+    WinnerIn(u8, NodeScore), // Number of steps until inevitable victory (if opponents play optimally)
+    NotSimulated,            // Status not yet determined as this direction has not been simulated
+    Pruned(PruneReason),     // Node was skipped: reason given by PruneReason
 }
 
 impl NodeStatus {
     pub fn increment(self) -> NodeStatus {
         match self {
-            NodeStatus::AliveFor(n) => NodeStatus::AliveFor(n + 1),
-            NodeStatus::DeadIn(n) => NodeStatus::DeadIn(n + 1),
-            NodeStatus::WinnerIn(n) => NodeStatus::WinnerIn(n + 1),
-            NodeStatus::ProbablyDeadIn(n) => NodeStatus::ProbablyDeadIn(n + 1),
+            NodeStatus::AliveFor(n, score) => NodeStatus::AliveFor(n + 1, score),
+            NodeStatus::DeadIn(n, score) => NodeStatus::DeadIn(n + 1, score),
+            NodeStatus::WinnerIn(n, score) => NodeStatus::WinnerIn(n + 1, score),
+            NodeStatus::ProbablyDeadIn(n, score) => NodeStatus::ProbablyDeadIn(n + 1, score),
             _ => panic!("Cannot increment status: {}", self),
         }
     }
@@ -45,10 +48,10 @@ impl NodeStatus {
     pub fn is_comparable(self) -> bool {
         matches!(
             self,
-            NodeStatus::AliveFor(_)
-                | NodeStatus::DeadIn(_)
-                | NodeStatus::WinnerIn(_)
-                | NodeStatus::ProbablyDeadIn(_)
+            NodeStatus::AliveFor(_, _)
+                | NodeStatus::DeadIn(_, _)
+                | NodeStatus::WinnerIn(_, _)
+                | NodeStatus::ProbablyDeadIn(_, _)
         )
     }
 
@@ -60,23 +63,47 @@ impl NodeStatus {
         }
     }
 
+    pub fn set_score(self, score: NodeScore) -> NodeStatus {
+        match self {
+            NodeStatus::AliveFor(n, _) => NodeStatus::AliveFor(n, score),
+            NodeStatus::DeadIn(n, _) => NodeStatus::DeadIn(n, score),
+            NodeStatus::WinnerIn(n, _) => NodeStatus::WinnerIn(n, score),
+            NodeStatus::ProbablyDeadIn(n, _) => NodeStatus::ProbablyDeadIn(n, score),
+            _ => panic!("Cannot set score for status: {}", self),
+        }
+    }
+
+    pub fn score(self) -> Option<NodeScore> {
+        match self {
+            NodeStatus::AliveFor(_, score)
+            | NodeStatus::DeadIn(_, score)
+            | NodeStatus::WinnerIn(_, score)
+            | NodeStatus::ProbablyDeadIn(_, score) => Some(score),
+            _ => None,
+        }
+    }
+
     // Max part of MinMax, pick best direction status to determine parent status.
     pub fn calculate_from_direction_states(direction_states: &[NodeStatus; 4]) -> NodeStatus {
         let best = direction_states
             .iter()
             .filter_map(|s| s.for_comparison())
-            .max_by(|x, y| x.partial_cmp(y).unwrap());
+            .max_by(|x, y| {
+                x.partial_cmp(y)
+                    .unwrap()
+                    .then_with(|| x.score().unwrap().cmp(&y.score().unwrap()))
+            });
 
         match best {
-            None => NodeStatus::AliveFor(0), // No directions explored yet
-            Some(s @ NodeStatus::AliveFor(_)) => s.increment(),
-            Some(s @ NodeStatus::WinnerIn(_)) => s.increment(),
-            Some(s @ NodeStatus::DeadIn(_)) | Some(s @ NodeStatus::ProbablyDeadIn(_)) => {
+            None => NodeStatus::AliveFor(0, NodeScore(0)), // No directions explored yet
+            Some(s @ NodeStatus::AliveFor(_, _)) => s.increment(),
+            Some(s @ NodeStatus::WinnerIn(_, _)) => s.increment(),
+            Some(s @ NodeStatus::DeadIn(_, _)) | Some(s @ NodeStatus::ProbablyDeadIn(_, _)) => {
                 if direction_states
                     .iter()
                     .any(|s| matches!(s, NodeStatus::NotSimulated))
                 {
-                    NodeStatus::AliveFor(0)
+                    NodeStatus::AliveFor(0, NodeScore(0)) // If there are unexplored directions, we assume we are still alive
                 } else {
                     s.increment()
                 }
@@ -88,7 +115,7 @@ impl NodeStatus {
     /// Min part of MinMax, pick worst child status to determine direction status.
     pub fn calculate_from_child_states(child_states: &Vec<(Moves, NodeStatus)>) -> NodeStatus {
         if child_states.is_empty() {
-            return NodeStatus::DeadIn(0);
+            return NodeStatus::DeadIn(0, NodeScore(0));
         }
 
         let worst = child_states
@@ -96,27 +123,33 @@ impl NodeStatus {
             .filter_map(|(_, s)| s.for_comparison())
             .min_by(|x, y| x.partial_cmp(y).unwrap());
 
+        let worst_score = child_states
+            .iter()
+            .filter_map(|(_, s)| s.score())
+            .min()
+            .unwrap_or(NodeScore(0));
+
         match worst {
-            Some(s @ NodeStatus::AliveFor(_)) => s,
-            Some(s @ NodeStatus::WinnerIn(_)) => s,
-            Some(s @ NodeStatus::ProbablyDeadIn(_)) => s,
-            Some(NodeStatus::DeadIn(_)) => {
+            Some(s @ NodeStatus::AliveFor(_, _)) => s.set_score(worst_score),
+            Some(s @ NodeStatus::WinnerIn(_, _)) => s.set_score(worst_score),
+            Some(s @ NodeStatus::ProbablyDeadIn(_, _)) => s.set_score(worst_score),
+            Some(NodeStatus::DeadIn(_, _)) => {
                 let disable_dead_in = child_states.iter().any(|(_, s)| {
-                    matches!(s, NodeStatus::AliveFor(_))
-                        | matches!(s, NodeStatus::ProbablyDeadIn(_))
+                    matches!(s, NodeStatus::AliveFor(_, _))
+                        | matches!(s, NodeStatus::ProbablyDeadIn(_, _))
                 });
                 let lowest_n_between_dead_and_probably_dead = child_states
                     .iter()
                     .filter_map(|(_, s)| match s {
-                        NodeStatus::DeadIn(n) | NodeStatus::ProbablyDeadIn(n) => Some(*n),
+                        NodeStatus::DeadIn(n, _) | NodeStatus::ProbablyDeadIn(n, _) => Some(*n),
                         _ => None,
                     })
                     .min()
                     .unwrap();
                 if disable_dead_in {
-                    NodeStatus::ProbablyDeadIn(lowest_n_between_dead_and_probably_dead)
+                    NodeStatus::ProbablyDeadIn(lowest_n_between_dead_and_probably_dead, worst_score)
                 } else {
-                    NodeStatus::DeadIn(lowest_n_between_dead_and_probably_dead)
+                    NodeStatus::DeadIn(lowest_n_between_dead_and_probably_dead, worst_score)
                 }
             }
             None => {
@@ -127,7 +160,7 @@ impl NodeStatus {
                     })
                     .all(|(_, status)| matches!(status, NodeStatus::Pruned(PruneReason::MaxDepth)))
                 {
-                    return NodeStatus::AliveFor(0);
+                    NodeStatus::AliveFor(0, NodeScore(0))
                 } else {
                     panic!("All children have weird states: {:?}", child_states);
                 }
@@ -148,50 +181,56 @@ impl PartialEq for NodeStatus {
 impl PartialOrd for NodeStatus {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {
-            (NodeStatus::AliveFor(n), NodeStatus::AliveFor(m)) => Some(n.cmp(m)),
-            (NodeStatus::DeadIn(n), NodeStatus::DeadIn(m)) => Some(n.cmp(m)),
-            (NodeStatus::WinnerIn(n), NodeStatus::WinnerIn(m)) => Some(m.cmp(n)),
-            (NodeStatus::ProbablyDeadIn(n), NodeStatus::ProbablyDeadIn(m)) => Some(n.cmp(m)),
+            (NodeStatus::AliveFor(n, _), NodeStatus::AliveFor(m, _)) => Some(n.cmp(m)),
+            (NodeStatus::DeadIn(n, _), NodeStatus::DeadIn(m, _)) => Some(n.cmp(m)),
+            (NodeStatus::WinnerIn(n, _), NodeStatus::WinnerIn(m, _)) => Some(m.cmp(n)),
+            (NodeStatus::ProbablyDeadIn(n, _), NodeStatus::ProbablyDeadIn(m, _)) => Some(n.cmp(m)),
 
             // Alive, Dead
-            (NodeStatus::AliveFor(_), NodeStatus::DeadIn(_)) => Some(std::cmp::Ordering::Greater),
-            (a @ NodeStatus::DeadIn(_), b @ NodeStatus::AliveFor(_)) => {
+            (NodeStatus::AliveFor(_, _), NodeStatus::DeadIn(_, _)) => {
+                Some(std::cmp::Ordering::Greater)
+            }
+            (a @ NodeStatus::DeadIn(_, _), b @ NodeStatus::AliveFor(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
             // Alive, Winner
-            (NodeStatus::AliveFor(_), NodeStatus::WinnerIn(_)) => Some(std::cmp::Ordering::Less),
-            (a @ NodeStatus::WinnerIn(_), b @ NodeStatus::AliveFor(_)) => {
+            (NodeStatus::AliveFor(_, _), NodeStatus::WinnerIn(_, _)) => {
+                Some(std::cmp::Ordering::Less)
+            }
+            (a @ NodeStatus::WinnerIn(_, _), b @ NodeStatus::AliveFor(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
             // Dead, Winner
-            (NodeStatus::DeadIn(_), NodeStatus::WinnerIn(_)) => Some(std::cmp::Ordering::Less),
-            (a @ NodeStatus::WinnerIn(_), b @ NodeStatus::DeadIn(_)) => {
+            (NodeStatus::DeadIn(_, _), NodeStatus::WinnerIn(_, _)) => {
+                Some(std::cmp::Ordering::Less)
+            }
+            (a @ NodeStatus::WinnerIn(_, _), b @ NodeStatus::DeadIn(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
             // ProbablyDead, Alive
-            (NodeStatus::ProbablyDeadIn(_), NodeStatus::AliveFor(_)) => {
+            (NodeStatus::ProbablyDeadIn(_, _), NodeStatus::AliveFor(_, _)) => {
                 Some(std::cmp::Ordering::Less)
             }
-            (a @ NodeStatus::AliveFor(_), b @ NodeStatus::ProbablyDeadIn(_)) => {
+            (a @ NodeStatus::AliveFor(_, _), b @ NodeStatus::ProbablyDeadIn(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
             // ProbablyDead, Dead
-            (NodeStatus::ProbablyDeadIn(_), NodeStatus::DeadIn(_)) => {
+            (NodeStatus::ProbablyDeadIn(_, _), NodeStatus::DeadIn(_, _)) => {
                 Some(std::cmp::Ordering::Greater)
             }
-            (a @ NodeStatus::DeadIn(_), b @ NodeStatus::ProbablyDeadIn(_)) => {
+            (a @ NodeStatus::DeadIn(_, _), b @ NodeStatus::ProbablyDeadIn(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
             // ProbablyDead, Winner
-            (NodeStatus::ProbablyDeadIn(_), NodeStatus::WinnerIn(_)) => {
+            (NodeStatus::ProbablyDeadIn(_, _), NodeStatus::WinnerIn(_, _)) => {
                 Some(std::cmp::Ordering::Less)
             }
-            (a @ NodeStatus::WinnerIn(_), b @ NodeStatus::ProbablyDeadIn(_)) => {
+            (a @ NodeStatus::WinnerIn(_, _), b @ NodeStatus::ProbablyDeadIn(_, _)) => {
                 b.partial_cmp(a).map(|o| o.reverse())
             }
 
@@ -207,15 +246,15 @@ impl PartialOrd for NodeStatus {
 impl Display for NodeStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NodeStatus::AliveFor(n) => write!(f, "AliveFor({})", n),
-            NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
-            NodeStatus::ProbablyDeadIn(n) => write!(f, "ProbablyDeadIn({})", n),
+            NodeStatus::AliveFor(n, _) => write!(f, "AliveFor({})", n),
+            NodeStatus::DeadIn(n, _) => write!(f, "DeadIn({})", n),
+            NodeStatus::ProbablyDeadIn(n, _) => write!(f, "ProbablyDeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
             NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => {
                 write!(f, "Pruned(LocalHashSimilarity)")
             }
-            NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
+            NodeStatus::WinnerIn(n, _) => write!(f, "WinnerIn({})", n),
         }
     }
 }
@@ -227,6 +266,7 @@ pub struct Node {
     children_states_per_direction: [Vec<(Moves, NodeStatus)>; 4],
     direction_states: [NodeStatus; 4],
     status: NodeStatus,
+    local_score: NodeScore,
     pinned_status: Option<NodeStatus>,
     priority: i8,
     move_matrix: MoveMatrix,
@@ -236,11 +276,11 @@ pub struct Node {
 impl Node {
     pub fn new(id: NodeId, gamestate: GameState<BasicField>) -> Self {
         let status = if !gamestate.is_alive(0) {
-            NodeStatus::DeadIn(0)
+            NodeStatus::DeadIn(0, NodeScore(0))
         } else if gamestate.is_winner(0) {
-            NodeStatus::WinnerIn(0)
+            NodeStatus::WinnerIn(0, NodeScore(0))
         } else {
-            NodeStatus::AliveFor(0)
+            NodeStatus::AliveFor(0, NodeScore(0))
         };
 
         let move_matrix = gamestate.valid_moves();
@@ -255,6 +295,7 @@ impl Node {
             priority: 0,
             move_matrix,
             ordered_directions: None,
+            local_score: NodeScore(0),
         }
     }
 
@@ -288,6 +329,25 @@ impl Node {
         self.id
     }
 
+    pub fn with_score(mut self, situations: Option<&SituationSet>) -> Self {
+        if let Some(score) = situations.and_then(|s| s.score(&self.gamestate)) {
+            self.local_score = NodeScore(score as i16);
+        }
+        self
+    }
+
+    pub fn score(&self) -> NodeScore {
+        if let Some(pinned_status) = self.pinned_status {
+            if let Some(score) = pinned_status.score() {
+                return score;
+            } else {
+                return NodeScore(0);
+            }
+        } else {
+            return self.status.score().unwrap_or(NodeScore(0));
+        }
+    }
+
     pub fn status(&self) -> NodeStatus {
         if let Some(pinned) = self.pinned_status {
             return pinned;
@@ -304,12 +364,26 @@ impl Node {
         }
     }
 
-    fn update_direction_status(&mut self, direction: Direction) -> bool {
+    pub fn direction_score(&self, direction: Direction) -> NodeScore {
+        if let Some(pinned_status) = self.pinned_status {
+            if let Some(score) = pinned_status.score() {
+                return score;
+            } else {
+                return NodeScore(0);
+            }
+        } else {
+            self.direction_states[direction as usize]
+                .score()
+                .unwrap_or(NodeScore(0))
+        }
+    }
+
+    fn update_direction_status_and_score(&mut self, direction: Direction) -> bool {
         let old_status = self.direction_states[direction as usize];
-        let children = self.children_states_per_direction[direction as usize].as_ref();
-        let new_status = NodeStatus::calculate_from_child_states(children);
-        self.direction_states[direction as usize] = new_status;
-        old_status != new_status
+        let children = &self.children_states_per_direction[direction as usize];
+        let new_state = NodeStatus::calculate_from_child_states(children);
+        self.direction_states[direction as usize] = new_state;
+        old_status != new_state
     }
 
     fn update_status(&mut self) -> bool {
@@ -331,7 +405,7 @@ impl Node {
         }
 
         // Update the direction status based on the updated child status
-        if self.update_direction_status(direction) {
+        if self.update_direction_status_and_score(direction) {
             // If the direction status has changed, update the overall node status
             self.update_status()
         } else {
@@ -357,9 +431,10 @@ impl Node {
         &mut self,
         similarity_pruning_distance: Option<u8>,
         direction_preference_situations: Option<&SituationSet>,
+        score_situations: Option<&SituationSet>,
     ) -> Option<Vec<Node>> {
         debug_assert!(
-            self.status != NodeStatus::WinnerIn(0),
+            !matches!(self.status, NodeStatus::WinnerIn(0, _)),
             "Should never simulate a node that is a new winner"
         );
 
@@ -384,18 +459,18 @@ impl Node {
                     }
                 }
 
-                let child = Node::new(child_id, child_gamestate);
+                let child = Node::new(child_id, child_gamestate).with_score(score_situations);
                 let child_status = child.status();
 
                 self.children_states_per_direction[direction as usize].push((moves, child_status));
                 match child_status {
-                    NodeStatus::DeadIn(0) => {
+                    NodeStatus::DeadIn(0, _) => {
                         // Child is dead, do not add to children
                     }
-                    NodeStatus::AliveFor(0) => {
+                    NodeStatus::AliveFor(0, _) => {
                         children.push(child);
                     }
-                    NodeStatus::WinnerIn(0) => {
+                    NodeStatus::WinnerIn(0, _) => {
                         children.push(child);
                     }
                     _ => {
@@ -404,11 +479,11 @@ impl Node {
                 }
             }
 
-            self.update_direction_status(direction.into());
+            self.update_direction_status_and_score(direction.into());
 
             if matches!(
                 self.direction_status(direction),
-                NodeStatus::DeadIn(_) | NodeStatus::ProbablyDeadIn(_)
+                NodeStatus::DeadIn(_, _) | NodeStatus::ProbablyDeadIn(_, _)
             ) {
                 continue 'direction;
             }
@@ -438,7 +513,7 @@ impl Node {
                     stripped_move_matrix.set(0, new_move_vector);
                     return Some((d, stripped_move_matrix));
                 } else {
-                    self.update_direction_status(d.into());
+                    self.update_direction_status_and_score(d.into());
                 }
             }
         }
@@ -526,24 +601,26 @@ mod tests {
 
     #[test]
     fn node_status_ordering() {
-        // AliveFor: higher is better
-        assert!(NodeStatus::AliveFor(5) > NodeStatus::AliveFor(3));
-        // DeadIn: higher n is better because it means we survive longer
-        assert!(NodeStatus::DeadIn(5) > NodeStatus::DeadIn(1));
-        // Alive always beats Dead
-        assert!(NodeStatus::AliveFor(0) > NodeStatus::DeadIn(100));
-        // Cross-variant not equal
-        assert_ne!(NodeStatus::AliveFor(3), NodeStatus::DeadIn(3));
-        // WinnerIn: Lower n is better because it means we win sooner
-        assert!(NodeStatus::WinnerIn(1) > NodeStatus::WinnerIn(3));
-        assert!(NodeStatus::WinnerIn(1) > NodeStatus::AliveFor(100));
-        assert!(NodeStatus::WinnerIn(1) > NodeStatus::DeadIn(100));
-        // max/min pick correctly
+        assert!(NodeStatus::AliveFor(5, NodeScore(0)) > NodeStatus::AliveFor(3, NodeScore(0)));
+        assert!(NodeStatus::DeadIn(5, NodeScore(0)) > NodeStatus::DeadIn(1, NodeScore(0)));
+        assert!(NodeStatus::AliveFor(0, NodeScore(0)) > NodeStatus::DeadIn(100, NodeScore(0)));
+        assert_ne!(
+            NodeStatus::AliveFor(3, NodeScore(0)),
+            NodeStatus::DeadIn(3, NodeScore(0))
+        );
+        assert!(NodeStatus::WinnerIn(1, NodeScore(0)) > NodeStatus::WinnerIn(3, NodeScore(0)));
+        assert!(NodeStatus::WinnerIn(1, NodeScore(0)) > NodeStatus::AliveFor(100, NodeScore(0)));
+        assert!(NodeStatus::WinnerIn(1, NodeScore(0)) > NodeStatus::DeadIn(100, NodeScore(0)));
+        assert_eq!(
+            NodeStatus::AliveFor(5, NodeScore(1000))
+                .partial_cmp(&NodeStatus::AliveFor(5, NodeScore(0))),
+            Some(std::cmp::Ordering::Equal)
+        );
         let statuses = vec![
-            NodeStatus::DeadIn(5),
-            NodeStatus::AliveFor(2),
-            NodeStatus::DeadIn(0),
-            NodeStatus::AliveFor(0),
+            NodeStatus::DeadIn(5, NodeScore(0)),
+            NodeStatus::AliveFor(2, NodeScore(0)),
+            NodeStatus::DeadIn(0, NodeScore(0)),
+            NodeStatus::AliveFor(0, NodeScore(0)),
         ];
         assert_eq!(
             statuses
@@ -551,7 +628,7 @@ mod tests {
                 .filter_map(|x| x.for_comparison())
                 .max_by(|x, y| x.partial_cmp(y).unwrap())
                 .unwrap(),
-            NodeStatus::AliveFor(2)
+            NodeStatus::AliveFor(2, NodeScore(0))
         );
         assert_eq!(
             statuses
@@ -559,7 +636,7 @@ mod tests {
                 .filter_map(|x| x.for_comparison())
                 .min_by(|x, y| x.partial_cmp(y).unwrap())
                 .unwrap(),
-            NodeStatus::DeadIn(0)
+            NodeStatus::DeadIn(0, NodeScore(0))
         );
     }
 
@@ -573,29 +650,29 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None, None).is_some() {
-            node.simulate(None, None);
+        while node.simulate(None, None, None).is_some() {
+            node.simulate(None, None, None);
         }
-        // All direction statuses should be AliveFor(0) or DeadIn(0)
         for i in DIRECTIONS {
             let status = node.direction_status(i);
             assert!(
-                matches!(status, NodeStatus::AliveFor(0) | NodeStatus::DeadIn(0)),
+                matches!(
+                    status,
+                    NodeStatus::AliveFor(0, _) | NodeStatus::DeadIn(0, _)
+                ),
                 "direction {} has unexpected status: {}",
                 i,
                 status
             );
         }
-        // Should return empty now
         println!("{}", node);
-        assert!(node.simulate(None, None).is_none());
+        assert!(node.simulate(None, None, None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
-        // Simulate only the first two directions
-        node.simulate(None, None);
+        node.simulate(None, None, None);
         println!("{}", node);
     }
 
@@ -603,57 +680,57 @@ mod tests {
     fn calculate_from_direction_states_cases() {
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[NodeStatus::NotSimulated; 4]),
-            NodeStatus::AliveFor(0)
+            NodeStatus::AliveFor(0, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[
-                NodeStatus::AliveFor(3),
-                NodeStatus::AliveFor(1),
-                NodeStatus::ProbablyDeadIn(5),
-                NodeStatus::DeadIn(2)
+                NodeStatus::AliveFor(3, NodeScore(0)),
+                NodeStatus::AliveFor(1, NodeScore(100)),
+                NodeStatus::ProbablyDeadIn(5, NodeScore(100)),
+                NodeStatus::DeadIn(2, NodeScore(0))
             ]),
-            NodeStatus::AliveFor(4)
+            NodeStatus::AliveFor(4, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[
-                NodeStatus::WinnerIn(2),
-                NodeStatus::AliveFor(5),
-                NodeStatus::ProbablyDeadIn(8),
-                NodeStatus::DeadIn(1)
+                NodeStatus::WinnerIn(2, NodeScore(0)),
+                NodeStatus::AliveFor(5, NodeScore(0)),
+                NodeStatus::ProbablyDeadIn(8, NodeScore(0)),
+                NodeStatus::DeadIn(1, NodeScore(0))
             ]),
-            NodeStatus::WinnerIn(3)
+            NodeStatus::WinnerIn(3, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[
-                NodeStatus::DeadIn(5),
-                NodeStatus::DeadIn(3),
+                NodeStatus::DeadIn(5, NodeScore(0)),
+                NodeStatus::DeadIn(3, NodeScore(0)),
                 NodeStatus::NotSimulated,
-                NodeStatus::ProbablyDeadIn(1)
+                NodeStatus::ProbablyDeadIn(1, NodeScore(0))
             ]),
-            NodeStatus::AliveFor(0)
+            NodeStatus::AliveFor(0, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[
-                NodeStatus::DeadIn(5),
-                NodeStatus::AliveFor(1),
-                NodeStatus::ProbablyDeadIn(3),
-                NodeStatus::DeadIn(1)
+                NodeStatus::DeadIn(5, NodeScore(0)),
+                NodeStatus::AliveFor(1, NodeScore(0)),
+                NodeStatus::ProbablyDeadIn(3, NodeScore(0)),
+                NodeStatus::DeadIn(1, NodeScore(0))
             ]),
-            NodeStatus::AliveFor(2)
+            NodeStatus::AliveFor(2, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_direction_states(&[
-                NodeStatus::DeadIn(5),
-                NodeStatus::DeadIn(3),
-                NodeStatus::ProbablyDeadIn(3),
-                NodeStatus::DeadIn(1)
+                NodeStatus::DeadIn(5, NodeScore(0)),
+                NodeStatus::DeadIn(3, NodeScore(0)),
+                NodeStatus::ProbablyDeadIn(3, NodeScore(0)),
+                NodeStatus::DeadIn(1, NodeScore(0))
             ]),
-            NodeStatus::ProbablyDeadIn(4)
+            NodeStatus::ProbablyDeadIn(4, NodeScore(0))
         );
     }
 
@@ -663,7 +740,7 @@ mod tests {
 
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![]),
-            NodeStatus::DeadIn(0)
+            NodeStatus::DeadIn(0, NodeScore(0))
         );
 
         assert_eq!(
@@ -671,55 +748,51 @@ mod tests {
                 (dummy, NodeStatus::Pruned(PruneReason::MaxDepth)),
                 (dummy, NodeStatus::Pruned(PruneReason::MaxDepth)),
             ]),
-            NodeStatus::AliveFor(0)
+            NodeStatus::AliveFor(0, NodeScore(0))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::WinnerIn(1)),
-                (dummy, NodeStatus::AliveFor(5)),
+                (dummy, NodeStatus::WinnerIn(1, NodeScore(100))),
+                (dummy, NodeStatus::AliveFor(5, NodeScore(200))),
             ]),
-            NodeStatus::AliveFor(5)
-        );
-
-        // If there are Dead and Alive or Winner children, state is ProbablyDeadIn
-        assert_eq!(
-            NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::AliveFor(3)),
-                (dummy, NodeStatus::DeadIn(2)),
-                (dummy, NodeStatus::WinnerIn(1)),
-            ]),
-            NodeStatus::ProbablyDeadIn(2)
-        );
-
-        // If ProbablyDeadIn is in children, it will never be DeadIn but ProbablyDeadIn instead
-        // The min of the Dead and ProbablyDead children is 1, so the result is ProbablyDeadIn(1)
-        assert_eq!(
-            NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::DeadIn(1)),
-                (dummy, NodeStatus::DeadIn(5)),
-                (dummy, NodeStatus::ProbablyDeadIn(10)),
-            ]),
-            NodeStatus::ProbablyDeadIn(1)
+            NodeStatus::AliveFor(5, NodeScore(100))
         );
 
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::DeadIn(10)),
-                (dummy, NodeStatus::DeadIn(5)),
-                (dummy, NodeStatus::ProbablyDeadIn(1)),
+                (dummy, NodeStatus::AliveFor(3, NodeScore(0))),
+                (dummy, NodeStatus::DeadIn(2, NodeScore(0))),
+                (dummy, NodeStatus::WinnerIn(1, NodeScore(0))),
             ]),
-            NodeStatus::ProbablyDeadIn(1)
+            NodeStatus::ProbablyDeadIn(2, NodeScore(0))
         );
 
-        // Avoid DeadIn -> ProbablyDeadIn conversion through stupid self killing moves of other snakes
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::WinnerIn(1)),
-                (dummy, NodeStatus::DeadIn(2)),
-                (dummy, NodeStatus::DeadIn(2)),
+                (dummy, NodeStatus::DeadIn(1, NodeScore(0))),
+                (dummy, NodeStatus::DeadIn(5, NodeScore(0))),
+                (dummy, NodeStatus::ProbablyDeadIn(10, NodeScore(100))),
             ]),
-            NodeStatus::DeadIn(2)
+            NodeStatus::ProbablyDeadIn(1, NodeScore(0))
+        );
+
+        assert_eq!(
+            NodeStatus::calculate_from_child_states(&vec![
+                (dummy, NodeStatus::DeadIn(10, NodeScore(0))),
+                (dummy, NodeStatus::DeadIn(5, NodeScore(0))),
+                (dummy, NodeStatus::ProbablyDeadIn(1, NodeScore(0))),
+            ]),
+            NodeStatus::ProbablyDeadIn(1, NodeScore(0))
+        );
+
+        assert_eq!(
+            NodeStatus::calculate_from_child_states(&vec![
+                (dummy, NodeStatus::WinnerIn(1, NodeScore(0))),
+                (dummy, NodeStatus::DeadIn(2, NodeScore(0))),
+                (dummy, NodeStatus::DeadIn(2, NodeScore(0))),
+            ]),
+            NodeStatus::DeadIn(2, NodeScore(0))
         );
     }
 }
@@ -755,10 +828,9 @@ mod benchmarks {
         let source_nodes = test_nodes();
         let mut i = 0;
         b.iter(|| {
-            // Fresh clone per iteration so each call starts from a clean, unsimulated node.
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), None))
+            black_box(node.simulate(black_box(None), None, None))
         });
     }
 
@@ -767,7 +839,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None, None); // explore one direction
+                n.simulate(None, None, None);
                 n
             })
             .collect();
@@ -781,12 +853,10 @@ mod benchmarks {
 
     #[bench]
     fn bench_node_propagate_update_from_child(b: &mut test::Bencher) {
-        // Build nodes with children so propagate_update_from_child has a real list to scan.
         let prepared: Vec<(Node, NodeId, NodeStatus)> = test_nodes()
             .into_iter()
             .filter_map(|mut parent| {
-                // Simulate one direction to populate a children list.
-                let children = parent.simulate(None, None)?;
+                let children = parent.simulate(None, None, None)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })
