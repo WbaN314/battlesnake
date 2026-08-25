@@ -77,6 +77,14 @@ impl Tree {
         self
     }
 
+    pub fn node_direction_preference_situations(
+        mut self,
+        node_direction_preference_situations: SituationSet,
+    ) -> Self {
+        self.node_direction_preference_situations = Some(node_direction_preference_situations);
+        self
+    }
+
     pub fn result(&self) -> [NodeStatus; 4] {
         let root = self.nodes.get(&NodeId::new()).unwrap();
         [

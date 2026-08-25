@@ -450,13 +450,6 @@ impl Node {
         &self,
         direction_preference_situations: Option<&SituationSet>,
     ) -> [Direction; 4] {
-        
-        if let Some(situations) = direction_preference_situations {
-            if let Some(directions) = situations.check(&self.gamestate) {
-                return directions.map(|d| d.unwrap());
-            }
-        }
-
         let mut preferred_directions = DIRECTIONS;
         let mut distance = u8::MAX;
         if let Snake::Alive { head: my_head, .. } = self.gamestate.snakes().cell(0).get() {
@@ -489,6 +482,18 @@ impl Node {
                 }
             }
         }
+
+        if let Some(situations) = direction_preference_situations {
+            if let Some(situation_match) = situations.check(&self.gamestate) {
+                if let Some(preferred) = situation_match[0] {
+                    if let Some(pos) = preferred_directions.iter().position(|&d| d == preferred) {
+                        preferred_directions.copy_within(0..pos, 1);
+                        preferred_directions[0] = preferred;
+                    }
+                }
+            }
+        }
+
         preferred_directions
     }
 }

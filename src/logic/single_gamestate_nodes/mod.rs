@@ -20,6 +20,7 @@ use crate::{
 };
 use env_config::EnvironmentConfig;
 use log::warn;
+use std::sync::LazyLock;
 
 mod env_config;
 mod node;
@@ -28,155 +29,156 @@ mod tree;
 
 pub struct GamestateNodesSnake;
 
+static CHILD_PRIORITY_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {
+    SituationSet::new(vec![
+        Situation::multi_recommending(
+            "
+            W . .
+            W A .
+            W N B
+            ",
+            [Some(Direction::Up), Some(Direction::Up), None, None],
+            0.0,
+            "Fast Track",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                _ => false,
+            },
+        ),
+    ])
+});
+
+static NODE_DIRECTION_PREFERENCE_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {
+    SituationSet::new(vec![
+        Situation::recommending(
+            "
+            A
+            .
+            .
+            .
+            B
+            W
+            ",
+            Direction::Down,
+            0.0,
+            "editor_07",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
+        ),
+        Situation::recommending(
+            "
+            A .
+            . .
+            . .
+            N B
+            W W
+            ",
+            Direction::Right,
+            0.0,
+            "editor_06",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
+        ),
+        Situation::recommending(
+            "
+            * A
+            . .
+            . .
+            B .
+            W W
+            ",
+            Direction::Down,
+            0.0,
+            "editor_05",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
+        ),
+    ])
+});
+
+static ROOT_EVALUATION_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {    let env_config = EnvironmentConfig::read();
+    SituationSet::new(vec![
+        Situation::recommending(
+            "
+            W . A
+            ",
+            Direction::Left,
+            env_config.SCORE_AVOID_MOVING_NEXT_TO_WALL,
+            "Avoid Moving Next to Wall",
+        ),
+        Situation::recommending(
+            "
+            X A
+            ",
+            Direction::Left,
+            env_config.SCORE_GRAB_FOOD,
+            "Grab Food",
+        )
+        .condition(|snakes| snakes.length_gap_to_longest_other_snake() <= 2),
+        Situation::recommending(
+            "
+            * N A
+            N B .
+            W W W
+            ",
+            Direction::Right,
+            env_config.SCORE_KILL_SITUATION,
+            "editor_01",
+        ),
+        Situation::recommending(
+            "
+            A .
+            N B
+            W W
+            ",
+            Direction::Right,
+            env_config.SCORE_KILL_SITUATION,
+            "editor_02",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
+        ),
+        Situation::recommending(
+            "
+            A .
+            . .
+            . .
+            N B
+            W W
+            ",
+            Direction::Right,
+            env_config.SCORE_RESTRICT_SITUATION,
+            "editor_06",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
+                _ => false,
+            },
+        ),
+    ])
+});
+
 impl GamestateNodesSnake {
     pub fn new() -> Self {
         Self
-    }
-
-    pub fn child_priority_situations() -> SituationSet {
-        SituationSet::new(vec![
-            Situation::multi_recommending(
-                "
-                W . .
-                W A .
-                W N B
-                ",
-                [Some(Direction::Up), Some(Direction::Up), None, None],
-                0.0,
-                "Fast Track",
-            )
-            .condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
-                    _ => false,
-                },
-            ),
-        ])
-    }
-
-    pub fn direction_priority_situations() -> SituationSet {
-        SituationSet::new(vec![
-            Situation::multi_recommending(
-                "
-                A
-                .
-                .
-                .
-                B
-                W
-                ",
-                [Some(Direction::Down), Some(Direction::Up), Some(Direction::Left), Some(Direction::Right)],
-                0.0,
-                "editor_07",
-            ).condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                    _ => false,
-                },
-            ),
-            Situation::multi_recommending(
-                "
-                A .
-                . .
-                . .
-                N B
-                W W
-                ",
-                [Some(Direction::Right), Some(Direction::Down), Some(Direction::Up), Some(Direction::Left)],
-                0.0,
-                "editor_06",
-            ).condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                    _ => false,
-                },
-            ),
-            Situation::multi_recommending(
-                "
-                * A
-                . .
-                . .
-                B .
-                W W
-                ",
-                [Some(Direction::Down), Some(Direction::Left), Some(Direction::Up), Some(Direction::Right)],
-                0.0,
-                "editor_05",
-            ).condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                    _ => false,
-                },
-            ),
-        ])
-    }
-
-    pub fn root_evaluation_situations(env_config: &EnvironmentConfig) -> SituationSet {
-        // Evaluate situations and return or avoid direction
-        SituationSet::new(vec![
-            Situation::recommending(
-                "
-                W . A
-                ",
-                Direction::Left,
-                env_config.SCORE_AVOID_MOVING_NEXT_TO_WALL,
-                "Avoid Moving Next to Wall",
-            ),
-            Situation::recommending(
-                "
-                X A
-                ",
-                Direction::Left,
-                env_config.SCORE_GRAB_FOOD,
-                "Grab Food",
-            )
-            .condition(|snakes| snakes.length_gap_to_longest_other_snake() <= 2),
-            Situation::recommending(
-                "
-                * N A
-                N B .
-                W W W
-                ",
-                Direction::Right,
-                env_config.SCORE_KILL_SITUATION,
-                "editor_01",
-            ),
-            Situation::recommending(
-                "
-                A .
-                N B
-                W W
-                ",
-                Direction::Right,
-                env_config.SCORE_KILL_SITUATION,
-                "editor_02",
-            )
-            .condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                    _ => false,
-                },
-            ),
-            // editor_06.json
-            Situation::recommending(
-                "
-                A .
-                . .
-                . .
-                N B
-                W W
-                ",
-                Direction::Right,
-                env_config.SCORE_RESTRICT_SITUATION,
-                "editor_06",
-            )
-            .condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a > b,
-                    _ => false,
-                },
-            ),
-        ])
     }
 
     fn move_to_middle_first(
@@ -212,7 +214,8 @@ impl GamestateNodesSnake {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
             .similarity_pruning(|_| 6)
-            .child_priority_situations(Self::child_priority_situations())
+            .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
+            .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
             .max_time(env_config.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();
@@ -275,8 +278,7 @@ impl GamestateNodesSnake {
         Self::simulation(gamestate.clone(), &mut evaluation, &env_config);
 
         // Situations
-        let situation_set = Self::root_evaluation_situations(&env_config);
-        situation_set.evaluate(&gamestate, &mut evaluation);
+        ROOT_EVALUATION_SITUATIONS.evaluate(&gamestate, &mut evaluation);
 
         // Area
         let number_of_alive_snakes = (0..4).filter(|&id| gamestate.is_alive(id)).count();
