@@ -15,15 +15,20 @@ use std::{collections::HashSet, fmt::Display};
 pub mod node_id;
 mod node_stats;
 
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum PruneReason {
+    MaxDepth,
+    LocalHashSimilarity,
+}
+
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum NodeStatus {
-    AliveFor(u8),        // Number of steps where we have checked with guaranteed survival
-    DeadIn(u8),          // Number of steps until certain death
-    ProbablyDeadIn(u8),  // Number of steps until death if opponents play optimally
-    WinnerIn(u8),        // Number of steps until inevitable victory (if opponents play optimally)
-    NotSimulated,        // Status not yet determined as this direction has not been simulated
-    PrunedMaxDepth,      // Node was skipped: max depth reached
-    PrunedForSimilarity, // Node was skipped: a similar gamestate is already in the node
+    AliveFor(u8),       // Number of steps where we have checked with guaranteed survival
+    DeadIn(u8),         // Number of steps until certain death
+    ProbablyDeadIn(u8), // Number of steps until death if opponents play optimally
+    WinnerIn(u8),       // Number of steps until inevitable victory (if opponents play optimally)
+    NotSimulated,       // Status not yet determined as this direction has not been simulated
+    Pruned(PruneReason), // Node was skipped: reason given by PruneReason
 }
 
 impl NodeStatus {
@@ -117,8 +122,8 @@ impl NodeStatus {
             None => {
                 if child_states
                     .iter()
-                    .filter(|(_, status)| !matches!(status, NodeStatus::PrunedForSimilarity))
-                    .all(|(_, status)| matches!(status, NodeStatus::PrunedMaxDepth))
+                    .filter(|(_, status)| !matches!(status, NodeStatus::Pruned(PruneReason::LocalHashSimilarity)))
+                    .all(|(_, status)| matches!(status, NodeStatus::Pruned(PruneReason::MaxDepth)))
                 {
                     return NodeStatus::AliveFor(0);
                 } else {
@@ -189,10 +194,7 @@ impl PartialOrd for NodeStatus {
             }
 
             (NodeStatus::NotSimulated, NodeStatus::NotSimulated) => Some(std::cmp::Ordering::Equal),
-            (NodeStatus::PrunedMaxDepth, NodeStatus::PrunedMaxDepth) => {
-                Some(std::cmp::Ordering::Equal)
-            }
-            (NodeStatus::PrunedForSimilarity, NodeStatus::PrunedForSimilarity) => {
+            (NodeStatus::Pruned(a), NodeStatus::Pruned(b)) if a == b => {
                 Some(std::cmp::Ordering::Equal)
             }
             _ => None,
@@ -207,8 +209,8 @@ impl Display for NodeStatus {
             NodeStatus::DeadIn(n) => write!(f, "DeadIn({})", n),
             NodeStatus::ProbablyDeadIn(n) => write!(f, "ProbablyDeadIn({})", n),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
-            NodeStatus::PrunedMaxDepth => write!(f, "PrunedMaxDepth"),
-            NodeStatus::PrunedForSimilarity => write!(f, "PrunedForSimilarity"),
+            NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
+            NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => write!(f, "Pruned(LocalHashSimilarity)"),
             NodeStatus::WinnerIn(n) => write!(f, "WinnerIn({})", n),
         }
     }
@@ -365,7 +367,7 @@ impl Node {
                     let hash = child_gamestate.local_environment_hash(dist);
                     if !similarity_set.insert(hash) {
                         self.children_states_per_direction[direction as usize]
-                            .push((moves, NodeStatus::PrunedForSimilarity));
+                            .push((moves, NodeStatus::Pruned(PruneReason::LocalHashSimilarity)));
                         continue;
                     }
                 }
@@ -629,8 +631,8 @@ mod tests {
 
         assert_eq!(
             NodeStatus::calculate_from_child_states(&vec![
-                (dummy, NodeStatus::PrunedMaxDepth),
-                (dummy, NodeStatus::PrunedMaxDepth),
+                (dummy, NodeStatus::Pruned(PruneReason::MaxDepth)),
+                (dummy, NodeStatus::Pruned(PruneReason::MaxDepth)),
             ]),
             NodeStatus::AliveFor(0)
         );

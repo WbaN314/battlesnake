@@ -12,12 +12,12 @@ use tabled::{
 use crate::logic::general::direction::DIRECTIONS;
 use crate::logic::{
     general::direction::Direction,
-    single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+    single_gamestate_nodes::node::{Node, NodeStatus, PruneReason, node_id::NodeId},
 };
 
 const ALL_PRUNED_STATUSES: &[NodeStatus] = &[
-    NodeStatus::PrunedMaxDepth,
-    NodeStatus::PrunedForSimilarity,
+    NodeStatus::Pruned(PruneReason::MaxDepth),
+    NodeStatus::Pruned(PruneReason::LocalHashSimilarity),
 ];
 
 use super::Tree;
@@ -500,7 +500,7 @@ mod tests {
     use crate::{
         logic::{
             single_gamestate_nodes::{
-                node::NodeStatus,
+                node::{NodeStatus, PruneReason},
                 tree::tests::create_tree_from_gamestate,
             },
         },
@@ -560,13 +560,13 @@ mod tests {
                 .map(|p| {
                     p.pruned
                         .iter()
-                        .find(|(s, _)| *s == NodeStatus::PrunedForSimilarity)
+                        .find(|(s, _)| *s == NodeStatus::Pruned(PruneReason::LocalHashSimilarity))
                         .map_or(0, |(_, c)| *c)
                 })
                 .sum();
             assert!(
                 total_sim > 0,
-                "[similarity_pruning] {filename}: expected PrunedForSimilarity entries in stats but got 0"
+                "[similarity_pruning] {filename}: expected Pruned(LocalHashSimilarity) entries in stats but got 0"
             );
         }
     }

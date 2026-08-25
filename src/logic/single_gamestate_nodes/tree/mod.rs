@@ -1,5 +1,5 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::node::{Node, NodeStatus, node_id::NodeId},
+    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::node::{Node, NodeStatus, PruneReason, node_id::NodeId},
 };
 use log::{debug, trace};
 use std::{
@@ -117,8 +117,8 @@ impl Tree {
                 self.nodes
                     .get_mut(&node_id)
                     .unwrap()
-                    .pin_status(NodeStatus::PrunedMaxDepth);
-                self.propagate_status(node_id, NodeStatus::PrunedMaxDepth);
+                    .pin_status(NodeStatus::Pruned(PruneReason::MaxDepth));
+                self.propagate_status(node_id, NodeStatus::Pruned(PruneReason::MaxDepth));
                 continue;
             }
 
