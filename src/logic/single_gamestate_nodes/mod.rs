@@ -1,6 +1,5 @@
 use crate::{
-    OriginalDirection, OriginalGameState,
-    logic::{
+    OriginalDirection, OriginalGameState, logic::{
         general::{
             board::{HEIGHT, WIDTH},
             coord::Coord,
@@ -9,11 +8,8 @@ use crate::{
             field::{BasicField, FloodFillField},
             game_state::GameState,
             snake::Snake,
-        },
-        legacy::shared::brain::Brain,
-        single_gamestate_nodes::{
-            node::NodeStatus,
-            tree::Tree,
+        }, legacy::shared::brain::Brain, single_gamestate_nodes::{
+            node::NodeStatus, situation_config::SIMULATION_SCORE_SITUATIONS, tree::Tree,
         },
     },
 };
@@ -67,6 +63,7 @@ impl GamestateNodesSnake {
             .similarity_pruning(|_| 6)
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
+            .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
             .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();

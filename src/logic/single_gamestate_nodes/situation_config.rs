@@ -7,6 +7,9 @@ use crate::logic::{
 };
 use std::sync::LazyLock;
 
+pub static SIMULATION_SCORE_SITUATIONS: LazyLock<SituationSet> =
+    LazyLock::new(|| SituationSet::new(vec![]));
+
 pub static CHILD_PRIORITY_SITUATIONS: LazyLock<SituationSet> = LazyLock::new(|| {
     SituationSet::new(vec![
         Situation::multi_recommending(

@@ -1,7 +1,7 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves},
+    general::{direction::Direction, field::BasicField, game_state::GameState},
     single_gamestate_nodes::{
-        node::{Node, NodeScore, NodeStatus, PruneReason, node_id::NodeId},
+        node::{Node, NodeStatus, PruneReason, node_id::NodeId},
         situation::SituationSet,
     },
 };
@@ -9,7 +9,6 @@ use log::{debug, trace};
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
-    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -27,6 +26,7 @@ pub struct Tree {
     similarity_distance_fn: Option<fn(u8) -> u8>,
     child_priority_situations: Option<SituationSet>,
     node_direction_preference_situations: Option<SituationSet>,
+    score_situations: Option<SituationSet>,
 }
 
 impl Tree {
@@ -45,6 +45,7 @@ impl Tree {
             similarity_distance_fn: None,
             child_priority_situations: None,
             node_direction_preference_situations: None,
+            score_situations: None,
         }
     }
 
@@ -70,6 +71,11 @@ impl Tree {
 
     pub fn all_root_directions(mut self) -> Self {
         self.all_root_directions = true;
+        self
+    }
+
+    pub fn score_situations(mut self, score_situations: SituationSet) -> Self {
+        self.score_situations = Some(score_situations);
         self
     }
 
@@ -158,7 +164,7 @@ impl Tree {
         let child_nodes = node.simulate(
             similarity_pruning_distance,
             self.node_direction_preference_situations.as_ref(),
-            self.child_priority_situations.as_ref(),
+            self.score_situations.as_ref(),
         );
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
@@ -349,7 +355,6 @@ mod tests {
     use super::*;
     use crate::{
         logic::{
-            depth_first::game,
             general::{direction::DIRECTIONS, snake::Snake},
             single_gamestate_nodes::{node::NodeScore, situation::Situation},
         },
@@ -646,19 +651,6 @@ mod tests {
                     );
                 }
             },
-        );
-
-        let gamestate = GameState::<BasicField>::from(&read_game_state("requests/failure_70.json"));
-        println!("{}", gamestate);
-        let mut tree = Tree::new(gamestate)
-            .similarity_pruning(|_depth| 6)
-            .max_depth(14)
-            .max_time(Duration::from_secs(1));
-        tree.simulate();
-        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
-        assert!(
-            !matches!(root.status(), NodeStatus::WinnerIn(_, _)),
-            "Root status should not be Winner, but can be because moving right is pruned for Snake B"
         );
     }
 

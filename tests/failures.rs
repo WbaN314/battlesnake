@@ -72,4 +72,6 @@ situation_test!(failure_66, Left => "Going Left should be possible here");
 situation_test!(failure_67, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
 situation_test!(failure_68, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
 situation_test!(failure_69, Right => "Right is preferable to left as death relies on opponent move, whereas left is inevitable death");
-situation_test!(failure_70, Right, Left => "Hash pruning problem case falsely identifies WinnerIn");
+situation_test!(failure_70, Right => "Hash pruning problem case falsely identifies WinnerIn, also we will be shorter if going left probably");
+situation_test!(failure_71, Down => "Going down allows for chasing tails");
+situation_test!(failure_72, Up => "Going up allows for chasing tails");
