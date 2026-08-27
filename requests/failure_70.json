@@ -1,0 +1,270 @@
+{
+    "game": {
+        "id": "c30e408f-9fa5-4096-907f-b9e363175280",
+        "ruleset": {
+            "name": "standard",
+            "version": "cli",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 14,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 25
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 145,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 10,
+                "y": 10
+            },
+            {
+                "x": 2,
+                "y": 10
+            },
+            {
+                "x": 2,
+                "y": 9
+            },
+            {
+                "x": 5,
+                "y": 0
+            }
+        ],
+        "snakes": [
+            {
+                "id": "632a5d76-f2d6-4f53-9011-f2244a0a818a",
+                "name": "single_gamestate_nodes_1",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 0
+                    },
+                    {
+                        "x": 3,
+                        "y": 1
+                    },
+                    {
+                        "x": 4,
+                        "y": 1
+                    },
+                    {
+                        "x": 4,
+                        "y": 2
+                    },
+                    {
+                        "x": 4,
+                        "y": 3
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 9,
+                        "y": 5
+                    },
+                    {
+                        "x": 10,
+                        "y": 5
+                    },
+                    {
+                        "x": 10,
+                        "y": 6
+                    },
+                    {
+                        "x": 10,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 0
+                },
+                "length": 15,
+                "latency": "312",
+                "shout": ""
+            },
+            {
+                "id": "cc25c938-b4bb-43a9-8c71-b1754f379cce",
+                "name": "single_gamestate_nodes:main_2",
+                "health": 41,
+                "body": [
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 6
+                    },
+                    {
+                        "x": 2,
+                        "y": 5
+                    },
+                    {
+                        "x": 2,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 5,
+                        "y": 7
+                    },
+                    {
+                        "x": 6,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 5
+                    }
+                ],
+                "head": {
+                    "x": 2,
+                    "y": 7
+                },
+                "length": 14,
+                "latency": "204",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "632a5d76-f2d6-4f53-9011-f2244a0a818a",
+        "name": "single_gamestate_nodes_1",
+        "health": 100,
+        "body": [
+            {
+                "x": 3,
+                "y": 0
+            },
+            {
+                "x": 3,
+                "y": 1
+            },
+            {
+                "x": 4,
+                "y": 1
+            },
+            {
+                "x": 4,
+                "y": 2
+            },
+            {
+                "x": 4,
+                "y": 3
+            },
+            {
+                "x": 5,
+                "y": 3
+            },
+            {
+                "x": 6,
+                "y": 3
+            },
+            {
+                "x": 7,
+                "y": 3
+            },
+            {
+                "x": 8,
+                "y": 3
+            },
+            {
+                "x": 8,
+                "y": 4
+            },
+            {
+                "x": 8,
+                "y": 5
+            },
+            {
+                "x": 9,
+                "y": 5
+            },
+            {
+                "x": 10,
+                "y": 5
+            },
+            {
+                "x": 10,
+                "y": 6
+            },
+            {
+                "x": 10,
+                "y": 6
+            }
+        ],
+        "head": {
+            "x": 3,
+            "y": 0
+        },
+        "length": 15,
+        "latency": "0",
+        "shout": ""
+    }
+}

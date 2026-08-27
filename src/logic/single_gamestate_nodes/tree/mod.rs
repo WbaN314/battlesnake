@@ -1,5 +1,9 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves}, single_gamestate_nodes::{node::{Node, NodeScore, NodeStatus, PruneReason, node_id::NodeId}, situation::SituationSet},
+    general::{direction::Direction, field::BasicField, game_state::GameState, moves::Moves},
+    single_gamestate_nodes::{
+        node::{Node, NodeScore, NodeStatus, PruneReason, node_id::NodeId},
+        situation::SituationSet,
+    },
 };
 use log::{debug, trace};
 use std::{
@@ -69,10 +73,7 @@ impl Tree {
         self
     }
 
-    pub fn child_priority_situations(
-        mut self,
-        child_priority_situations: SituationSet,
-    ) -> Self {
+    pub fn child_priority_situations(mut self, child_priority_situations: SituationSet) -> Self {
         self.child_priority_situations = Some(child_priority_situations);
         self
     }
@@ -154,7 +155,11 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
 
-        let child_nodes = node.simulate(similarity_pruning_distance, self.node_direction_preference_situations.as_ref(), self.child_priority_situations.as_ref());
+        let child_nodes = node.simulate(
+            similarity_pruning_distance,
+            self.node_direction_preference_situations.as_ref(),
+            self.child_priority_situations.as_ref(),
+        );
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
 
@@ -344,8 +349,11 @@ mod tests {
     use super::*;
     use crate::{
         logic::{
-            general::{direction::DIRECTIONS, snake::Snake}, single_gamestate_nodes::{node::NodeScore, situation::Situation},
-        }, read_game_state,
+            depth_first::game,
+            general::{direction::DIRECTIONS, snake::Snake},
+            single_gamestate_nodes::{node::NodeScore, situation::Situation},
+        },
+        read_game_state,
     };
 
     pub(super) fn create_tree_from_gamestate(filename: &str) -> Tree {
@@ -412,10 +420,22 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::AliveFor(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::AliveFor(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::AliveFor(3, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
 
         let mut tree = create_tree_from_gamestate("requests/failure_02.json").max_depth(4);
         tree.simulate();
@@ -423,10 +443,22 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::AliveFor(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::NotSimulated);
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::NotSimulated
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
 
         let mut tree = create_tree_from_gamestate("requests/failure_03.json").max_depth(4);
         tree.simulate();
@@ -434,10 +466,22 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::AliveFor(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::DeadIn(0, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
 
         let mut tree = create_tree_from_gamestate("requests/failure_04.json").max_depth(4);
         tree.simulate();
@@ -445,10 +489,22 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::AliveFor(4, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::AliveFor(3, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::AliveFor(3, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
 
         let mut tree = create_tree_from_gamestate("requests/failure_05.json").max_depth(4);
         tree.simulate();
@@ -456,10 +512,22 @@ mod tests {
         let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(2, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::ProbablyDeadIn(1, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::ProbablyDeadIn(1, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
     }
 
     #[test]
@@ -471,12 +539,27 @@ mod tests {
         println!("{}", root);
         println!("{}", tree.nodes.get(&"RD__".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"RD__-RD__".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"RD__-RD__-RL__".parse().unwrap()).unwrap());
+        println!(
+            "{}",
+            tree.nodes.get(&"RD__-RD__-RL__".parse().unwrap()).unwrap()
+        );
         assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(1, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Up), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Down), NodeStatus::DeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::DeadIn(5, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Up),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Down),
+            NodeStatus::DeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::DeadIn(5, NodeScore(0))
+        );
     }
 
     #[test]
@@ -490,8 +573,14 @@ mod tests {
         println!("{}", root);
         assert_eq!(root.status(), NodeStatus::ProbablyDeadIn(1, NodeScore(0)));
 
-        assert_eq!(root.direction_status(Direction::Left), NodeStatus::DeadIn(2, NodeScore(0)));
-        assert_eq!(root.direction_status(Direction::Right), NodeStatus::ProbablyDeadIn(0, NodeScore(0)));
+        assert_eq!(
+            root.direction_status(Direction::Left),
+            NodeStatus::DeadIn(2, NodeScore(0))
+        );
+        assert_eq!(
+            root.direction_status(Direction::Right),
+            NodeStatus::ProbablyDeadIn(0, NodeScore(0))
+        );
     }
 
     #[test]
@@ -558,30 +647,41 @@ mod tests {
                 }
             },
         );
+
+        let gamestate = GameState::<BasicField>::from(&read_game_state("requests/failure_70.json"));
+        println!("{}", gamestate);
+        let mut tree = Tree::new(gamestate)
+            .similarity_pruning(|_depth| 6)
+            .max_depth(14)
+            .max_time(Duration::from_secs(1));
+        tree.simulate();
+        let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+        assert!(
+            !matches!(root.status(), NodeStatus::WinnerIn(_, _)),
+            "Root status should not be Winner, but can be because moving right is pruned for Snake B"
+        );
     }
 
     #[test]
     fn option_fast_track() {
         let situation = Situation::multi_recommending(
-                "
+            "
                 W . *
                 W A .
                 W N B
                 ",
-                [Some(Direction::Up), Some(Direction::Up), None, None],
-                0.0,
-                "Fast Track",
-            )
-            .condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
-                    _ => false,
-                },
-            );
-        test_against_base_simulation(
-            |tree| {
-                tree.child_priority_situations(SituationSet::new(vec![situation.clone()]))
+            [Some(Direction::Up), Some(Direction::Up), None, None],
+            0.0,
+            "Fast Track",
+        )
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                _ => false,
             },
+        );
+        test_against_base_simulation(
+            |tree| tree.child_priority_situations(SituationSet::new(vec![situation.clone()])),
             |baseline_tree, tree, filename| {
                 let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
                 let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
@@ -602,43 +702,42 @@ mod tests {
                 }
             },
         );
-        let mut tree = create_tree_from_gamestate(
-            "requests/failure_43.json",
-        )
-        .all_root_directions()
-        .similarity_pruning(|_| 6)
-        .child_priority_situations(SituationSet::new(vec![situation]))
-        .max_time(Duration::from_millis(200));
+        let mut tree = create_tree_from_gamestate("requests/failure_43.json")
+            .all_root_directions()
+            .similarity_pruning(|_| 6)
+            .child_priority_situations(SituationSet::new(vec![situation]))
+            .max_time(Duration::from_millis(200));
         tree.simulate();
-        assert_eq!(tree.result()[1], NodeStatus::ProbablyDeadIn(7, NodeScore(0)));
+        assert_eq!(
+            tree.result()[1],
+            NodeStatus::ProbablyDeadIn(7, NodeScore(0))
+        );
     }
 
     #[test]
     fn display_tree() {
         let situation = Situation::multi_recommending(
-                "
+            "
                 W . .
                 W A .
                 W N B
                 ",
-                [Some(Direction::Up), Some(Direction::Up), None, None],
-                0.0,
-                "Fast Track",
-            )
-            .condition(
-                |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                    (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
-                    _ => false,
-                },
-            );
-
-        let mut tree = create_tree_from_gamestate(
-            "requests/failure_43.json",
+            [Some(Direction::Up), Some(Direction::Up), None, None],
+            0.0,
+            "Fast Track",
         )
-        .all_root_directions()
-        .similarity_pruning(|_| 6)
-        .child_priority_situations(SituationSet::new(vec![situation]))
-        .max_time(Duration::from_millis(200));
+        .condition(
+            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
+                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
+                _ => false,
+            },
+        );
+
+        let mut tree = create_tree_from_gamestate("requests/failure_43.json")
+            .all_root_directions()
+            .similarity_pruning(|_| 6)
+            .child_priority_situations(SituationSet::new(vec![situation]))
+            .max_time(Duration::from_millis(200));
         tree.simulate();
         // println!("{}", tree);
         println!("{}", tree.stats());
