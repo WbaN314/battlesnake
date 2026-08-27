@@ -226,27 +226,33 @@ impl GamestateNodesSnake {
         evaluation.new_section("Simulation");
         for (index, result) in result.into_iter().enumerate() {
             match result {
-                NodeStatus::ProbablyDeadIn(n, _) => evaluation.eliminate(
-                    index.try_into().unwrap(),
-                    100 + n,
-                    format!("Probably Dead In {}", n),
-                ),
-                NodeStatus::DeadIn(n, _) => {
-                    evaluation.eliminate(index.try_into().unwrap(), n, format!("Dead In {}", n))
+                NodeStatus::ProbablyDeadIn(n, score) => {
+                    evaluation.eliminate(
+                        index.try_into().unwrap(),
+                        100 + n,
+                        format!("Probably Dead In {}", n),
+                    );
+                    evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
                 }
-                NodeStatus::AliveFor(n, _) => {
+                NodeStatus::DeadIn(n, score) => {
+                    evaluation.eliminate(index.try_into().unwrap(), n, format!("Dead In {}", n));
+                    evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
+                }
+                NodeStatus::AliveFor(n, score) => {
                     evaluation.score(
                         index.try_into().unwrap(),
                         n as f32 * 0.1,
                         format!("Alive For {}", n),
                     );
+                    evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
                 }
-                NodeStatus::WinnerIn(n, _) => {
+                NodeStatus::WinnerIn(n, score) => {
                     evaluation.score(
                         index.try_into().unwrap(),
-                        1000.0,
+                        n as f32 * 0.1,
                         format!("Winner In {}", n),
                     );
+                    evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
                 }
                 _ => {
                     panic!("Unexpected NodeStatus: {:?}", result)

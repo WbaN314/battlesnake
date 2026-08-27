@@ -31,6 +31,10 @@ env_config! {
     // First Moves
     SCORE_FIRST_MOVES_TOWARD_CENTER = 200.0,
 
+    // Simulation Back Propagation Scores
+    SCORE_SIMULATION_WINNER = 1000.0,
+    SCORE_SIMULATION_KILL = 250.0,
+
     // Situation Matches
     SCORE_AVOID_MOVING_NEXT_TO_WALL = -20.0,
     SCORE_GRAB_FOOD = 60.0,

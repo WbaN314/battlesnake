@@ -29,3 +29,6 @@ situation_test!(editor_06, Right => "If longer, right to make opponent take a de
 // Restrict Situations
 // Same x
 situation_test!(editor_07, Down => "If longer, down twice lets opponent decide first to get a good row 2 scenario to force bottom 2 rows.");
+
+// Winner Situation
+situation_test!(editor_08, Right => "Right is only valid choice");

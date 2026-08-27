@@ -284,7 +284,7 @@ impl Display for Evaluation {
                     }
                 }
                 for label in detail_labels {
-                    let cells = DIRECTIONS
+                    let cells: Vec<String> = DIRECTIONS
                         .iter()
                         .map(|direction| {
                             let index = *direction as usize;
@@ -300,7 +300,9 @@ impl Display for Evaluation {
                             }
                         })
                         .collect();
-                    rows.push((format!("  - {}", label), cells));
+                    if cells.iter().any(|c| c != "" && c != "0") {
+                        rows.push((format!("  - {}", label), cells));
+                    }
                 }
 
                 rows

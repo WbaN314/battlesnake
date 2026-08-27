@@ -7,16 +7,40 @@ use crate::logic::{
         snake::Snake,
         snakes::SNAKES,
     },
-    single_gamestate_nodes::{node::node_id::NodeId, situation::SituationSet},
+    single_gamestate_nodes::{
+        env_config::ENV_CONFIG, node::node_id::NodeId, situation::SituationSet,
+    },
 };
 use core::panic;
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, ops::{Add, AddAssign, Deref}};
 
 pub mod node_id;
 mod node_stats;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct NodeScore(pub i16);
+
+impl Deref for NodeScore {
+    type Target = i16;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Add for NodeScore {
+    type Output = NodeScore;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        NodeScore(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for NodeScore {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PruneReason {
@@ -70,6 +94,18 @@ impl NodeStatus {
             NodeStatus::WinnerIn(n, _) => NodeStatus::WinnerIn(n, score),
             NodeStatus::ProbablyDeadIn(n, _) => NodeStatus::ProbablyDeadIn(n, score),
             _ => panic!("Cannot set score for status: {}", self),
+        }
+    }
+
+    pub fn try_add_score(self, score: NodeScore) -> NodeStatus {
+        match self {
+            NodeStatus::AliveFor(n, s) => NodeStatus::AliveFor(n, NodeScore(s.0 + score.0)),
+            NodeStatus::DeadIn(n, s) => NodeStatus::DeadIn(n, NodeScore(s.0 + score.0)),
+            NodeStatus::WinnerIn(n, s) => NodeStatus::WinnerIn(n, NodeScore(s.0 + score.0)),
+            NodeStatus::ProbablyDeadIn(n, s) => {
+                NodeStatus::ProbablyDeadIn(n, NodeScore(s.0 + score.0))
+            }
+            _ => self,
         }
     }
 
@@ -246,15 +282,15 @@ impl PartialOrd for NodeStatus {
 impl Display for NodeStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NodeStatus::AliveFor(n, _) => write!(f, "AliveFor({})", n),
-            NodeStatus::DeadIn(n, _) => write!(f, "DeadIn({})", n),
-            NodeStatus::ProbablyDeadIn(n, _) => write!(f, "ProbablyDeadIn({})", n),
+            NodeStatus::AliveFor(n, s) => write!(f, "AliveFor({}, {:.0})", n, s.0),
+            NodeStatus::DeadIn(n, s) => write!(f, "DeadIn({}, {:.0})", n, s.0),
+            NodeStatus::ProbablyDeadIn(n, s) => write!(f, "ProbablyDeadIn({}, {:.0})", n, s.0),
+            NodeStatus::WinnerIn(n, s) => write!(f, "WinnerIn({}, {:.0})", n, s.0),
             NodeStatus::NotSimulated => write!(f, "NotSimulated"),
             NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
             NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => {
                 write!(f, "Pruned(LocalHashSimilarity)")
             }
-            NodeStatus::WinnerIn(n, _) => write!(f, "WinnerIn({})", n),
         }
     }
 }
@@ -329,23 +365,34 @@ impl Node {
         self.id
     }
 
-    pub fn with_score(mut self, situations: Option<&SituationSet>) -> Self {
-        if let Some(score) = situations.and_then(|s| s.score(&self.gamestate)) {
-            self.local_score = NodeScore(score as i16);
-        }
-        self
-    }
+    pub fn with_score(
+        mut self,
+        situations: Option<&SituationSet>,
+        parent_dead_snake_count: usize,
+    ) -> Self {
+        let our_dead_snake_count = self
+            .gamestate
+            .snakes()
+            .clone()
+            .into_iter()
+            .skip(1)
+            .filter(|s| matches!(s.get(), Snake::Dead { .. }))
+            .count();
+        self.local_score += NodeScore(
+            (our_dead_snake_count as i16 - parent_dead_snake_count as i16)
+                * ENV_CONFIG.SCORE_SIMULATION_KILL as i16,
+        );
 
-    pub fn score(&self) -> NodeScore {
-        if let Some(pinned_status) = self.pinned_status {
-            if let Some(score) = pinned_status.score() {
-                return score;
-            } else {
-                return NodeScore(0);
-            }
-        } else {
-            return self.status.score().unwrap_or(NodeScore(0));
+        if self.status == NodeStatus::WinnerIn(0, NodeScore(0)) {
+            self.local_score += NodeScore(ENV_CONFIG.SCORE_SIMULATION_WINNER as i16);
         }
+
+        if let Some(score) = situations.and_then(|s| s.score(&self.gamestate)) {
+            self.local_score += NodeScore(score as i16);
+        }
+
+        self.status = self.status.try_add_score(self.local_score);
+        self
     }
 
     pub fn status(&self) -> NodeStatus {
@@ -364,20 +411,6 @@ impl Node {
         }
     }
 
-    pub fn direction_score(&self, direction: Direction) -> NodeScore {
-        if let Some(pinned_status) = self.pinned_status {
-            if let Some(score) = pinned_status.score() {
-                return score;
-            } else {
-                return NodeScore(0);
-            }
-        } else {
-            self.direction_states[direction as usize]
-                .score()
-                .unwrap_or(NodeScore(0))
-        }
-    }
-
     fn update_direction_status_and_score(&mut self, direction: Direction) -> bool {
         let old_status = self.direction_states[direction as usize];
         let children = &self.children_states_per_direction[direction as usize];
@@ -388,7 +421,8 @@ impl Node {
 
     fn update_status(&mut self) -> bool {
         let old_status = self.status;
-        self.status = NodeStatus::calculate_from_direction_states(&self.direction_states);
+        self.status = NodeStatus::calculate_from_direction_states(&self.direction_states)
+            .try_add_score(self.local_score);
         old_status != self.status
     }
 
@@ -438,6 +472,15 @@ impl Node {
             "Should never simulate a node that is a new winner"
         );
 
+        let dead_snake_count = self
+            .gamestate
+            .snakes()
+            .clone()
+            .into_iter()
+            .skip(1)
+            .filter(|s| matches!(s.get(), Snake::Dead { .. }))
+            .count();
+
         'direction: while let Some((direction, move_matrix)) =
             self.next_direction(direction_preference_situations)
         {
@@ -459,7 +502,8 @@ impl Node {
                     }
                 }
 
-                let child = Node::new(child_id, child_gamestate).with_score(score_situations);
+                let child = Node::new(child_id, child_gamestate)
+                    .with_score(score_situations, dead_snake_count);
                 let child_status = child.status();
 
                 self.children_states_per_direction[direction as usize].push((moves, child_status));
