@@ -12,7 +12,11 @@ use crate::logic::{
     },
 };
 use core::panic;
-use std::{collections::HashSet, fmt::Display, ops::{Add, AddAssign, Deref}};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    ops::{Add, AddAssign, Deref},
+};
 
 pub mod node_id;
 mod node_stats;
@@ -369,6 +373,7 @@ impl Node {
         mut self,
         situations: Option<&SituationSet>,
         parent_dead_snake_count: usize,
+        parent_length: Option<u8>,
     ) -> Self {
         let our_dead_snake_count = self
             .gamestate
@@ -378,10 +383,24 @@ impl Node {
             .skip(1)
             .filter(|s| matches!(s.get(), Snake::Dead { .. }))
             .count();
+
+        let our_length = if let Snake::Alive { length, .. } = self.gamestate.snakes().cell(0).get() {
+            Some(length)
+        } else {
+            None
+        };
+
         self.local_score += NodeScore(
             (our_dead_snake_count as i16 - parent_dead_snake_count as i16)
                 * ENV_CONFIG.SCORE_SIMULATION_KILL as i16,
         );
+
+        if let (Some(our_length), Some(parent_length)) = (our_length, parent_length) {
+            self.local_score += NodeScore(
+                (our_length as i16 - parent_length as i16)
+                    * ENV_CONFIG.SCORE_SIMULATION_FOOD as i16,
+            );
+        }
 
         if self.status == NodeStatus::WinnerIn(0, NodeScore(0)) {
             self.local_score += NodeScore(ENV_CONFIG.SCORE_SIMULATION_WINNER as i16);
@@ -481,6 +500,12 @@ impl Node {
             .filter(|s| matches!(s.get(), Snake::Dead { .. }))
             .count();
 
+        let length = if let Snake::Alive { length, .. } = self.gamestate.snakes().cell(0).get() {
+            Some(length)
+        } else {
+            None
+        };
+
         'direction: while let Some((direction, move_matrix)) =
             self.next_direction(direction_preference_situations)
         {
@@ -502,8 +527,11 @@ impl Node {
                     }
                 }
 
-                let child = Node::new(child_id, child_gamestate)
-                    .with_score(score_situations, dead_snake_count);
+                let child = Node::new(child_id, child_gamestate).with_score(
+                    score_situations,
+                    dead_snake_count,
+                    length,
+                );
                 let child_status = child.status();
 
                 self.children_states_per_direction[direction as usize].push((moves, child_status));

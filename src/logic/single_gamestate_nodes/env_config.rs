@@ -33,7 +33,8 @@ env_config! {
 
     // Simulation Back Propagation Scores
     SCORE_SIMULATION_WINNER = 1000.0,
-    SCORE_SIMULATION_KILL = 250.0,
+    SCORE_SIMULATION_KILL = 200.0,
+    SCORE_SIMULATION_FOOD = 10.0,
 
     // Situation Matches
     SCORE_AVOID_MOVING_NEXT_TO_WALL = -20.0,
