@@ -78,3 +78,4 @@ situation_test!(failure_72, Up => "Going up allows for chasing tails, going down
 situation_test!(failure_73, Up => "Bad situation overall, but up allows for risky plays whereas right is almost certain death against capable opponent");
 situation_test!(failure_74, Up, Down => "Pruning problem, false winner in simulation suggests right");
 situation_test!(failure_75, Up => "Pruning problem, left is seen as alive although it is not if B eats food");
+situation_test!(failure_76, Left => "Left is fastest way to win");

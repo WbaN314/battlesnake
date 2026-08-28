@@ -98,7 +98,7 @@ impl GamestateNodesSnake {
                 NodeStatus::WinnerIn(n, score) => {
                     evaluation.score(
                         index.try_into().unwrap(),
-                        n as f32 * 0.1,
+                        (10 - n).max(1) as f32 * 1000.0,
                         format!("Winner In {}", n),
                     );
                     evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
