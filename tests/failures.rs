@@ -79,3 +79,4 @@ situation_test!(failure_73, Up => "Bad situation overall, but up allows for risk
 situation_test!(failure_74, Up, Down => "Pruning problem, false winner in simulation suggests right");
 situation_test!(failure_75, Up => "Pruning problem, left is seen as alive although it is not if B eats food");
 situation_test!(failure_76, Left => "Left is fastest way to win");
+situation_test!(failure_77, Down => "Right leads to probably dead, but massive tree growth, probably requires pruning");
