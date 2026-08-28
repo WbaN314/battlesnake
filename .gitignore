@@ -5,3 +5,4 @@ winners_tally.txt
 snake_server_1.log
 game_logs/
 /tmp
+simulation_results.json

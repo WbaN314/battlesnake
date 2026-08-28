@@ -60,7 +60,6 @@ impl GamestateNodesSnake {
     ) -> [NodeStatus; 4] {
         let mut tree = Tree::new(gamestate.clone())
             .all_root_directions()
-            .similarity_pruning(|_| 6)
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
             .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
