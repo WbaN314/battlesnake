@@ -37,6 +37,17 @@ impl Coord {
         }
         directions
     }
+
+    pub fn in_triangle(&self, a: Coord, b: Coord, c: Coord) -> bool {
+        let sign = |p1: Coord, p2: Coord, p3: Coord| -> i32 {
+            (p1.x as i32 - p3.x as i32) * (p2.y as i32 - p3.y as i32)
+                - (p2.x as i32 - p3.x as i32) * (p1.y as i32 - p3.y as i32)
+        };
+        let d1 = sign(*self, a, b);
+        let d2 = sign(*self, b, c);
+        let d3 = sign(*self, c, a);
+        (d1 > 0 && d2 > 0 && d3 > 0) || (d1 < 0 && d2 < 0 && d3 < 0)
+    }
 }
 
 impl From<&OriginalCoord> for Coord {
@@ -124,6 +135,31 @@ mod tests {
         assert_eq!(a.distance_to(b), 1);
         assert_eq!(a.distance_to(c), 1);
         assert_eq!(a.distance_to(d), 2);
+    }
+
+    #[test]
+    fn test_in_triangle() {
+        use super::*;
+
+        let a = Coord::new(0, 0);
+        let b = Coord::new(10, 0);
+        let c = Coord::new(5, 10);
+
+        // clearly inside
+        assert!(Coord::new(5, 5).in_triangle(a, b, c));
+        assert!(Coord::new(3, 2).in_triangle(a, b, c));
+        // clearly outside
+        assert!(!Coord::new(0, 10).in_triangle(a, b, c));
+        assert!(!Coord::new(10, 10).in_triangle(a, b, c));
+        assert!(!Coord::new(1, 9).in_triangle(a, b, c));
+        // on a vertex
+        assert!(!Coord::new(0, 0).in_triangle(a, b, c));
+        assert!(!Coord::new(10, 0).in_triangle(a, b, c));
+        assert!(!Coord::new(5, 10).in_triangle(a, b, c));
+        // on an edge
+        assert!(!Coord::new(5, 0).in_triangle(a, b, c));  // bottom edge midpoint
+        assert!(!Coord::new(2, 4).in_triangle(a, b, c));  // left edge
+        assert!(!Coord::new(8, 4).in_triangle(a, b, c));  // right edge
     }
 
     #[test]
