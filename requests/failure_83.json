@@ -1,0 +1,350 @@
+{
+    "game": {
+        "id": "61fcd427-6a88-4ac3-b864-4032f350890c",
+        "ruleset": {
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard",
+            "version": "v1.2.3"
+        },
+        "timeout": 500
+    },
+    "turn": 192,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 10,
+                "y": 5
+            },
+            {
+                "x": 2,
+                "y": 2
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_V48pd4JG7wFt66TwHQrHDyMT",
+                "name": "Bwukinator",
+                "health": 88,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 2
+                    },
+                    {
+                        "x": 4,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 2
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 3
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 5
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 8,
+                        "y": 6
+                    },
+                    {
+                        "x": 8,
+                        "y": 5
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 9,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 2
+                },
+                "length": 14,
+                "latency": "442",
+                "shout": ""
+            },
+            {
+                "id": "gs_7tvjmRRyMtvFhBHqmfdgJpdW",
+                "name": "Prüzze v2",
+                "health": 96,
+                "body": [
+                    {
+                        "x": 9,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 2
+                    },
+                    {
+                        "x": 9,
+                        "y": 2
+                    },
+                    {
+                        "x": 9,
+                        "y": 1
+                    },
+                    {
+                        "x": 8,
+                        "y": 1
+                    },
+                    {
+                        "x": 7,
+                        "y": 1
+                    },
+                    {
+                        "x": 7,
+                        "y": 0
+                    },
+                    {
+                        "x": 6,
+                        "y": 0
+                    },
+                    {
+                        "x": 5,
+                        "y": 0
+                    },
+                    {
+                        "x": 4,
+                        "y": 0
+                    }
+                ],
+                "head": {
+                    "x": 9,
+                    "y": 3
+                },
+                "length": 11,
+                "latency": "6",
+                "shout": "One move, t=1"
+            },
+            {
+                "id": "gs_bwrvbYtgqGkJ7JBJm3MWdff9",
+                "name": "Geriatric Jagwire",
+                "health": 96,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 9
+                    },
+                    {
+                        "x": 2,
+                        "y": 9
+                    },
+                    {
+                        "x": 1,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    },
+                    {
+                        "x": 0,
+                        "y": 8
+                    },
+                    {
+                        "x": 1,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 8
+                    },
+                    {
+                        "x": 3,
+                        "y": 8
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 9
+                },
+                "length": 14,
+                "latency": "457",
+                "shout": ""
+            },
+            {
+                "id": "gs_HYcpk9c9SXX7m6x3KwVRrPHK",
+                "name": "Game of Chicken",
+                "health": 97,
+                "body": [
+                    {
+                        "x": 9,
+                        "y": 7
+                    },
+                    {
+                        "x": 9,
+                        "y": 8
+                    },
+                    {
+                        "x": 9,
+                        "y": 9
+                    },
+                    {
+                        "x": 9,
+                        "y": 10
+                    },
+                    {
+                        "x": 8,
+                        "y": 10
+                    },
+                    {
+                        "x": 7,
+                        "y": 10
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 6,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 8
+                    }
+                ],
+                "head": {
+                    "x": 9,
+                    "y": 7
+                },
+                "length": 10,
+                "latency": "320",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_HYcpk9c9SXX7m6x3KwVRrPHK",
+        "name": "Game of Chicken",
+        "health": 97,
+        "body": [
+            {
+                "x": 9,
+                "y": 7
+            },
+            {
+                "x": 9,
+                "y": 8
+            },
+            {
+                "x": 9,
+                "y": 9
+            },
+            {
+                "x": 9,
+                "y": 10
+            },
+            {
+                "x": 8,
+                "y": 10
+            },
+            {
+                "x": 7,
+                "y": 10
+            },
+            {
+                "x": 7,
+                "y": 9
+            },
+            {
+                "x": 6,
+                "y": 9
+            },
+            {
+                "x": 5,
+                "y": 9
+            },
+            {
+                "x": 5,
+                "y": 8
+            }
+        ],
+        "head": {
+            "x": 9,
+            "y": 7
+        },
+        "length": 10,
+        "latency": "320",
+        "shout": ""
+    }
+}

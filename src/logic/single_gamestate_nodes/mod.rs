@@ -276,3 +276,14 @@ impl Brain for GamestateNodesSnake {
         direction
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::get_move_from_json_file_with_timeout;
+
+    #[test]
+    fn test_with_longer_simulation_time() {
+        let timeout_ms = 10000;
+        get_move_from_json_file_with_timeout("failure_81.json", timeout_ms);
+    }
+}

@@ -1,0 +1,266 @@
+{
+    "game": {
+        "id": "fb911be1-821b-4b67-b5be-32a53ce64279",
+        "ruleset": {
+            "name": "standard",
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            }
+        },
+        "timeout": 500
+    },
+    "turn": 84,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 10,
+                "y": 0
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_gmH3pg9bMhrRQFqRmqwQpxbP",
+                "name": "conesnake",
+                "health": 66,
+                "body": [
+                    {
+                        "x": 8,
+                        "y": 6
+                    },
+                    {
+                        "x": 9,
+                        "y": 6
+                    },
+                    {
+                        "x": 9,
+                        "y": 7
+                    },
+                    {
+                        "x": 9,
+                        "y": 8
+                    },
+                    {
+                        "x": 8,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 7,
+                        "y": 10
+                    }
+                ],
+                "head": {
+                    "x": 8,
+                    "y": 6
+                },
+                "length": 8,
+                "latency": "462",
+                "shout": ""
+            },
+            {
+                "id": "gs_9XR8FBXTdGXqrbKkpc9WG3TY",
+                "name": "Game of Chicken",
+                "health": 75,
+                "body": [
+                    {
+                        "x": 3,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 4
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 2
+                    },
+                    {
+                        "x": 4,
+                        "y": 2
+                    },
+                    {
+                        "x": 5,
+                        "y": 2
+                    }
+                ],
+                "head": {
+                    "x": 3,
+                    "y": 5
+                },
+                "length": 6,
+                "latency": "250",
+                "shout": ""
+            },
+            {
+                "id": "gs_XmSSQW6r6dkfy3vQYQxTXPPR",
+                "name": "Snaky  McSnakeface",
+                "health": 100,
+                "body": [
+                    {
+                        "x": 0,
+                        "y": 8
+                    },
+                    {
+                        "x": 0,
+                        "y": 9
+                    },
+                    {
+                        "x": 1,
+                        "y": 9
+                    },
+                    {
+                        "x": 2,
+                        "y": 9
+                    },
+                    {
+                        "x": 3,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 8
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    },
+                    {
+                        "x": 4,
+                        "y": 7
+                    }
+                ],
+                "head": {
+                    "x": 0,
+                    "y": 8
+                },
+                "length": 9,
+                "latency": "302",
+                "shout": "7 4 83"
+            },
+            {
+                "id": "gs_YDYkDVVd9pgdpbHqmdF4RvBc",
+                "name": "Gary the Snake",
+                "health": 90,
+                "body": [
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 6,
+                        "y": 1
+                    },
+                    {
+                        "x": 7,
+                        "y": 1
+                    },
+                    {
+                        "x": 7,
+                        "y": 2
+                    },
+                    {
+                        "x": 6,
+                        "y": 2
+                    },
+                    {
+                        "x": 6,
+                        "y": 3
+                    },
+                    {
+                        "x": 6,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 5
+                    },
+                    {
+                        "x": 6,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 6
+                    }
+                ],
+                "head": {
+                    "x": 5,
+                    "y": 1
+                },
+                "length": 10,
+                "latency": "261",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_9XR8FBXTdGXqrbKkpc9WG3TY",
+        "name": "Game of Chicken",
+        "health": 75,
+        "body": [
+            {
+                "x": 3,
+                "y": 5
+            },
+            {
+                "x": 3,
+                "y": 4
+            },
+            {
+                "x": 3,
+                "y": 3
+            },
+            {
+                "x": 3,
+                "y": 2
+            },
+            {
+                "x": 4,
+                "y": 2
+            },
+            {
+                "x": 5,
+                "y": 2
+            }
+        ],
+        "head": {
+            "x": 3,
+            "y": 5
+        },
+        "length": 6,
+        "latency": "250",
+        "shout": ""
+    }
+}

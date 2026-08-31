@@ -82,3 +82,7 @@ situation_test!(failure_76, Left => "Left is fastest way to win");
 situation_test!(failure_77, Down => "Right leads to probably dead, but massive tree growth, probably requires pruning");
 situation_test!(failure_78, Right => "Grabbing the food equalises length which would help massively");
 situation_test!(failure_79, Right, Up => "Going left (and then down) leads to death by D");
+situation_test!(failure_80, Left => "Get out of the triangle formed by the other snake heads");
+situation_test!(failure_81, Up, Right => "Going down leads to beeing trapped");
+situation_test!(failure_82, Left, Right => "Both directions lead to death, not sure which is better");
+situation_test!(failure_83, Left, Right => "Down leads to death, right not sure about it");
