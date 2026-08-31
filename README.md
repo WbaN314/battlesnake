@@ -45,7 +45,6 @@ cargo run --release --bin analyze_local_simulation -- game_logs 5000 10
 cargo run --release --bin run_generated_tests
 ```
 
-
 ## Parameter Tuning Tournament
 
 Evolutionary search over `EnvironmentConfig` scoring params. Each round generates 4 mutated candidates, validates each against regression tests (`cargo test failure_`), then runs simulations to find a better champion.
@@ -66,8 +65,6 @@ cargo run --release --bin run_tournament -- -n 100 -r 20 -i tournament_best.json
 
 Results are saved to `tournament_best.json`. Candidates that fail `cargo test failure_` are automatically discarded and regenerated — only valid configs enter simulation.
 
-
-
 ## Interactive Game TUI
 
 Interactive TUI for building game state JSON files and playing them against the AI.
@@ -85,9 +82,9 @@ cargo run --bin play_game -- -p requests/example_move_request_2.json
 ```
 
 ## Flamegraph
+
 Use to find hot spots with the benchmarks. For example:
 
 ```
 CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --unit-bench battlesnake_game_of_chicken_lib --open -- game::field::benchmarks::bench_next_state_with_basic_field
 ```
-

@@ -32,3 +32,4 @@ situation_test!(editor_07, Down => "If longer, down twice lets opponent decide f
 
 // Winner Situation
 situation_test!(editor_08, Right => "Right is only valid choice");
+situation_test!(editor_09, Left, Up => "Right is only valid choice");

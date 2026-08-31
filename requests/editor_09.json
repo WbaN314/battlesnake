@@ -1,0 +1,271 @@
+{
+  "board": {
+    "food": [],
+    "hazards": [],
+    "height": 11,
+    "snakes": [
+      {
+        "body": [
+          {
+            "x": 8,
+            "y": 6
+          },
+          {
+            "x": 9,
+            "y": 6
+          },
+          {
+            "x": 10,
+            "y": 6
+          },
+          {
+            "x": 10,
+            "y": 5
+          },
+          {
+            "x": 10,
+            "y": 4
+          },
+          {
+            "x": 10,
+            "y": 3
+          },
+          {
+            "x": 10,
+            "y": 2
+          },
+          {
+            "x": 10,
+            "y": 1
+          },
+          {
+            "x": 10,
+            "y": 0
+          },
+          {
+            "x": 9,
+            "y": 0
+          },
+          {
+            "x": 9,
+            "y": 1
+          },
+          {
+            "x": 8,
+            "y": 1
+          },
+          {
+            "x": 7,
+            "y": 1
+          },
+          {
+            "x": 7,
+            "y": 0
+          },
+          {
+            "x": 6,
+            "y": 0
+          },
+          {
+            "x": 6,
+            "y": 1
+          }
+        ],
+        "customizations": {
+          "color": "#FF0000",
+          "head": "default",
+          "tail": "default"
+        },
+        "head": {
+          "x": 8,
+          "y": 6
+        },
+        "health": 100,
+        "id": "snake-0",
+        "latency": "100",
+        "length": 16,
+        "name": "Snake A",
+        "shout": null
+      },
+      {
+        "body": [
+          {
+            "x": 8,
+            "y": 10
+          },
+          {
+            "x": 9,
+            "y": 10
+          },
+          {
+            "x": 9,
+            "y": 9
+          },
+          {
+            "x": 8,
+            "y": 9
+          },
+          {
+            "x": 7,
+            "y": 9
+          },
+          {
+            "x": 6,
+            "y": 9
+          },
+          {
+            "x": 5,
+            "y": 9
+          },
+          {
+            "x": 4,
+            "y": 9
+          },
+          {
+            "x": 4,
+            "y": 8
+          },
+          {
+            "x": 4,
+            "y": 7
+          },
+          {
+            "x": 4,
+            "y": 6
+          },
+          {
+            "x": 4,
+            "y": 5
+          },
+          {
+            "x": 4,
+            "y": 4
+          },
+          {
+            "x": 4,
+            "y": 3
+          },
+          {
+            "x": 4,
+            "y": 2
+          }
+        ],
+        "customizations": {
+          "color": "#00FF00",
+          "head": "default",
+          "tail": "default"
+        },
+        "head": {
+          "x": 8,
+          "y": 10
+        },
+        "health": 100,
+        "id": "snake-1",
+        "latency": "100",
+        "length": 15,
+        "name": "Snake B",
+        "shout": null
+      }
+    ],
+    "width": 11
+  },
+  "game": {
+    "id": "play-game",
+    "map": "standard",
+    "ruleset": {
+      "name": "standard",
+      "settings": {
+        "foodSpawnChance": 0,
+        "hazardDamagePerTurn": 0,
+        "minimumFood": 0
+      },
+      "version": "v1.1.15"
+    },
+    "source": "play_game",
+    "timeout": 500
+  },
+  "turn": 100,
+  "you": {
+    "body": [
+      {
+        "x": 8,
+        "y": 6
+      },
+      {
+        "x": 9,
+        "y": 6
+      },
+      {
+        "x": 10,
+        "y": 6
+      },
+      {
+        "x": 10,
+        "y": 5
+      },
+      {
+        "x": 10,
+        "y": 4
+      },
+      {
+        "x": 10,
+        "y": 3
+      },
+      {
+        "x": 10,
+        "y": 2
+      },
+      {
+        "x": 10,
+        "y": 1
+      },
+      {
+        "x": 10,
+        "y": 0
+      },
+      {
+        "x": 9,
+        "y": 0
+      },
+      {
+        "x": 9,
+        "y": 1
+      },
+      {
+        "x": 8,
+        "y": 1
+      },
+      {
+        "x": 7,
+        "y": 1
+      },
+      {
+        "x": 7,
+        "y": 0
+      },
+      {
+        "x": 6,
+        "y": 0
+      },
+      {
+        "x": 6,
+        "y": 1
+      }
+    ],
+    "customizations": {
+      "color": "#FF0000",
+      "head": "default",
+      "tail": "default"
+    },
+    "head": {
+      "x": 8,
+      "y": 6
+    },
+    "health": 100,
+    "id": "snake-0",
+    "latency": "100",
+    "length": 16,
+    "name": "Snake A",
+    "shout": null
+  }
+}

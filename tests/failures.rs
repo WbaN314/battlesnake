@@ -80,3 +80,5 @@ situation_test!(failure_74, Up, Down => "Pruning problem, false winner in simula
 situation_test!(failure_75, Up => "Pruning problem, left is seen as alive although it is not if B eats food");
 situation_test!(failure_76, Left => "Left is fastest way to win");
 situation_test!(failure_77, Down => "Right leads to probably dead, but massive tree growth, probably requires pruning");
+situation_test!(failure_78, Right => "Grabbing the food equalises length which would help massively");
+situation_test!(failure_79, Right, Up => "Going left (and then down) leads to death by D");
