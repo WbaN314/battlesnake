@@ -489,22 +489,20 @@ impl Node {
         let valid_moves = self.gamestate.valid_moves();
 
         for direction in DIRECTIONS {
-            if self.direction_status(direction) == NodeStatus::NotSimulated {
-                let moves = valid_moves.pregenerate_for(direction);
-                for moves in moves {
-                    let child_id = self.id.child(moves);
-                    baseline[direction as usize].entry(child_id).or_insert(
-                        NodeStatus::NotSimulated,
-                    );
-                }
+            // pregenerate_for() forces our own move to `direction` regardless of legality,
+            // so guard against directions where our snake cannot actually move: those have
+            // no children (the direction is dead because *we* die, not because of pruning).
+            if !valid_moves.get(0).is_valid(direction) {
+                continue;
+            }
+            let fill = if self.direction_status(direction) == NodeStatus::NotSimulated {
+                NodeStatus::NotSimulated
             } else {
-                let moves = valid_moves.pregenerate_for(direction);
-                for moves in moves {
-                    let child_id = self.id.child(moves);
-                    baseline[direction as usize].entry(child_id).or_insert(
-                        NodeStatus::Pruned(PruneReason::HeadTailDistance),
-                    );
-                }
+                NodeStatus::Pruned(PruneReason::HeadTailDistance)
+            };
+            for moves in valid_moves.pregenerate_for(direction) {
+                let child_id = self.id.child(moves);
+                baseline[direction as usize].entry(child_id).or_insert(fill);
             }
         }
 
