@@ -3,7 +3,7 @@ use crate::logic::{
         direction::{DIRECTIONS, Direction},
         field::BasicField,
         game_state::GameState,
-        moves::{MoveMatrix, MoveVector, Moves},
+        moves::{MoveMatrix, Moves},
         snake::Snake,
         snakes::SNAKES,
     },
@@ -315,6 +315,7 @@ pub struct Node {
     priority: i8,
     move_matrix: Option<MoveMatrix>,
     ordered_directions: Option<[Direction; 4]>, // Order in which directions should be simulated
+    head_tail_distance: Option<u8>,
 }
 
 impl Node {
@@ -338,6 +339,7 @@ impl Node {
             move_matrix: None,
             ordered_directions: None,
             local_score: NodeScore(0),
+            head_tail_distance: None,
         }
     }
 
@@ -475,15 +477,42 @@ impl Node {
 
     /// For stats usage only, not for simulation.
     pub fn children(&self) -> [Vec<(NodeId, NodeStatus)>; 4] {
-        self.children_states_per_direction.clone().map(|vec| {
-            vec.into_iter()
-                .map(|(dv, s)| (self.id.child(dv), s))
-                .collect()
-        })
+        let mut result: [Vec<(NodeId, NodeStatus)>; 4] =
+            self.children_states_per_direction.clone().map(|vec| {
+                vec.into_iter()
+                    .map(|(moves, s)| (self.id.child(moves), s))
+                    .collect()
+            });
+        let full = self.gamestate.valid_moves();
+        let pruned = self.head_tail_distance.map(|d| full.prune_head_tail(&self.gamestate, d));
+        let our_valid = full.get(0);
+        for (dir_idx, bucket) in result.iter_mut().enumerate() {
+            let direction = Direction::try_from(dir_idx).unwrap();
+            if !our_valid.is_valid(direction) {
+                continue;
+            }
+            if self.direction_status(direction) == NodeStatus::NotSimulated {
+                for moves in full.pregenerate_for(direction) {
+                    bucket.push((self.id.child(moves), NodeStatus::NotSimulated));
+                }
+            } else if let Some(ref pruned_matrix) = pruned {
+                // prune_head_tail converts far opponents to None, making pruned combos
+                // structurally incompatible with full combos (None vs Some). Use arithmetic
+                // instead of set membership: ht_pruned = full_count - pruned_count.
+                let full_combos = full.pregenerate_for(direction);
+                let pruned_count = pruned_matrix.pregenerate_for(direction).len();
+                let ht_count = full_combos.len().saturating_sub(pruned_count);
+                for moves in full_combos.into_iter().take(ht_count) {
+                    bucket.push((self.id.child(moves), NodeStatus::Pruned(PruneReason::HeadTailDistance)));
+                }
+            }
+        }
+        result
     }
 
     pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>, head_tail_distance: Option<u8>) {
         if self.move_matrix.is_none() {
+            self.head_tail_distance = head_tail_distance;
             let mut move_matrix = self.gamestate.valid_moves();
             if let Some(distance) = head_tail_distance {
                 move_matrix = move_matrix.prune_head_tail(&self.gamestate, distance);
@@ -499,6 +528,7 @@ impl Node {
     pub fn simulate(
         &mut self,
         similarity_pruning_distance: Option<u8>,
+        head_tail_distance: Option<u8>,
         direction_preference_situations: Option<&SituationSet>,
         score_situations: Option<&SituationSet>,
     ) -> Option<Vec<Node>> {
@@ -506,7 +536,7 @@ impl Node {
             !matches!(self.status, NodeStatus::WinnerIn(0, _)),
             "Should never simulate a node that is a new winner"
         );
-        self.prepare_simulation(direction_preference_situations, similarity_pruning_distance);
+        self.prepare_simulation(direction_preference_situations, head_tail_distance);
 
         let dead_snake_count = self
             .gamestate
@@ -732,8 +762,8 @@ mod tests {
     fn simulate_exhausts_all_directions() {
         let mut node = make_root_node("requests/example_move_request.json");
         println!("{}", node);
-        while node.simulate(None, None, None).is_some() {
-            node.simulate(None, None, None);
+        while node.simulate(None, None, None, None).is_some() {
+            node.simulate(None, None, None, None);
         }
         for i in DIRECTIONS {
             let status = node.direction_status(i);
@@ -748,13 +778,13 @@ mod tests {
             );
         }
         println!("{}", node);
-        assert!(node.simulate(None, None, None).is_none());
+        assert!(node.simulate(None, None, None, None).is_none());
     }
 
     #[test]
     fn display_half_simulated_node() {
         let mut node = make_root_node("requests/test_game_start.json");
-        node.simulate(None, None, None);
+        node.simulate(None, None, None, None);
         println!("{}", node);
     }
 
@@ -912,7 +942,7 @@ mod benchmarks {
         b.iter(|| {
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), None, None))
+            black_box(node.simulate(black_box(None), None, None, None))
         });
     }
 
@@ -921,7 +951,7 @@ mod benchmarks {
         let nodes: Vec<Node> = test_nodes()
             .into_iter()
             .map(|mut n| {
-                n.simulate(None, None, None);
+                n.simulate(None, None, None, None);
                 n
             })
             .collect();
@@ -938,7 +968,7 @@ mod benchmarks {
         let prepared: Vec<(Node, NodeId, NodeStatus)> = test_nodes()
             .into_iter()
             .filter_map(|mut parent| {
-                let children = parent.simulate(None, None, None)?;
+                let children = parent.simulate(None, None, None, None)?;
                 let (child_id, child_status) = children.first().map(|c| (c.id(), c.status()))?;
                 Some((parent, child_id, child_status))
             })

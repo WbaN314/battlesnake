@@ -1,4 +1,5 @@
 use super::Node;
+use crate::logic::general::direction::Direction;
 
 impl Node {
     pub fn count_potential_children_all(&self) -> [usize; 4] {

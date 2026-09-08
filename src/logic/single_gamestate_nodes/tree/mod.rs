@@ -24,6 +24,7 @@ pub struct Tree {
     max_nodes: usize,
     all_root_directions: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
+    head_tail_distance_fn: Option<fn(u8) -> u8>,
     child_priority_situations: Option<SituationSet>,
     node_direction_preference_situations: Option<SituationSet>,
     score_situations: Option<SituationSet>,
@@ -43,6 +44,7 @@ impl Tree {
             elapsed_simulation_time: Duration::ZERO,
             all_root_directions: false,
             similarity_distance_fn: None,
+            head_tail_distance_fn: None,
             child_priority_situations: None,
             node_direction_preference_situations: None,
             score_situations: None,
@@ -66,6 +68,11 @@ impl Tree {
 
     pub fn similarity_pruning(mut self, distance_fn: fn(u8) -> u8) -> Self {
         self.similarity_distance_fn = Some(distance_fn);
+        self
+    }
+
+    pub fn head_tail_pruning(mut self, distance_fn: fn(u8) -> u8) -> Self {
+        self.head_tail_distance_fn = Some(distance_fn);
         self
     }
 
@@ -161,8 +168,14 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
 
+        let head_tail_distance = self
+            .head_tail_distance_fn
+            .as_ref()
+            .map(|f| f(node_id.depth()));
+
         let child_nodes = node.simulate(
             similarity_pruning_distance,
+            head_tail_distance,
             self.node_direction_preference_situations.as_ref(),
             self.score_situations.as_ref(),
         );
@@ -655,6 +668,32 @@ mod tests {
     }
 
     #[test]
+    fn option_head_tail_distance() {
+        test_against_base_simulation(
+            |tree| tree.head_tail_pruning(|_depth| 6),
+            |baseline_tree, tree, filename| {
+                let root = tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                let baseline_root = baseline_tree.nodes.get(&"ROOT".parse().unwrap()).unwrap();
+                assert_eq!(
+                    root.status(),
+                    baseline_root.status(),
+                    "Root status should be same as baseline for {}",
+                    filename
+                );
+                for i in DIRECTIONS.into_iter() {
+                    assert_eq!(
+                        root.direction_status(i),
+                        baseline_root.direction_status(i),
+                        "Root direction {} should have same status as baseline for {}",
+                        i,
+                        filename
+                    );
+                }
+            },
+        );
+    }
+
+    #[test]
     fn option_fast_track() {
         let situation = Situation::multi_recommending(
             "
@@ -728,6 +767,7 @@ mod tests {
         let mut tree = create_tree_from_gamestate("requests/failure_43.json")
             .all_root_directions()
             .similarity_pruning(|_| 6)
+            .head_tail_pruning(|_| 6)
             .child_priority_situations(SituationSet::new(vec![situation]))
             .max_time(Duration::from_millis(200));
         tree.simulate();
