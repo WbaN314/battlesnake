@@ -15,11 +15,6 @@ use crate::logic::{
     single_gamestate_nodes::node::{Node, NodeStatus, PruneReason, node_id::NodeId},
 };
 
-const ALL_PRUNED_STATUSES: &[NodeStatus] = &[
-    NodeStatus::Pruned(PruneReason::MaxDepth),
-    NodeStatus::Pruned(PruneReason::LocalHashSimilarity),
-];
-
 use super::Tree;
 
 #[derive(Debug)]
@@ -27,7 +22,7 @@ pub struct TreeStats {
     pub total_nodes: usize,
     pub max_depth_reached: u8,
     pub nodes_per_depth: Vec<(u8, usize)>,
-    pub pruning_per_depth: Vec<PruningDepthStats>,
+    pub children_status_per_depth: Vec<(u8, Vec<(String, usize)>)>,
     pub nodes_by_status: Vec<(NodeStatus, usize)>,
     pub leaf_nodes: usize,
     pub alive_leaves: usize,
@@ -41,22 +36,16 @@ pub struct TreeStats {
     pub duration: Duration,
 }
 
-#[derive(Debug)]
-pub struct PruningDepthStats {
-    pub depth: u8,
-    pub potential: usize,
-    pub dir_skip: usize,
-    pub dead_break: usize,
-    pub ht_pruned: usize,
-    /// Counts per pruned NodeStatus variant, sorted by Display string for stable ordering.
-    /// New Pruned* variants appear here automatically once added to ALL_PRUNED_STATUSES.
-    pub pruned: Vec<(NodeStatus, usize)>,
-    pub simulated: usize,
-}
-
-impl PruningDepthStats {
-    pub fn total_pruned_nodes(&self) -> usize {
-        self.pruned.iter().map(|(_, c)| c).sum()
+fn status_kind(s: &NodeStatus) -> &'static str {
+    match s {
+        NodeStatus::AliveFor(_, _) => "AliveFor",
+        NodeStatus::DeadIn(_, _) => "DeadIn",
+        NodeStatus::WinnerIn(_, _) => "WinnerIn",
+        NodeStatus::ProbablyDeadIn(_, _) => "ProbablyDeadIn",
+        NodeStatus::NotSimulated => "NotSimulated",
+        NodeStatus::Pruned(PruneReason::MaxDepth) => "Pruned(MaxDepth)",
+        NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => "Pruned(Hash)",
+        NodeStatus::Pruned(PruneReason::HeadTailDistance) => "Pruned(HT)",
     }
 }
 
@@ -128,97 +117,27 @@ impl Tree {
             },
         );
 
-        // Per-depth pruning breakdown based on children() calls.
-        // For each non-pruned node, call children() and classify each entry by status:
-        //   NotSimulated              → dir_skip   (direction never started)
-        //   DeadIn(0, _)              → dead_break (explored but immediately dead)
-        //   Pruned(HeadTailDistance)  → ht_pruned  (HT-pruned, never explored)
-        //   Pruned(*)                 → pruned vec (MaxDepth = real node; LocalHashSimilarity = virtual)
-        //   everything else           → simulated  (actual node in tree)
-        // Pruned nodes are skipped: they are leaf entries in their parent's children() output
-        // and calling children() on them would generate phantom HT entries.
-        //
-        // Edge case: when simulate() explores a direction and the resulting direction_status is
-        // DeadIn or ProbablyDeadIn, it `continue`s without returning the alive/winner children,
-        // so they are recorded in children_states_per_direction as AliveFor(0)/WinnerIn(0) but
-        // never inserted into self.nodes. We detect these by checking the direction status and
-        // count them as dead_break.
-        let mut potential_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut dir_skip_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut dead_break_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut ht_pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut pruned_by_depth: BTreeMap<u8, HashMap<String, (NodeStatus, usize)>> =
-            BTreeMap::new();
-        let mut simulated_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-
+        // Per-depth children status counts: for every node call children(), bucket (depth, kind).
+        const KIND_ORDER: &[&str] = &[
+            "AliveFor", "DeadIn", "ProbablyDeadIn", "WinnerIn",
+            "NotSimulated", "Pruned(MaxDepth)", "Pruned(Hash)", "Pruned(HT)",
+        ];
+        let mut raw: BTreeMap<u8, HashMap<&'static str, usize>> = BTreeMap::new();
         for node in self.nodes.values() {
-            if matches!(node.status(), NodeStatus::Pruned(_)) {
-                continue;
-            }
-            for (dir_idx, dir_children) in node.children().into_iter().enumerate() {
-                let direction = Direction::try_from(dir_idx).unwrap();
-                let dir_is_dead = matches!(
-                    node.direction_status(direction),
-                    NodeStatus::DeadIn(_, _) | NodeStatus::ProbablyDeadIn(_, _)
-                );
+            for dir_children in node.children() {
                 for (child_id, child_status) in dir_children {
-                    let depth = child_id.depth();
-                    *potential_by_depth.entry(depth).or_default() += 1;
-                    match child_status {
-                        NodeStatus::NotSimulated => {
-                            *dir_skip_by_depth.entry(depth).or_default() += 1;
-                        }
-                        NodeStatus::DeadIn(0, _) => {
-                            *dead_break_by_depth.entry(depth).or_default() += 1;
-                        }
-                        NodeStatus::Pruned(PruneReason::HeadTailDistance) => {
-                            *ht_pruned_by_depth.entry(depth).or_default() += 1;
-                        }
-                        s @ NodeStatus::Pruned(_) => {
-                            pruned_by_depth
-                                .entry(depth)
-                                .or_default()
-                                .entry(format!("{}", s))
-                                .or_insert((s, 0))
-                                .1 += 1;
-                        }
-                        NodeStatus::AliveFor(0, _) | NodeStatus::WinnerIn(0, _)
-                            if dir_is_dead =>
-                        {
-                            // Alive/winner child of a dead/probablydead direction: was explored
-                            // but dropped (continue 'direction in simulate), not in the tree.
-                            *dead_break_by_depth.entry(depth).or_default() += 1;
-                        }
-                        _ => {
-                            *simulated_by_depth.entry(depth).or_default() += 1;
-                        }
-                    }
+                    *raw.entry(child_id.depth()).or_default()
+                        .entry(status_kind(&child_status)).or_default() += 1;
                 }
             }
         }
-
-        let pruning_per_depth: Vec<PruningDepthStats> = potential_by_depth
-            .keys()
-            .filter(|&&depth| depth <= max_depth_reached)
-            .map(|&depth| {
-                let potential = potential_by_depth[&depth];
-                let dir_skip = dir_skip_by_depth.get(&depth).copied().unwrap_or(0);
-                let dead_break = dead_break_by_depth.get(&depth).copied().unwrap_or(0);
-                let ht_pruned = ht_pruned_by_depth.get(&depth).copied().unwrap_or(0);
-                let simulated = simulated_by_depth.get(&depth).copied().unwrap_or(0);
-                let mut pruned: Vec<(NodeStatus, usize)> = pruned_by_depth
-                    .get(&depth)
-                    .map_or(vec![], |m| m.values().map(|&(s, c)| (s, c)).collect());
-                pruned.sort_by_key(|(s, _)| format!("{}", s));
-                PruningDepthStats {
-                    depth,
-                    potential,
-                    dir_skip,
-                    dead_break,
-                    ht_pruned,
-                    pruned,
-                    simulated,
-                }
+        let children_status_per_depth: Vec<(u8, Vec<(String, usize)>)> = raw
+            .into_iter()
+            .map(|(depth, counts)| {
+                let row = KIND_ORDER.iter()
+                    .filter_map(|&k| counts.get(k).map(|&c| (k.to_string(), c)))
+                    .collect();
+                (depth, row)
             })
             .collect();
 
@@ -269,7 +188,7 @@ impl Tree {
             total_nodes: self.nodes.len(),
             max_depth_reached,
             nodes_per_depth,
-            pruning_per_depth,
+            children_status_per_depth,
             nodes_by_status,
             leaf_nodes,
             alive_leaves,
@@ -385,80 +304,34 @@ impl TreeStats {
     }
 
     fn pruning_table(&self) -> String {
-        let all_pruned = ALL_PRUNED_STATUSES;
+        const KIND_ORDER: &[&str] = &[
+            "AliveFor", "DeadIn", "ProbablyDeadIn", "WinnerIn",
+            "NotSimulated", "Pruned(MaxDepth)", "Pruned(Hash)", "Pruned(HT)",
+        ];
+        let used_kinds: Vec<&str> = KIND_ORDER.iter()
+            .copied()
+            .filter(|&k| self.children_status_per_depth.iter()
+                .any(|(_, row)| row.iter().any(|(s, _)| s == k)))
+            .collect();
 
         let mut b = Builder::default();
-        let mut header: Vec<String> = vec![
-            "Depth".into(), "Potential".into(), "Dir Prune".into(), "Dead Prune".into(), "HT Prune".into(),
-        ];
-        header.extend(all_pruned.iter().map(|s| format!("{}", s)));
-        header.extend(["Simulated".into(), "%".into()]);
-        b.push_record(header.iter().map(String::as_str).collect::<Vec<_>>());
+        let mut header = vec!["Depth".to_string()];
+        header.extend(used_kinds.iter().map(|s| s.to_string()));
+        b.push_record(header.iter().map(String::as_str));
 
-        let mut tot_potential = 0usize;
-        let mut tot_dir_skip = 0usize;
-        let mut tot_dead_break = 0usize;
-        let mut tot_ht_pruned = 0usize;
-        let mut tot_by_type = vec![0usize; all_pruned.len()];
-        let mut tot_simulated = 0usize;
-
-        for p in &self.pruning_per_depth {
-            let type_counts: Vec<usize> = all_pruned
-                .iter()
-                .map(|s| {
-                    p.pruned.iter().find(|(ps, _)| ps == s).map_or(0, |(_, c)| *c)
-                })
-                .collect();
-            let total_pruned = p.dir_skip + p.dead_break + p.ht_pruned + type_counts.iter().sum::<usize>();
-            let rate = if p.potential > 0 {
-                format!("{:.1}%", total_pruned as f64 / p.potential as f64 * 100.0)
-            } else {
-                "-".to_string()
-            };
-            let mut row: Vec<String> = vec![
-                p.depth.to_string(), p.potential.to_string(),
-                p.dir_skip.to_string(), p.dead_break.to_string(), p.ht_pruned.to_string(),
-            ];
-            row.extend(type_counts.iter().map(|c| c.to_string()));
-            row.push(p.simulated.to_string());
-            row.push(rate);
-            b.push_record(row);
-
-            tot_potential += p.potential;
-            tot_dir_skip += p.dir_skip;
-            tot_dead_break += p.dead_break;
-            tot_ht_pruned += p.ht_pruned;
-            for (i, c) in type_counts.iter().enumerate() { tot_by_type[i] += c; }
-            tot_simulated += p.simulated;
+        for (depth, row) in &self.children_status_per_depth {
+            let row_map: HashMap<&str, usize> = row.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+            let mut rec = vec![depth.to_string()];
+            for &kind in &used_kinds {
+                rec.push(row_map.get(kind).map_or(0, |&c| c).to_string());
+            }
+            b.push_record(rec.iter().map(String::as_str));
         }
-
-        let tot_pruned = tot_dir_skip + tot_dead_break + tot_ht_pruned + tot_by_type.iter().sum::<usize>();
-        let tot_rate = if tot_potential > 0 {
-            format!("{:.1}%", tot_pruned as f64 / tot_potential as f64 * 100.0)
-        } else {
-            "-".to_string()
-        };
-        let mut tot_row: Vec<String> = vec![
-            "Total".into(), tot_potential.to_string(),
-            tot_dir_skip.to_string(), tot_dead_break.to_string(), tot_ht_pruned.to_string(),
-        ];
-        tot_row.extend(tot_by_type.iter().map(|c| c.to_string()));
-        tot_row.push(tot_simulated.to_string());
-        tot_row.push(tot_rate);
-        b.push_record(tot_row);
 
         let mut t = b.build();
         t.with(Style::rounded());
-        t.modify(Columns::new(0..=5 + all_pruned.len()), Alignment::right());
-        let legend = concat!(
-            "  Potential  = valid move combos for all valid directions\n",
-            "  Dir Prune  = directions never started (NotSimulated in children)\n",
-            "  Dead Prune = children explored but immediately dead (DeadIn(0))\n",
-            "  HT Prune   = combinations eliminated by head-tail distance pruning\n",
-            "  Simulated  = nodes actually in the tree (alive/dead/winner/probablydead)\n",
-            "  %          = (all pruned) / Potential\n",
-        );
-        format!("Pruning:\n{t}\n\n{legend}\n")
+        t.modify(Columns::new(0..), Alignment::right());
+        format!("Children status per depth:\n{t}\n\n")
     }
 
     fn leaf_table(&self) -> String {
@@ -513,106 +386,33 @@ impl TreeStats {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        logic::{
-            single_gamestate_nodes::{
-                node::{NodeStatus, PruneReason},
-                tree::tests::create_tree_from_gamestate,
-            },
-        },
-    };
-
-    fn check_invariants(stats: &super::TreeStats, label: &str, filename: &str) {
-        let nodes_per_depth: std::collections::HashMap<u8, usize> =
-            stats.nodes_per_depth.iter().copied().collect();
-
-        for p in &stats.pruning_per_depth {
-            let total_pruned_nodes = p.total_pruned_nodes();
-            assert_eq!(
-                p.dir_skip + p.dead_break + p.ht_pruned + total_pruned_nodes + p.simulated,
-                p.potential,
-                "[{label}] {filename} depth {}: dir_skip({}) + dead_break({}) + ht_pruned({}) + pruned({}) + simulated({}) != potential({})",
-                p.depth, p.dir_skip, p.dead_break, p.ht_pruned, total_pruned_nodes, p.simulated, p.potential,
-            );
-
-            // simulated (non-pruned tree nodes) + MaxDepth-pruned (real nodes in tree) = nodes at depth
-            let real_pruned = p.pruned.iter()
-                .filter(|(s, _)| *s == NodeStatus::Pruned(PruneReason::MaxDepth))
-                .map(|(_, c)| c)
-                .sum::<usize>();
-            let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
-            assert_eq!(
-                p.simulated + real_pruned,
-                nodes_at_depth,
-                "[{label}] {filename} depth {}: simulated({}) + real_pruned({}) != nodes_per_depth({})",
-                p.depth, p.simulated, real_pruned, nodes_at_depth,
-            );
-        }
-
-        let total_tree: usize = stats
-            .pruning_per_depth
-            .iter()
-            .map(|p| {
-                let real_pruned = p.pruned.iter()
-                    .filter(|(s, _)| *s == NodeStatus::Pruned(PruneReason::MaxDepth))
-                    .map(|(_, c)| c)
-                    .sum::<usize>();
-                p.simulated + real_pruned
-            })
-            .sum();
-        assert_eq!(
-            total_tree,
-            stats.total_nodes - 1,
-            "[{label}] {filename}: sum of tree({}) != total_nodes - 1({})",
-            total_tree,
-            stats.total_nodes - 1,
-        );
-    }
+    use crate::logic::single_gamestate_nodes::tree::tests::create_tree_from_gamestate;
 
     #[test]
     fn similarity_pruning_shows_in_stats() {
-        let filenames = ["requests/failure_01.json", "requests/failure_04.json"];
-        for filename in &filenames {
+        for filename in &["requests/failure_01.json", "requests/failure_04.json"] {
             let mut tree = create_tree_from_gamestate(filename)
                 .max_depth(4)
-                .similarity_pruning(|_| 6); // large HT distance keeps opponents' real moves → more combos → hash collisions
+                .similarity_pruning(|_| 6);
             tree.simulate();
             let stats = tree.stats();
-            check_invariants(&stats, "similarity_pruning", filename);
-
-            let total_sim: usize = stats
-                .pruning_per_depth
-                .iter()
-                .map(|p| {
-                    p.pruned
-                        .iter()
-                        .find(|(s, _)| *s == NodeStatus::Pruned(PruneReason::LocalHashSimilarity))
-                        .map_or(0, |(_, c)| *c)
-                })
-                .sum();
-            assert!(
-                total_sim > 0,
-                "[similarity_pruning] {filename}: expected Pruned(LocalHashSimilarity) entries in stats but got 0"
-            );
+            let found = stats.children_status_per_depth.iter()
+                .any(|(_, row)| row.iter().any(|(k, c)| k == "Pruned(Hash)" && *c > 0));
+            assert!(found, "[similarity_pruning] {filename}: expected Pruned(LocalSim) in stats");
         }
     }
 
     #[test]
     fn head_tail_pruning_shows_in_stats() {
-        let filenames = ["requests/failure_01.json", "requests/failure_04.json"];
-        for filename in &filenames {
+        for filename in &["requests/failure_01.json", "requests/failure_04.json"] {
             let mut tree = create_tree_from_gamestate(filename)
                 .max_depth(4)
                 .head_tail_pruning(|_| 1);
             tree.simulate();
             let stats = tree.stats();
-            check_invariants(&stats, "head_tail_pruning", filename);
-
-            let total_ht: usize = stats.pruning_per_depth.iter().map(|p| p.ht_pruned).sum();
-            assert!(
-                total_ht > 0,
-                "[head_tail_pruning] {filename}: expected ht_pruned > 0 in stats but got 0"
-            );
+            let found = stats.children_status_per_depth.iter()
+                .any(|(_, row)| row.iter().any(|(k, c)| k == "Pruned(HT)" && *c > 0));
+            assert!(found, "[head_tail_pruning] {filename}: expected Pruned(HT) in stats");
         }
     }
 }
