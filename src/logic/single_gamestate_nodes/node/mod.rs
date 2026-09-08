@@ -50,6 +50,7 @@ impl AddAssign for NodeScore {
 pub enum PruneReason {
     MaxDepth,
     LocalHashSimilarity,
+    HeadTailDistance,
 }
 
 #[derive(Copy, Clone, Debug, Hash)]
@@ -294,6 +295,9 @@ impl Display for NodeStatus {
             NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
             NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => {
                 write!(f, "Pruned(LocalHashSimilarity)")
+            },
+            NodeStatus::Pruned(PruneReason::HeadTailDistance) => {
+                write!(f, "Pruned(HeadTailDistance)")
             }
         }
     }
@@ -898,7 +902,7 @@ mod benchmarks {
         b.iter(|| {
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), None))
+            black_box(node.simulate(black_box(None), None, None))
         });
     }
 
