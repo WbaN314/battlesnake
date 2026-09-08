@@ -13,9 +13,7 @@ use crate::logic::{
 };
 use core::panic;
 use std::{
-    collections::HashSet,
-    fmt::Display,
-    ops::{Add, AddAssign, Deref},
+    collections::{HashMap, HashSet}, fmt::Display, ops::{Add, AddAssign, Deref},
 };
 
 pub mod node_id;
@@ -477,37 +475,37 @@ impl Node {
 
     /// For stats usage only, not for simulation.
     pub fn children(&self) -> [Vec<(NodeId, NodeStatus)>; 4] {
-        let mut result: [Vec<(NodeId, NodeStatus)>; 4] =
+
+        let mut baseline: [HashMap<NodeId, NodeStatus>; 4] =
             self.children_states_per_direction.clone().map(|vec| {
                 vec.into_iter()
                     .map(|(moves, s)| (self.id.child(moves), s))
-                    .collect()
+                    .collect::<HashMap<NodeId, NodeStatus>>()
             });
-        let full = self.gamestate.valid_moves();
-        let pruned = self.head_tail_distance.map(|d| full.prune_head_tail(&self.gamestate, d));
-        let our_valid = full.get(0);
-        for (dir_idx, bucket) in result.iter_mut().enumerate() {
-            let direction = Direction::try_from(dir_idx).unwrap();
-            if !our_valid.is_valid(direction) {
-                continue;
-            }
+
+        let valid_moves = self.gamestate.valid_moves();
+
+        for direction in DIRECTIONS {
             if self.direction_status(direction) == NodeStatus::NotSimulated {
-                for moves in full.pregenerate_for(direction) {
-                    bucket.push((self.id.child(moves), NodeStatus::NotSimulated));
+                let moves = valid_moves.pregenerate_for(direction);
+                for moves in moves {
+                    let child_id = self.id.child(moves);
+                    baseline[direction as usize].entry(child_id).or_insert(
+                        NodeStatus::NotSimulated,
+                    );
                 }
-            } else if let Some(ref pruned_matrix) = pruned {
-                // prune_head_tail converts far opponents to None, making pruned combos
-                // structurally incompatible with full combos (None vs Some). Use arithmetic
-                // instead of set membership: ht_pruned = full_count - pruned_count.
-                let full_combos = full.pregenerate_for(direction);
-                let pruned_count = pruned_matrix.pregenerate_for(direction).len();
-                let ht_count = full_combos.len().saturating_sub(pruned_count);
-                for moves in full_combos.into_iter().take(ht_count) {
-                    bucket.push((self.id.child(moves), NodeStatus::Pruned(PruneReason::HeadTailDistance)));
+            } else {
+                let moves = valid_moves.pregenerate_for(direction);
+                for moves in moves {
+                    let child_id = self.id.child(moves);
+                    baseline[direction as usize].entry(child_id).or_insert(
+                        NodeStatus::Pruned(PruneReason::HeadTailDistance),
+                    );
                 }
             }
         }
-        result
+
+        baseline.map(|hm| hm.into_iter().collect::<Vec<(NodeId, NodeStatus)>>()).try_into().unwrap()
     }
 
     pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>, head_tail_distance: Option<u8>) {

@@ -774,10 +774,6 @@ mod tests {
         // println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
-        println!(
-            "{}",
-            tree.nodes.get(&"DUDD-DURR".try_into().unwrap()).unwrap()
-        );
     }
 }
 
