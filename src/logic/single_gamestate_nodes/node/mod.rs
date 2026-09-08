@@ -476,6 +476,10 @@ impl Node {
     /// For stats usage only, not for simulation.
     pub fn children(&self) -> [Vec<(NodeId, NodeStatus)>; 4] {
 
+        if self.id.depth() >= NodeId::MAX_DEPTH {
+            return Default::default();
+        }
+
         let mut baseline: [HashMap<NodeId, NodeStatus>; 4] =
             self.children_states_per_direction.clone().map(|vec| {
                 vec.into_iter()
