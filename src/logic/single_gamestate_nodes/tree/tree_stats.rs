@@ -50,12 +50,8 @@ pub struct PruningDepthStats {
     pub ht_pruned: usize,
     /// Counts per pruned NodeStatus variant, sorted by Display string for stable ordering.
     /// New Pruned* variants appear here automatically once added to ALL_PRUNED_STATUSES.
-    /// Includes both real pruned nodes (in self.nodes) and virtual-pruned entries (only in
-    /// parent children arrays, never inserted as nodes).
     pub pruned: Vec<(NodeStatus, usize)>,
     pub simulated: usize,
-    /// Number of virtual-pruned entries in pruned (not present as nodes in the tree).
-    pub virtual_pruned: usize,
 }
 
 impl PruningDepthStats {
@@ -132,84 +128,96 @@ impl Tree {
             },
         );
 
-        // Per-depth pruning breakdown:
-        //   A = count_potential_children_all  (all valid dirs, explored or not)
-        //   B = count_potential_children_from_evaluated_directions (explored dirs only)
-        //   dir_skip   = A - B  (valid directions never started)
-        //   dead_break = B - Tree  (explored-direction combos cut short by DeadIn(0))
-        //   pruned     = nodes with a pruned status at this depth (dynamic, see NodeStatus::is_pruned)
-        //   simulated  = Tree - sum(pruned)
-        let mut potential_all_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut potential_eval_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        // Per-depth pruning breakdown based on children() calls.
+        // For each non-pruned node, call children() and classify each entry by status:
+        //   NotSimulated              → dir_skip   (direction never started)
+        //   DeadIn(0, _)              → dead_break (explored but immediately dead)
+        //   Pruned(HeadTailDistance)  → ht_pruned  (HT-pruned, never explored)
+        //   Pruned(*)                 → pruned vec (MaxDepth = real node; LocalHashSimilarity = virtual)
+        //   everything else           → simulated  (actual node in tree)
+        // Pruned nodes are skipped: they are leaf entries in their parent's children() output
+        // and calling children() on them would generate phantom HT entries.
+        //
+        // Edge case: when simulate() explores a direction and the resulting direction_status is
+        // DeadIn or ProbablyDeadIn, it `continue`s without returning the alive/winner children,
+        // so they are recorded in children_states_per_direction as AliveFor(0)/WinnerIn(0) but
+        // never inserted into self.nodes. We detect these by checking the direction status and
+        // count them as dead_break.
+        let mut potential_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut dir_skip_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut dead_break_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+        let mut ht_pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
         let mut pruned_by_depth: BTreeMap<u8, HashMap<String, (NodeStatus, usize)>> =
             BTreeMap::new();
-        // virtual_pruned_by_depth: children recorded in parent's children array with a pruned
-        // status but never inserted into self.nodes (e.g. PrunedForSimilarity)
-        let mut virtual_pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        let mut ht_pruned_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
-        for (&id, node) in &self.nodes {
-            let child_depth = id.depth() + 1;
-            let a: usize = node.count_potential_children_all().iter().sum();
-            let b: usize = node
-                .count_potential_children_from_evaluated_directions()
-                .iter()
-                .sum();
-            *potential_all_by_depth.entry(child_depth).or_default() += a;
-            *potential_eval_by_depth.entry(child_depth).or_default() += b;
-            let status = node.status();
-            if ALL_PRUNED_STATUSES.contains(&status) {
-                pruned_by_depth
-                    .entry(id.depth())
-                    .or_default()
-                    .entry(format!("{}", status))
-                    .or_insert((status, 0))
-                    .1 += 1;
+        let mut simulated_by_depth: BTreeMap<u8, usize> = BTreeMap::new();
+
+        for node in self.nodes.values() {
+            if matches!(node.status(), NodeStatus::Pruned(_)) {
+                continue;
             }
-            // Collect virtual-pruned children (pruned status recorded in children array but
-            // not present as nodes in self.nodes)
-            for children_vec in node.children() {
-                for (child_id, child_status) in children_vec {
-                    if child_status == NodeStatus::Pruned(PruneReason::HeadTailDistance) {
-                        *ht_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
-                    } else if ALL_PRUNED_STATUSES.contains(&child_status)
-                        && !self.nodes.contains_key(&child_id)
-                    {
-                        pruned_by_depth
-                            .entry(child_id.depth())
-                            .or_default()
-                            .entry(format!("{}", child_status))
-                            .or_insert((child_status, 0))
-                            .1 += 1;
-                        *virtual_pruned_by_depth.entry(child_id.depth()).or_default() += 1;
+            for (dir_idx, dir_children) in node.children().into_iter().enumerate() {
+                let direction = Direction::try_from(dir_idx).unwrap();
+                let dir_is_dead = matches!(
+                    node.direction_status(direction),
+                    NodeStatus::DeadIn(_, _) | NodeStatus::ProbablyDeadIn(_, _)
+                );
+                for (child_id, child_status) in dir_children {
+                    let depth = child_id.depth();
+                    *potential_by_depth.entry(depth).or_default() += 1;
+                    match child_status {
+                        NodeStatus::NotSimulated => {
+                            *dir_skip_by_depth.entry(depth).or_default() += 1;
+                        }
+                        NodeStatus::DeadIn(0, _) => {
+                            *dead_break_by_depth.entry(depth).or_default() += 1;
+                        }
+                        NodeStatus::Pruned(PruneReason::HeadTailDistance) => {
+                            *ht_pruned_by_depth.entry(depth).or_default() += 1;
+                        }
+                        s @ NodeStatus::Pruned(_) => {
+                            pruned_by_depth
+                                .entry(depth)
+                                .or_default()
+                                .entry(format!("{}", s))
+                                .or_insert((s, 0))
+                                .1 += 1;
+                        }
+                        NodeStatus::AliveFor(0, _) | NodeStatus::WinnerIn(0, _)
+                            if dir_is_dead =>
+                        {
+                            // Alive/winner child of a dead/probablydead direction: was explored
+                            // but dropped (continue 'direction in simulate), not in the tree.
+                            *dead_break_by_depth.entry(depth).or_default() += 1;
+                        }
+                        _ => {
+                            *simulated_by_depth.entry(depth).or_default() += 1;
+                        }
                     }
                 }
             }
         }
-        let pruning_per_depth: Vec<PruningDepthStats> = potential_all_by_depth
+
+        let pruning_per_depth: Vec<PruningDepthStats> = potential_by_depth
             .keys()
             .filter(|&&depth| depth <= max_depth_reached)
             .map(|&depth| {
-                let a = potential_all_by_depth[&depth];
-                let b = potential_eval_by_depth.get(&depth).copied().unwrap_or(0);
-                let tree = by_depth.get(&depth).copied().unwrap_or(0);
-                let virtual_pruned = virtual_pruned_by_depth.get(&depth).copied().unwrap_or(0);
+                let potential = potential_by_depth[&depth];
+                let dir_skip = dir_skip_by_depth.get(&depth).copied().unwrap_or(0);
+                let dead_break = dead_break_by_depth.get(&depth).copied().unwrap_or(0);
                 let ht_pruned = ht_pruned_by_depth.get(&depth).copied().unwrap_or(0);
+                let simulated = simulated_by_depth.get(&depth).copied().unwrap_or(0);
                 let mut pruned: Vec<(NodeStatus, usize)> = pruned_by_depth
                     .get(&depth)
                     .map_or(vec![], |m| m.values().map(|&(s, c)| (s, c)).collect());
                 pruned.sort_by_key(|(s, _)| format!("{}", s));
-                let total_pruned_nodes: usize = pruned.iter().map(|(_, c)| c).sum();
                 PruningDepthStats {
                     depth,
-                    potential: a,
-                    dir_skip: a.saturating_sub(b),
-                    // b uses the full (unpruned) move matrix; subtract virtual_pruned (similarity)
-                    // and ht_pruned (head-tail) to isolate actual dead-break combos
-                    dead_break: b.saturating_sub(tree).saturating_sub(virtual_pruned).saturating_sub(ht_pruned),
+                    potential,
+                    dir_skip,
+                    dead_break,
                     ht_pruned,
                     pruned,
-                    simulated: tree.saturating_sub(total_pruned_nodes - virtual_pruned),
-                    virtual_pruned,
+                    simulated,
                 }
             })
             .collect();
@@ -444,10 +452,10 @@ impl TreeStats {
         t.modify(Columns::new(0..=5 + all_pruned.len()), Alignment::right());
         let legend = concat!(
             "  Potential  = valid move combos for all valid directions\n",
-            "  Dir Prune  = valid directions never started\n",
-            "  Dead Prune = evaluated children cut short by DeadIn(0)\n",
+            "  Dir Prune  = directions never started (NotSimulated in children)\n",
+            "  Dead Prune = children explored but immediately dead (DeadIn(0))\n",
             "  HT Prune   = combinations eliminated by head-tail distance pruning\n",
-            "  Simulated  = nodes actually explored\n",
+            "  Simulated  = nodes actually in the tree (alive/dead/winner/probablydead)\n",
             "  %          = (all pruned) / Potential\n",
         );
         format!("Pruning:\n{t}\n\n{legend}\n")
@@ -527,8 +535,12 @@ mod tests {
                 p.depth, p.dir_skip, p.dead_break, p.ht_pruned, total_pruned_nodes, p.simulated, p.potential,
             );
 
+            // simulated (non-pruned tree nodes) + MaxDepth-pruned (real nodes in tree) = nodes at depth
+            let real_pruned = p.pruned.iter()
+                .filter(|(s, _)| *s == NodeStatus::Pruned(PruneReason::MaxDepth))
+                .map(|(_, c)| c)
+                .sum::<usize>();
             let nodes_at_depth = nodes_per_depth.get(&p.depth).copied().unwrap_or(0);
-            let real_pruned = p.total_pruned_nodes() - p.virtual_pruned;
             assert_eq!(
                 p.simulated + real_pruned,
                 nodes_at_depth,
@@ -540,7 +552,13 @@ mod tests {
         let total_tree: usize = stats
             .pruning_per_depth
             .iter()
-            .map(|p| p.simulated + p.total_pruned_nodes() - p.virtual_pruned)
+            .map(|p| {
+                let real_pruned = p.pruned.iter()
+                    .filter(|(s, _)| *s == NodeStatus::Pruned(PruneReason::MaxDepth))
+                    .map(|(_, c)| c)
+                    .sum::<usize>();
+                p.simulated + real_pruned
+            })
             .sum();
         assert_eq!(
             total_tree,
