@@ -17,7 +17,6 @@ use std::{
 };
 
 pub mod node_id;
-mod node_stats;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct NodeScore(pub i16);
@@ -690,15 +689,27 @@ impl Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "\n{} {}", self.id, self.status())?;
-        for (i, children) in self.children_states_per_direction.iter().enumerate() {
+        let all_children = self.children();
+        for (i, dir_children) in all_children.iter().enumerate() {
             let dir = Direction::try_from(i).unwrap();
             let dir_status = self.direction_states[i];
             if dir_status == NodeStatus::NotSimulated {
                 writeln!(f, "  {} unexplored", dir)?;
             } else {
-                writeln!(f, "  {} {} ({} children)", dir, dir_status, children.len())?;
-                for (dv, child_status) in children {
-                    writeln!(f, "    {} {}", self.id.child(*dv), child_status)?;
+                let real_count = dir_children
+                    .iter()
+                    .filter(|(_, s)| !matches!(s, NodeStatus::Pruned(_)))
+                    .count();
+                writeln!(f, "  {} {} ({} children)", dir, dir_status, real_count)?;
+                let mut pruned: HashMap<PruneReason, usize> = HashMap::new();
+                for (child_id, child_status) in dir_children {
+                    match child_status {
+                        NodeStatus::Pruned(reason) => *pruned.entry(*reason).or_default() += 1,
+                        _ => writeln!(f, "    {} {}", child_id, child_status)?,
+                    }
+                }
+                for (reason, count) in &pruned {
+                    writeln!(f, "    {} x Pruned({:?})", count, reason)?;
                 }
             }
         }
