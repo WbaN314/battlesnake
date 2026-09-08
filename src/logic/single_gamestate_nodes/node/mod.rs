@@ -506,13 +506,13 @@ impl Node {
             None
         };
 
-        'direction: while let Some((direction, move_matrix)) =
+        'direction: while let Some(direction) =
             self.next_direction(direction_preference_situations)
         {
             let mut children: Vec<Node> = Vec::new();
             let mut similarity_set: HashSet<u64> = HashSet::new();
 
-            for moves in move_matrix {
+            for moves in self.move_matrix.pregenerate_for(direction) {
                 let mut child_gamestate = self.gamestate.clone();
                 let child_id = self.id.child(moves);
                 child_gamestate.next_state(moves);
@@ -572,7 +572,7 @@ impl Node {
     fn next_direction(
         &mut self,
         direction_preference_situations: Option<&SituationSet>,
-    ) -> Option<(Direction, MoveMatrix)> {
+    ) -> Option<Direction> {
         if self.ordered_directions.is_none() {
             self.ordered_directions = Some(self.order_directions(direction_preference_situations));
         }
@@ -580,10 +580,7 @@ impl Node {
         for d in self.ordered_directions.unwrap() {
             if self.direction_states[d as usize] == NodeStatus::NotSimulated {
                 if self.move_matrix.get(0).is_valid(d) {
-                    let new_move_vector = MoveVector::from(d);
-                    let mut stripped_move_matrix = self.move_matrix.clone();
-                    stripped_move_matrix.set(0, new_move_vector);
-                    return Some((d, stripped_move_matrix));
+                    return Some(d);
                 } else {
                     self.update_direction_status_and_score(d.into());
                 }

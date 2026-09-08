@@ -1,6 +1,8 @@
 use std::ops::Deref;
 
-use crate::logic::general::{direction::Direction, snakes::SNAKES};
+use crate::logic::general::{
+    direction::Direction, field::Field, game_state::GameState, snake::Snake, snakes::SNAKES,
+};
 
 pub type Moves = [Option<Direction>; SNAKES as usize];
 
@@ -77,8 +79,30 @@ impl MoveMatrix {
         self.moves.iter().map(|&mv| mv.count_valid(1)).product()
     }
 
-    #[allow(dead_code, reason = "Accessed only via IntoIterator")]
-    fn pregenerate(&self) -> Vec<Moves> {
+    pub fn prune_head_tail<F: Field>(mut self, gamestate: &GameState<F>, distance: u8) -> Self {
+        let own_head = match gamestate.snakes().cell(0).get() {
+            Snake::Alive { head, .. } => head,
+            _ => return self,
+        };
+
+        for id in 1..SNAKES {
+            if let Snake::Alive { head, tail, .. } = gamestate.snakes().cell(id as u8).get() {
+                if own_head.distance_to(head) > distance && own_head.distance_to(tail) > distance {
+                    self.moves[id] = MoveVector::new(None);
+                }
+            }
+        }
+
+        self
+    }
+
+    pub fn pregenerate_for(&self, direction: Direction) -> Vec<Moves> {
+        let mut moves = self.moves;
+        moves[0] = MoveVector::from(direction);
+        MoveMatrix::from(moves).pregenerate()
+    }
+
+    pub fn pregenerate(&self) -> Vec<Moves> {
         fn pregenerate_iterations_row(row: MoveVector) -> [Option<Option<Direction>>; 4] {
             if let Some(row) = *row {
                 let mut template = [None; 4];
@@ -135,19 +159,6 @@ impl MoveMatrix {
         }
         list
     }
-
-    pub fn apply_mask(&mut self, mask: [bool; SNAKES as usize]) {
-        for (i, &m) in mask.iter().enumerate() {
-            if !m {
-                self.moves[i] = MoveVector::new(None);
-            }
-        }
-    }
-
-    #[allow(dead_code, reason = "Accessed only via IntoIterator")]
-    fn generate(&self) -> MoveMatrixIter {
-        MoveMatrixIter::new(self.moves)
-    }
 }
 
 impl From<Moves> for MoveMatrix {
@@ -159,84 +170,6 @@ impl From<Moves> for MoveMatrix {
                 MoveVector::new(None)
             }
         }))
-    }
-}
-
-pub struct MoveMatrixIter {
-    moves: [[bool; 4]; SNAKES as usize],
-    index: usize,
-    was_none: [bool; SNAKES as usize],
-}
-
-impl MoveMatrixIter {
-    fn new(moves: [MoveVector; SNAKES as usize]) -> Self {
-        let mut was_none = [false; SNAKES as usize];
-        let mut moves_array = [[true, false, false, false]; SNAKES as usize];
-        for (i, opt) in moves.iter().enumerate() {
-            if let Some(row) = **opt {
-                moves_array[i] = row;
-            } else {
-                was_none[i] = true;
-            }
-        }
-        Self {
-            moves: moves_array,
-            index: 0,
-            was_none,
-        }
-    }
-}
-
-impl Iterator for MoveMatrixIter {
-    type Item = Moves;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.index <= u8::MAX as usize {
-            let a = (self.index >> 6) & 0b11;
-            let b = (self.index >> 4) & 0b11;
-            let c = (self.index >> 2) & 0b11;
-            let d = (self.index >> 0) & 0b11;
-            self.index += 1;
-
-            if self.moves[0][a as usize]
-                && self.moves[1][b as usize]
-                && self.moves[2][c as usize]
-                && self.moves[3][d as usize]
-            {
-                return Some([
-                    if self.was_none[0] {
-                        None
-                    } else {
-                        Some(a.try_into().unwrap())
-                    },
-                    if self.was_none[1] {
-                        None
-                    } else {
-                        Some(b.try_into().unwrap())
-                    },
-                    if self.was_none[2] {
-                        None
-                    } else {
-                        Some(c.try_into().unwrap())
-                    },
-                    if self.was_none[3] {
-                        None
-                    } else {
-                        Some(d.try_into().unwrap())
-                    },
-                ]);
-            }
-        }
-        None
-    }
-}
-
-impl IntoIterator for MoveMatrix {
-    type Item = Moves;
-    type IntoIter = std::vec::IntoIter<Moves>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pregenerate().into_iter()
     }
 }
 
@@ -342,98 +275,25 @@ mod tests {
         assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 
-    #[test]
-    fn test_generate() {
-        let no_moves = [MoveVector::new(Some([false; 4])); SNAKES as usize];
-        let no_moves_set = MoveMatrix::from(no_moves);
-        let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
-        // All trapped snakes default to Up
-        assert_eq!(no_moves_list.len(), 1);
-        assert_eq!(
-            no_moves_list[0],
-            [
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Up)
-            ]
-        );
+        #[test]
+    fn test_prune_head_tail() {
+        let gamestate = read_game_state("requests/test_game_start.json");
+        let state = GameState::<BasicField>::from(&gamestate);
+        println!("{}", state);
 
-        let none = [MoveVector::new(None); SNAKES as usize];
-        let no_moves_set = MoveMatrix::from(none);
-        let no_moves_list: Vec<Moves> = no_moves_set.generate().collect();
-        assert_eq!(no_moves_list.len(), 1);
-        assert_eq!(no_moves_list[0], [None, None, None, None]);
+        let unpruned = state.valid_moves();
 
-        let all = [MoveVector::new(Some([true; 4])); SNAKES as usize];
-        let all_moves_set = MoveMatrix::from(all);
-        let all_moves_list: Vec<Moves> = all_moves_set.generate().collect();
-        assert_eq!(all_moves_list.len(), 256);
-        assert_eq!(
-            all_moves_list[0],
-            [
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Up)
-            ]
-        );
-        assert_eq!(
-            all_moves_list[1],
-            [
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Up),
-                Some(Direction::Down)
-            ]
-        );
-        assert_eq!(
-            all_moves_list[4 * 4 + 2 * 4 + 4 - 1],
-            [
-                Some(Direction::Up),
-                Some(Direction::Down),
-                Some(Direction::Left),
-                Some(Direction::Right)
-            ]
-        );
-        assert_eq!(
-            all_moves_list[255],
-            [
-                Some(Direction::Right),
-                Some(Direction::Right),
-                Some(Direction::Right),
-                Some(Direction::Right)
-            ]
-        );
+        let pruned = unpruned.clone().prune_head_tail(&state, u8::MAX);
+        assert_eq!(pruned.get(0), unpruned.get(0));
+        assert_eq!(pruned.get(1), unpruned.get(1));
+        assert_eq!(pruned.get(2), unpruned.get(2));
+        assert_eq!(pruned.get(3), unpruned.get(3));
 
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from_request(
-            &gamestate.board,
-            &gamestate.you,
-            &gamestate.turn,
-        );
-        let moves_set = state.valid_moves();
-        let moves_list: Vec<Moves> = moves_set.generate().collect();
-        assert_eq!(moves_list.len(), 36);
-
-        let one_with_no_moves = MoveMatrix::from([
-            MoveVector::new(Some([true, true, false, true])),
-            MoveVector::new(Some([false, false, false, false])),
-            MoveVector::new(Some([true, false, true, false])),
-            MoveVector::new(Some([true, true, false, true])),
-        ]);
-        let moves_list: Vec<Moves> = one_with_no_moves.generate().collect();
-        // Trapped snake defaults to Up, so 3 * 1 * 2 * 3 = 18
-        assert_eq!(moves_list.len(), 3 * 1 * 2 * 3);
-
-        let one_with_none = MoveMatrix::from([
-            MoveVector::new(Some([true, true, false, true])),
-            MoveVector::new(None),
-            MoveVector::new(Some([true, false, true, false])),
-            MoveVector::new(Some([true, true, false, true])),
-        ]);
-        let moves_list: Vec<Moves> = one_with_none.generate().collect();
-        assert_eq!(moves_list.len(), 3 * 2 * 3);
+        let pruned = unpruned.clone().prune_head_tail(&state, 8);
+        assert_eq!(pruned.get(0), unpruned.get(0));
+        assert_eq!(pruned.get(2), unpruned.get(1));
+        assert_eq!(pruned.get(3), unpruned.get(2));
+        assert_eq!(pruned.get(1), MoveVector::new(None));
     }
 }
 
@@ -453,19 +313,6 @@ mod benchmarks {
         println!("{:#?}", state.valid_moves());
         b.iter(|| {
             let moves = state.valid_moves().pregenerate();
-            for m in moves {
-                black_box(m);
-            }
-        });
-    }
-
-    #[bench]
-    fn bench_generate_and_iterate(b: &mut test::Bencher) {
-        let gamestate = read_game_state("requests/test_move_request.json");
-        let state = GameState::<BasicField>::from(&gamestate);
-        println!("{:#?}", state.valid_moves());
-        b.iter(|| {
-            let moves = state.valid_moves().generate();
             for m in moves {
                 black_box(m);
             }

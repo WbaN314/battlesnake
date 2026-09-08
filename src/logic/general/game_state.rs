@@ -764,7 +764,8 @@ impl From<GameState<BasicField>> for GameState<FloodFillField> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+use super::*;
     use crate::{logic::general::coord::Coord, read_game_state};
 
     #[test]
@@ -786,7 +787,7 @@ mod tests {
         println!("{}", state);
         let moves = state.valid_moves();
         println!("{:#?}", moves);
-        assert_eq!(moves.into_iter().len(), 36);
+        assert_eq!(moves.len(), 36);
 
         let gamestate = read_game_state("requests/test_move_request_2.json");
         let state = GameState::<BasicField>::from(&gamestate);
@@ -802,7 +803,7 @@ mod tests {
         );
         assert_eq!(moves.get(2), MoveVector::new(None));
         assert_eq!(moves.get(3), MoveVector::new(None));
-        let generated = moves.into_iter();
+        let generated = moves.pregenerate();
         assert_eq!(generated.len(), 3);
         for m in generated {
             assert_eq!(m[1], Some(Direction::Up));
@@ -810,7 +811,7 @@ mod tests {
 
         let state = state.play(["RR", "UU", "", ""]);
         println!("{}", state);
-        let moves = state.valid_moves().into_iter();
+        let moves = state.valid_moves().pregenerate();
         assert_eq!(moves.len(), 6);
         println!("{:#?}", moves);
 
