@@ -204,13 +204,24 @@ impl Tree {
     }
 
     pub fn log_depths(&self) {
-        let stats = self.stats();
+        // This runs every turn in LOCAL_SIMULATION mode, so it must be cheap. It only
+        // needs the per-direction subtree size and the result depth, so compute the
+        // sizes in a single pass over the nodes instead of calling the full stats(),
+        // which does ~10 O(N) passes (incl. 4 subtree scans) over every node and was
+        // blowing the turn time budget on large trees -> timeouts -> forced "up" moves.
+        let mut subtree_sizes = [0usize; 4];
+        for &id in self.nodes.keys() {
+            if id.depth() > 0 {
+                if let Some(Some(dir)) = id.direction_at(0, 0) {
+                    subtree_sizes[dir as usize] += 1;
+                }
+            }
+        }
         let results = self.result();
         let depth_str: String = DIRECTIONS
             .iter()
-            .zip(stats.direction_stats.iter())
             .zip(results.iter())
-            .map(|((dir, ds), status)| {
+            .map(|(dir, status)| {
                 let depth = match status {
                     NodeStatus::AliveFor(n, _)
                     | NodeStatus::DeadIn(n, _)
@@ -218,7 +229,10 @@ impl Tree {
                     | NodeStatus::ProbablyDeadIn(n, _) => format!("{}", n),
                     _ => "null".to_string(),
                 };
-                format!("\"{}\":{{\"depth\":{},\"nodes\":{}}}", dir, depth, ds.subtree_size)
+                format!(
+                    "\"{}\":{{\"depth\":{},\"nodes\":{}}}",
+                    dir, depth, subtree_sizes[*dir as usize]
+                )
             })
             .collect::<Vec<_>>()
             .join(",");
