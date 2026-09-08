@@ -309,7 +309,7 @@ pub struct Node {
     local_score: NodeScore,
     pinned_status: Option<NodeStatus>,
     priority: i8,
-    move_matrix: MoveMatrix,
+    move_matrix: Option<MoveMatrix>,
     ordered_directions: Option<[Direction; 4]>, // Order in which directions should be simulated
 }
 
@@ -323,8 +323,6 @@ impl Node {
             NodeStatus::AliveFor(0, NodeScore(0))
         };
 
-        let move_matrix = gamestate.valid_moves();
-
         Self {
             id,
             gamestate,
@@ -333,7 +331,7 @@ impl Node {
             status,
             pinned_status: None,
             priority: 0,
-            move_matrix,
+            move_matrix: None,
             ordered_directions: None,
             local_score: NodeScore(0),
         }
@@ -354,7 +352,7 @@ impl Node {
     }
 
     pub fn set_moves(&mut self, moves: Moves) {
-        self.move_matrix = moves.into();
+        self.move_matrix = Some(moves.into());
     }
 
     pub fn set_priority(&mut self, priority: i8) {
@@ -479,6 +477,15 @@ impl Node {
         })
     }
 
+    pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>) {
+        if self.move_matrix.is_none() {
+            self.move_matrix = Some(self.gamestate.valid_moves());
+        }
+        if self.ordered_directions.is_none() {
+            self.ordered_directions = Some(self.order_directions(direction_preference_situations));
+        }
+    }
+
     /// This method can be called multiple times to simulate the node in a stepwise manner. It will return None when all directions have been simulated.
     pub fn simulate(
         &mut self,
@@ -486,6 +493,7 @@ impl Node {
         direction_preference_situations: Option<&SituationSet>,
         score_situations: Option<&SituationSet>,
     ) -> Option<Vec<Node>> {
+        self.prepare_simulation(direction_preference_situations);
         debug_assert!(
             !matches!(self.status, NodeStatus::WinnerIn(0, _)),
             "Should never simulate a node that is a new winner"
@@ -506,13 +514,11 @@ impl Node {
             None
         };
 
-        'direction: while let Some(direction) =
-            self.next_direction(direction_preference_situations)
-        {
+        'direction: while let Some(direction) = self.next_direction() {
             let mut children: Vec<Node> = Vec::new();
             let mut similarity_set: HashSet<u64> = HashSet::new();
 
-            for moves in self.move_matrix.pregenerate_for(direction) {
+            for moves in self.move_matrix.as_ref().unwrap().pregenerate_for(direction) {
                 let mut child_gamestate = self.gamestate.clone();
                 let child_id = self.id.child(moves);
                 child_gamestate.next_state(moves);
@@ -569,17 +575,10 @@ impl Node {
         return None;
     }
 
-    fn next_direction(
-        &mut self,
-        direction_preference_situations: Option<&SituationSet>,
-    ) -> Option<Direction> {
-        if self.ordered_directions.is_none() {
-            self.ordered_directions = Some(self.order_directions(direction_preference_situations));
-        }
-
+    fn next_direction(&mut self) -> Option<Direction> {
         for d in self.ordered_directions.unwrap() {
             if self.direction_states[d as usize] == NodeStatus::NotSimulated {
-                if self.move_matrix.get(0).is_valid(d) {
+                if self.move_matrix.as_ref().unwrap().get(0).is_valid(d) {
                     return Some(d);
                 } else {
                     self.update_direction_status_and_score(d.into());
@@ -899,7 +898,7 @@ mod benchmarks {
         b.iter(|| {
             let mut node = source_nodes[i % source_nodes.len()].clone();
             i += 1;
-            black_box(node.simulate(black_box(None), None, None))
+            black_box(node.simulate(black_box(None), None))
         });
     }
 
