@@ -295,7 +295,7 @@ impl Display for NodeStatus {
             NodeStatus::Pruned(PruneReason::MaxDepth) => write!(f, "Pruned(MaxDepth)"),
             NodeStatus::Pruned(PruneReason::LocalHashSimilarity) => {
                 write!(f, "Pruned(LocalHashSimilarity)")
-            },
+            }
             NodeStatus::Pruned(PruneReason::HeadTailDistance) => {
                 write!(f, "Pruned(HeadTailDistance)")
             }
@@ -386,7 +386,8 @@ impl Node {
             .filter(|s| matches!(s.get(), Snake::Dead { .. }))
             .count();
 
-        let our_length = if let Snake::Alive { length, .. } = self.gamestate.snakes().cell(0).get() {
+        let our_length = if let Snake::Alive { length, .. } = self.gamestate.snakes().cell(0).get()
+        {
             Some(length)
         } else {
             None
@@ -481,9 +482,13 @@ impl Node {
         })
     }
 
-    pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>) {
+    pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>, head_tail_distance: Option<u8>) {
         if self.move_matrix.is_none() {
-            self.move_matrix = Some(self.gamestate.valid_moves());
+            let mut move_matrix = self.gamestate.valid_moves();
+            if let Some(distance) = head_tail_distance {
+                move_matrix = move_matrix.prune_head_tail(&self.gamestate, distance);
+            }
+            self.move_matrix = Some(move_matrix);
         }
         if self.ordered_directions.is_none() {
             self.ordered_directions = Some(self.order_directions(direction_preference_situations));
@@ -497,11 +502,11 @@ impl Node {
         direction_preference_situations: Option<&SituationSet>,
         score_situations: Option<&SituationSet>,
     ) -> Option<Vec<Node>> {
-        self.prepare_simulation(direction_preference_situations);
         debug_assert!(
             !matches!(self.status, NodeStatus::WinnerIn(0, _)),
             "Should never simulate a node that is a new winner"
         );
+        self.prepare_simulation(direction_preference_situations, similarity_pruning_distance);
 
         let dead_snake_count = self
             .gamestate
@@ -522,7 +527,12 @@ impl Node {
             let mut children: Vec<Node> = Vec::new();
             let mut similarity_set: HashSet<u64> = HashSet::new();
 
-            for moves in self.move_matrix.as_ref().unwrap().pregenerate_for(direction) {
+            for moves in self
+                .move_matrix
+                .as_ref()
+                .unwrap()
+                .pregenerate_for(direction)
+            {
                 let mut child_gamestate = self.gamestate.clone();
                 let child_id = self.id.child(moves);
                 child_gamestate.next_state(moves);
