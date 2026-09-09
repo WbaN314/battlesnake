@@ -79,15 +79,31 @@ impl MoveMatrix {
         self.moves.iter().map(|&mv| mv.count_valid(1)).product()
     }
 
-    pub fn prune_head_tail<F: Field>(mut self, gamestate: &GameState<F>, distance: u8) -> Self {
+    pub fn prune_head_tail<F: Field>(
+        mut self,
+        gamestate: &GameState<F>,
+        distance_cutoffs: [u8; SNAKES - 1],
+    ) -> Self {
         let own_head = match gamestate.snakes().cell(0).get() {
             Snake::Alive { head, .. } => head,
             _ => return self,
         };
 
+        let mut distances = Vec::new();
         for id in 1..SNAKES {
             if let Snake::Alive { head, tail, .. } = gamestate.snakes().cell(id as u8).get() {
-                if own_head.distance_to(head) > distance && own_head.distance_to(tail) > distance {
+                distances.push((
+                    id,
+                    own_head.distance_to(head).min(own_head.distance_to(tail)),
+                ));
+            }
+        }
+        distances.sort_by(|a, b| a.1.cmp(&b.1));
+
+        for (index, tier) in distances.chunk_by(|a, b| a.1 == b.1).enumerate() {
+            let cutoff = distance_cutoffs[index];
+            for &(id, min_distance) in tier {
+                if min_distance > cutoff {
                     self.moves[id] = MoveVector::new(None);
                 }
             }
@@ -275,7 +291,7 @@ mod tests {
         assert_eq!(moves_list.len(), 3 * 2 * 3);
     }
 
-        #[test]
+    #[test]
     fn test_prune_head_tail() {
         let gamestate = read_game_state("requests/test_game_start.json");
         let state = GameState::<BasicField>::from(&gamestate);
@@ -283,13 +299,13 @@ mod tests {
 
         let unpruned = state.valid_moves();
 
-        let pruned = unpruned.clone().prune_head_tail(&state, u8::MAX);
+        let pruned = unpruned.clone().prune_head_tail(&state, [u8::MAX; SNAKES as usize - 1]);
         assert_eq!(pruned.get(0), unpruned.get(0));
         assert_eq!(pruned.get(1), unpruned.get(1));
         assert_eq!(pruned.get(2), unpruned.get(2));
         assert_eq!(pruned.get(3), unpruned.get(3));
 
-        let pruned = unpruned.clone().prune_head_tail(&state, 8);
+        let pruned = unpruned.clone().prune_head_tail(&state, [u8::MAX, 8, 8]);
         assert_eq!(pruned.get(0), unpruned.get(0));
         assert_eq!(pruned.get(2), unpruned.get(1));
         assert_eq!(pruned.get(3), unpruned.get(2));

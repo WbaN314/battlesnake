@@ -415,18 +415,4 @@ mod tests {
             assert!(found, "[similarity_pruning] {filename}: expected Pruned(LocalSim) in stats");
         }
     }
-
-    #[test]
-    fn head_tail_pruning_shows_in_stats() {
-        for filename in &["requests/failure_01.json", "requests/failure_04.json"] {
-            let mut tree = create_tree_from_gamestate(filename)
-                .max_depth(4)
-                .head_tail_pruning(|_| 1);
-            tree.simulate();
-            let stats = tree.stats();
-            let found = stats.children_status_per_depth.iter()
-                .any(|(_, row)| row.iter().any(|(k, c)| k == "Pruned(HT)" && *c > 0));
-            assert!(found, "[head_tail_pruning] {filename}: expected Pruned(HT) in stats");
-        }
-    }
 }

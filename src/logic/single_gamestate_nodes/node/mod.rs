@@ -312,7 +312,7 @@ pub struct Node {
     priority: i8,
     move_matrix: Option<MoveMatrix>,
     ordered_directions: Option<[Direction; 4]>, // Order in which directions should be simulated
-    head_tail_distance: Option<u8>,
+    head_tail_distance: Option<[u8; SNAKES - 1]>,
 }
 
 impl Node {
@@ -509,7 +509,7 @@ impl Node {
         baseline.map(|hm| hm.into_iter().collect::<Vec<(NodeId, NodeStatus)>>()).try_into().unwrap()
     }
 
-    pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>, head_tail_distance: Option<u8>) {
+    pub fn prepare_simulation(&mut self, direction_preference_situations: Option<&SituationSet>, head_tail_distance: Option<[u8; SNAKES - 1]>) {
         if self.move_matrix.is_none() {
             self.head_tail_distance = head_tail_distance;
             let mut move_matrix = self.gamestate.valid_moves();
@@ -527,7 +527,7 @@ impl Node {
     pub fn simulate(
         &mut self,
         similarity_pruning_distance: Option<u8>,
-        head_tail_distance: Option<u8>,
+        head_tail_distance: Option<[u8; SNAKES - 1]>,
         direction_preference_situations: Option<&SituationSet>,
         score_situations: Option<&SituationSet>,
     ) -> Option<Vec<Node>> {

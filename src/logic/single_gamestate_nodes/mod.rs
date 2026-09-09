@@ -63,8 +63,7 @@ impl GamestateNodesSnake {
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
             .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
-            .similarity_pruning(|_| 6)
-            .head_tail_pruning(|_| 6)
+            .head_tail_pruning(|_| [u8::MAX, 12, 8])
             .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();
@@ -100,7 +99,7 @@ impl GamestateNodesSnake {
                 NodeStatus::WinnerIn(n, score) => {
                     evaluation.score(
                         index.try_into().unwrap(),
-                        (10 - n).max(1) as f32 * 1000.0,
+                        (10 as i8 - n as i8).max(1) as f32 * 1000.0,
                         format!("Winner In {}", n),
                     );
                     evaluation.score(index.try_into().unwrap(), *score as f32, "Simulation Score");
