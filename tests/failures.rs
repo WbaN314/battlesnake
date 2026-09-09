@@ -86,3 +86,5 @@ situation_test!(failure_80, Left => "Get out of the triangle formed by the other
 situation_test!(failure_81, Up, Right => "Going down leads to beeing trapped");
 situation_test!(failure_82, Left, Right => "Both directions lead to death, not sure which is better");
 situation_test!(failure_83, Left, Right => "Down leads to death, right not sure about it");
+situation_test!(failure_84, Right => "Fight for the area to have enough to wait for B tail to follow");
+situation_test!(failure_85, Down => "Pruning fail, Up leads to death but C moves are pruned away");
