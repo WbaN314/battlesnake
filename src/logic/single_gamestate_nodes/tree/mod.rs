@@ -381,10 +381,8 @@ mod tests {
     use super::*;
     use crate::{
         logic::{
-            general::{direction::DIRECTIONS, snake::Snake},
-            single_gamestate_nodes::{node::NodeScore, situation::Situation},
-        },
-        read_game_state,
+            general::{direction::DIRECTIONS, snake::Snake}, single_gamestate_nodes::{env_config::ENV_CONFIG, node::NodeScore, situation::Situation, situation_config::{CHILD_PRIORITY_SITUATIONS, NODE_DIRECTION_PREFERENCE_SITUATIONS, SIMULATION_SCORE_SITUATIONS}},
+        }, read_game_state,
     };
 
     pub(super) fn create_tree_from_gamestate(filename: &str) -> Tree {
@@ -760,35 +758,25 @@ mod tests {
 
     #[test]
     fn display_tree() {
-        let situation = Situation::multi_recommending(
-            "
-                W . .
-                W A .
-                W N B
-                ",
-            [Some(Direction::Up), Some(Direction::Up), None, None],
-            0.0,
-            "Fast Track",
-        )
-        .condition(
-            |snakes| match (snakes.cell(0).get(), snakes.cell(1).get()) {
-                (Snake::Alive { length: a, .. }, Snake::Alive { length: b, .. }) => a <= b,
-                _ => false,
-            },
-        );
-
-        let mut tree = create_tree_from_gamestate("requests/failure_08.json")
+        let mut tree = create_tree_from_gamestate("requests/failure_85.json")
             .all_root_directions()
-            .similarity_pruning(|_| 6)
-            .head_tail_pruning(|_| [u8::MAX, 6, 6])
-            .child_priority_situations(SituationSet::new(vec![situation]))
-            .simulate_snakes_seperately(|d| d >= 1)
-            .max_time(Duration::from_millis(200));
+            .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
+            .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
+            .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
+            //.similarity_pruning(|_| 6)
+            .head_tail_pruning(|_| [u8::MAX, 12, 4])
+            .simulate_snakes_seperately(|d| d == 2)
+            .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
-        // println!("{}", tree);
+        println!("{}", tree);
         println!("{}", tree.stats());
-        println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"DLD_".try_into().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_-UDR_".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_-U_R_".parse().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_-U_R_-L_D_".parse().unwrap()).unwrap());
     }
 }
 
