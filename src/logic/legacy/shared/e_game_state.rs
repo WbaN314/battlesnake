@@ -1011,6 +1011,7 @@ struct CaptureCount {
 mod tests {
     use crate::read_game_state;
     use super::*;
+    use std::hint::black_box;
 
     #[bench]
     #[ignore = "Not actively maintained anymore"]
@@ -1035,7 +1036,7 @@ mod tests {
         let game_state = read_game_state("requests/test_move_request.json");
         let board = EGameState::from(&game_state.board, &game_state.you);
         b.iter(|| {
-            let _ = board.relevant_moves(u8::MAX);
+            black_box(board.relevant_moves(black_box(u8::MAX)));
         });
     }
 

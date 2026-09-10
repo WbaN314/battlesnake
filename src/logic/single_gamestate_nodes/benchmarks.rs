@@ -14,10 +14,12 @@ use std::hint::black_box;
 fn bench_snake_logic(b: &mut test::Bencher) {
     let snake = GamestateNodesSnake::new();
     let states = bench_fixtures::test_gamestates();
-    let mut i = 0;
+    // One measured iteration = one full sweep of all fixtures, so every sample
+    // does identical aggregate work (avoids variance from time-bounded per-state
+    // cost differences being sampled unevenly across the harness's batches).
     b.iter(|| {
-        let dir = snake.logic(&states[i % states.len()]);
-        i += 1;
-        black_box(dir)
+        for state in &states {
+            black_box(snake.logic(state));
+        }
     });
 }

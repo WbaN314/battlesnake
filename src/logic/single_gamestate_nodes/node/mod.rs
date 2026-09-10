@@ -944,11 +944,11 @@ mod benchmarks {
     #[bench]
     fn bench_node_simulate(b: &mut test::Bencher) {
         let source_nodes = test_nodes();
-        let mut i = 0;
         b.iter(|| {
-            let mut node = source_nodes[i % source_nodes.len()].clone();
-            i += 1;
-            black_box(node.simulate(black_box(None), None, None, None, false))
+            for source in &source_nodes {
+                let mut node = source.clone();
+                black_box(node.simulate(black_box(None), None, None, None, false));
+            }
         });
     }
 
@@ -961,11 +961,10 @@ mod benchmarks {
                 n
             })
             .collect();
-        let mut i = 0;
         b.iter(|| {
-            let node = &nodes[i % nodes.len()];
-            i += 1;
-            black_box(node.status())
+            for node in &nodes {
+                black_box(node.status());
+            }
         });
     }
 
@@ -980,12 +979,13 @@ mod benchmarks {
             })
             .collect();
 
-        let mut i = 0;
         b.iter(|| {
-            let (parent, child_id, child_status) = &prepared[i % prepared.len()];
-            i += 1;
-            let mut node = parent.clone();
-            black_box(node.handle_update_from_child(black_box(*child_id), black_box(*child_status)))
+            for (parent, child_id, child_status) in &prepared {
+                let mut node = parent.clone();
+                black_box(
+                    node.handle_update_from_child(black_box(*child_id), black_box(*child_status)),
+                );
+            }
         });
     }
 }

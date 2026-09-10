@@ -584,11 +584,10 @@ mod benchmarks {
             "Benchmark",
         );
 
-        let mut i = 0;
         b.iter(|| {
-            let state = &states[i % states.len()];
-            i += 1;
-            black_box(situation.check(black_box(state)))
+            for state in &states {
+                black_box(situation.check(black_box(state)));
+            }
         });
     }
 
@@ -611,11 +610,10 @@ mod benchmarks {
             }
         });
 
-        let mut i = 0;
         b.iter(|| {
-            let state = &states[i % states.len()];
-            i += 1;
-            black_box(situation.check(black_box(state)))
+            for state in &states {
+                black_box(situation.check(black_box(state)));
+            }
         });
     }
 
@@ -669,13 +667,12 @@ mod benchmarks {
             ),
         ]);
 
-        let mut i = 0;
         b.iter(|| {
-            let state = &states[i % states.len()];
-            i += 1;
-            let mut directions = black_box(Directions::new());
-            let mut evaluation = black_box(Evaluation::new());
-            black_box(situation_set.evaluate(black_box(state), &mut evaluation))
+            for state in &states {
+                let mut directions = black_box(Directions::new());
+                let mut evaluation = black_box(Evaluation::new());
+                black_box(situation_set.evaluate(black_box(state), &mut evaluation));
+            }
         });
     }
 }

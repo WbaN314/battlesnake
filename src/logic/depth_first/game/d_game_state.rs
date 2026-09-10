@@ -821,6 +821,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::hint::black_box;
     use crate::{
         logic::depth_first::game::{
             d_coord::DCoord,
@@ -897,7 +898,7 @@ mod tests {
         );
         println!("{}", state);
         b.iter(|| {
-            let _ = state.possible_moves([true, true, true, true]);
+            black_box(state.possible_moves(black_box([true, true, true, true])));
         });
     }
 
@@ -925,7 +926,7 @@ mod tests {
         state.next_state(moves).move_reachable(moves, 3);
         state.next_state(moves).move_reachable(moves, 4);
         b.iter(|| {
-            let _ = state.scope_moves_optimistic(4);
+            black_box(state.scope_moves_optimistic(black_box(4)));
         });
     }
 

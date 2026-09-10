@@ -791,11 +791,11 @@ mod benchmarks {
     #[bench]
     fn bench_tree_simulate_max_nodes(b: &mut test::Bencher) {
         let states = bench_fixtures::basic_field_states();
-        let mut i = 0;
         b.iter(|| {
-            let mut tree = Tree::new(states[i % states.len()].clone()).max_nodes(10000);
-            i += 1;
-            black_box(tree.simulate())
+            for state in &states {
+                let mut tree = Tree::new(state.clone()).max_nodes(10000);
+                black_box(tree.simulate());
+            }
         });
     }
 

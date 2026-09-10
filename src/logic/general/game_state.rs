@@ -1397,7 +1397,7 @@ mod benchmarks {
         let state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         b.iter(|| {
-            let _ = state.local_environment_hash(black_box(5));
+            black_box(state.local_environment_hash(black_box(5)));
         });
     }
 
