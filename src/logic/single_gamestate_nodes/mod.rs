@@ -144,10 +144,12 @@ impl GamestateNodesSnake {
             let result = state.flood_fill(direction, true);
 
             if let Some(turn) = result.not_enough_area_in_turn[0] {
+                let multiplier =
+                    (-ENV_CONFIG.SCORE_NOT_ENOUGH_AREA_DECAY_COEFFICIENT * turn as f32).exp();
                 evaluation.score(
                     direction,
-                    0.max(15 - turn as i8) as f32 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
-                    "Not Enough Area",
+                    ENV_CONFIG.SCORE_NOT_ENOUGH_AREA * multiplier,
+                    format!("Not Enough Area x {:.2}", multiplier),
                 );
             }
 
