@@ -300,7 +300,11 @@ impl<F: Field> GameState<F> {
     pub fn is_winner(&self, id: u8) -> bool {
         self.is_alive(id)
             && (0..SNAKES).all(|other_id| {
-                other_id == id || matches!(self.snakes.cell(other_id).get(), Snake::Dead { .. } | Snake::NonExistent)
+                other_id == id
+                    || matches!(
+                        self.snakes.cell(other_id).get(),
+                        Snake::Dead { .. } | Snake::NonExistent
+                    )
             })
     }
 
@@ -446,6 +450,17 @@ where
 }
 
 impl GameState<FloodFillField> {
+    /// Grow a snake as if it just ate food: stack the tail (so the next
+    /// `move_tails` leaves it in place) and increase its length.
+    fn grow(&mut self, id: u8) {
+        let snake = self.snakes.cell(id).get();
+        if let Snake::Alive { stack, length, .. } = snake {
+            self.snakes
+                .cell(id)
+                .set(snake.stack(stack + 1).length(length + 1));
+        }
+    }
+
     fn mark_tails(&mut self, turn: u8, tails: [Option<Coord>; SNAKES as usize]) {
         for id in 0..SNAKES {
             if let Some(tail) = tails[id as usize] {
@@ -595,8 +610,17 @@ impl GameState<FloodFillField> {
         }
     }
 
-    fn run_flood_fill(&mut self, result: &mut FloodFillResult) {
-        let lengths = self.snakes().lengths();
+    fn run_flood_fill(&mut self, result: &mut FloodFillResult, grow: bool) {
+        self.run_flood_fill_stepped(result, grow, |_, _| {});
+    }
+
+    fn run_flood_fill_stepped<F: FnMut(&Self, u8)>(
+        &mut self,
+        result: &mut FloodFillResult,
+        grow: bool,
+        mut on_turn: F,
+    ) {
+        let mut current_lengths = self.snakes().lengths();
         let mut all_flooded = false;
         let mut turn = 1;
         let mut can_ignite_filled = [false; SNAKES as usize];
@@ -604,10 +628,28 @@ impl GameState<FloodFillField> {
         while !all_flooded {
             turn += 1;
             all_flooded = true;
+            if grow {
+                // A snake that claimed food last turn grows this turn: its tail
+                // stacks (does not recede in move_tails) and its length grows.
+                // We drive this off result.food, which by now holds the *final*
+                // owner of each food cell claimed on the previous turn (contested
+                // cells were resolved during that turn's fill), so growth only
+                // ever applies to food that clearly belongs to a single snake.
+                for id in 0..SNAKES {
+                    let grew = result.food[id as usize]
+                        .iter()
+                        .filter(|(_, t)| *t == turn - 1)
+                        .count();
+                    for _ in 0..grew {
+                        self.grow(id);
+                        current_lengths[id as usize] += 1;
+                    }
+                }
+            }
             self.move_tails();
             self.mark_tails(turn, tails);
             for id in 0..SNAKES {
-                if result.flooded_area[id as usize].len() as u8 >= lengths[id as usize] {
+                if result.flooded_area[id as usize].len() as u8 >= current_lengths[id as usize] {
                     can_ignite_filled[id as usize] = true;
                 }
             }
@@ -635,13 +677,13 @@ impl GameState<FloodFillField> {
                             }
                             let best_length_of_snakes_that_can_fill = (0..SNAKES)
                                 .filter(|other_id| can_fill[*other_id as usize])
-                                .map(|other_id| lengths[other_id as usize])
+                                .map(|other_id| current_lengths[other_id as usize])
                                 .max()
                                 .unwrap_or(0);
                             let number_of_best_length_snakes_that_can_fill = (0..SNAKES)
                                 .filter(|other_id| {
                                     can_fill[*other_id as usize]
-                                        && lengths[*other_id as usize]
+                                        && current_lengths[*other_id as usize]
                                             == best_length_of_snakes_that_can_fill
                                 })
                                 .count();
@@ -649,7 +691,7 @@ impl GameState<FloodFillField> {
                             for id in 0..SNAKES {
                                 if can_fill[id as usize] {
                                     new_field = new_field.fill(id, turn);
-                                    if lengths[id as usize] == best_length_of_snakes_that_can_fill {
+                                    if current_lengths[id as usize] == best_length_of_snakes_that_can_fill {
                                         result.flooded_area[id as usize]
                                             .push((Coord::new(x, y), turn));
                                         if new_field.was_food()
@@ -689,14 +731,14 @@ impl GameState<FloodFillField> {
                             }
                             let best_length_of_snakes_that_can_ignite = (0..SNAKES)
                                 .filter(|other_id| can_ignite[*other_id as usize])
-                                .map(|other_id| lengths[other_id as usize])
+                                .map(|other_id| current_lengths[other_id as usize])
                                 .max()
                                 .unwrap_or(0);
                             let mut new_field = field;
                             for id in 0..SNAKES {
                                 if can_ignite[id as usize]
                                     && can_ignite_filled[id as usize]
-                                    && lengths[id as usize] == best_length_of_snakes_that_can_ignite
+                                    && current_lengths[id as usize] == best_length_of_snakes_that_can_ignite
                                 {
                                     new_field = new_field.ignite(id, turn);
                                 }
@@ -708,19 +750,20 @@ impl GameState<FloodFillField> {
             }
 
             for id in 0..SNAKES {
-                if (result.flooded_area[id as usize].len() as u8) < turn.min(lengths[id as usize])
+                if (result.flooded_area[id as usize].len() as u8) < turn.min(current_lengths[id as usize])
                     && result.not_enough_area_in_turn[id as usize].is_none()
                 {
                     result.not_enough_area_in_turn[id as usize] = Some(turn);
                 }
             }
             tails = self.snakes().tails();
+            on_turn(self, turn);
         }
     }
 
-    pub fn flood_fill(&mut self, direction: Direction) -> FloodFillResult {
+    pub fn flood_fill(&mut self, direction: Direction, grow: bool) -> FloodFillResult {
         let mut result = self.prepare_flood_fill(direction);
-        self.run_flood_fill(&mut result);
+        self.run_flood_fill(&mut result, grow);
         result
     }
 }
@@ -765,7 +808,7 @@ impl From<GameState<BasicField>> for GameState<FloodFillField> {
 #[cfg(test)]
 mod tests {
 
-use super::*;
+    use super::*;
     use crate::{logic::general::coord::Coord, read_game_state};
 
     #[test]
@@ -893,8 +936,7 @@ use super::*;
 
     #[test]
     fn test_next_state_2() {
-        let gamestate =
-            read_game_state("requests/failure_43.json");
+        let gamestate = read_game_state("requests/failure_43.json");
         let mut state = GameState::<BasicField>::from(&gamestate);
         println!("{}", state);
         let moves = [
@@ -1246,14 +1288,8 @@ use super::*;
     #[test]
     fn test_flood_fill() {
         let cases = [
-            (
-                "requests/failure_21.json",
-                Direction::Right,
-            ),
-            (
-                "requests/failure_21.json",
-                Direction::Up,
-            ),
+            ("requests/failure_21.json", Direction::Right),
+            ("requests/failure_21.json", Direction::Up),
         ];
 
         for (file, dir) in cases {
@@ -1268,12 +1304,28 @@ use super::*;
 
             let mut ff_state: GameState<FloodFillField> = state.into();
 
-            let result = ff_state.flood_fill(dir);
+            let result = ff_state.flood_fill(dir, false);
 
             println!("{}", ff_state);
             println!("{:?}", ff_state.board().cell(1, 5).unwrap().get());
             println!("{:?}", result);
         }
+    }
+
+    #[test]
+    fn test_flood_fill_with_grow() {
+        let gamestate: OriginalGameState = read_game_state("requests/failure_85.json");
+        let state = GameState::<BasicField>::from_request(
+            &gamestate.board,
+            &gamestate.you,
+            &gamestate.turn,
+        );
+        println!("{}", state);
+        let mut ff_state: GameState<FloodFillField> = state.into();
+        let grow_result = ff_state.clone().flood_fill(Direction::Up, true);
+        assert_eq!(grow_result.not_enough_area_in_turn[0], Some(7));
+        let non_grow_result = ff_state.flood_fill(Direction::Up, false);
+        assert_eq!(non_grow_result.not_enough_area_in_turn[0], None);
     }
 
     #[test]
@@ -1356,7 +1408,7 @@ mod benchmarks {
         println!("{}", state);
         b.iter(|| {
             let mut ff_state: GameState<FloodFillField> = state.clone().into();
-            black_box(&mut ff_state).flood_fill(black_box(Direction::Up));
+            black_box(&mut ff_state).flood_fill(black_box(Direction::Up), black_box(false));
         });
     }
 }

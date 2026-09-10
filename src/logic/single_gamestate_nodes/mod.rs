@@ -141,12 +141,12 @@ impl GamestateNodesSnake {
         let mut enemy_min_dist_from_center: [Option<u8>; 4] = [None; 4];
         for direction in DIRECTIONS {
             let mut state: GameState<FloodFillField> = gamestate.clone().into();
-            let result = state.flood_fill(direction);
+            let result = state.flood_fill(direction, true);
 
             if let Some(turn) = result.not_enough_area_in_turn[0] {
                 evaluation.score(
                     direction,
-                    0.max(10 - turn as i8) as f32 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
+                    0.max(15 - turn as i8) as f32 * ENV_CONFIG.SCORE_NOT_ENOUGH_AREA,
                     "Not Enough Area",
                 );
             }
