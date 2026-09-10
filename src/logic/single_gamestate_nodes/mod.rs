@@ -192,7 +192,7 @@ impl GamestateNodesSnake {
                 evaluation.score(
                     direction,
                     ENV_CONFIG.SCORE_FOOD * multiplier,
-                    format!("Food x {:.1}", multiplier),
+                    format!("Food x {:.2}", multiplier),
                 );
             }
         }
