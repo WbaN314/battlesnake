@@ -54,11 +54,12 @@ impl GamestateNodesSnake {
         }
     }
 
-    fn simulation(
-        gamestate: GameState<BasicField>,
-        evaluation: &mut Evaluation,
-    ) -> [NodeStatus; 4] {
-        let mut tree = Tree::new(gamestate.clone())
+    /// Builds the production-configured search tree for `gamestate`, with every
+    /// tuning applied *except* the terminal bound. Callers pick the bound
+    /// themselves: production uses `.max_time(...)`, benchmarks use
+    /// `.max_nodes(...)` / `.max_depth(...)` so their runtime is deterministic.
+    pub(crate) fn configured_tree(gamestate: GameState<BasicField>) -> Tree {
+        Tree::new(gamestate)
             .all_root_directions()
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
@@ -66,7 +67,14 @@ impl GamestateNodesSnake {
             //.similarity_pruning(|_| 6)
             .head_tail_pruning(|_| [u8::MAX, 12, 4])
             .simulate_snakes_seperately(|d| d >= 2)
-            .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
+    }
+
+    fn simulation(
+        gamestate: GameState<BasicField>,
+        evaluation: &mut Evaluation,
+    ) -> [NodeStatus; 4] {
+        let mut tree =
+            Self::configured_tree(gamestate.clone()).max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();
 

@@ -87,5 +87,5 @@ cargo run --bin play_game -- -p requests/example_move_request_2.json
 Use to find hot spots with the benchmarks. For example:
 
 ```
-CARGO_PROFILE_BENCH_DEBUG=true sudo cargo flamegraph --unit-bench battlesnake_game_of_chicken_lib --open -- single_gamestate_nodes::benchmarks::bench_snake_logic
+CARGO_PROFILE_BENCH_DEBUG=true sudo cargo flamegraph --unit-bench battlesnake_game_of_chicken_lib --open -- single_gamestate_nodes::benchmarks::bench_snake_logic --include-ignored
 ```
