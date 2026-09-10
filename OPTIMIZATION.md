@@ -7,6 +7,7 @@ Fixed-work benchmarks (`cargo bench --lib bench_simulation`):
 | 0 — baseline | 37,669,337 | 151,734,891 | `flamegraph_0_before_any_optimisation.svg` |
 | 1 — FxHash | 30,676,550 (−18.6%) | 126,207,012 (−16.8%) | `flamegraph_1_after_fxhash.svg` |
 | 2 — ArrayVec pregenerate | ~29,600,000 (−3.5%) | ~123,900,000 (−1.9%) | `flamegraph_2_after_arrayvec_movelist.svg` |
+| 3 — flat PriorityQueue | ~29,600,000 (flat) | ~118,000,000 (−4.8%) | `flamegraph_3_after_priority_queue.svg` |
 
 > `bench_snake_logic` is budget-bounded (fixed wall-clock) — use it for flamegraph *shares*, not timing. Use the `bench_simulation_*` benches for timing.
 
@@ -58,19 +59,47 @@ is fully stack-allocated (fixed arrays, `Copy` fields), so per-child `.clone()` 
 
 Likely worth more on the production budget-bounded path.
 
+## Step 3 — flat-array PriorityQueue
+
+Replaced `BTreeMap<(i8,u8), VecDeque<NodeId>>` with a flat `Vec<VecDeque<NodeId>>` of
+`PRIORITY_SLOTS × DEPTH_SLOTS` (~145) buckets + a forward `cursor` — `tree/mod.rs`.
+
+Why: priority is only `-1..=2` and depth `0..=28`, so the key space is tiny and bounded.
+The btree paid ~17.6% for node navigation (401) + rebalancing (50) + `Entry`/`OccupiedEntry`
+(322) + `VecDeque` (111) — much of it *churn*: `pop` removed a bucket the instant its deque
+emptied, and the next `push` recreated it (btree insert/remove/rebalance + deque alloc/free),
+every step of the search. The flat array gives O(1) push, near-O(1) pop via the cursor, and
+buckets are **cleared, never freed** → zero churn. Empty `VecDeque`s don't allocate until first
+push, so the 145-bucket array is cheap to build. Priority window has a slack slot (`MIN=-2`)
++ `debug_assert` so future priorities don't silently mis-order.
+
+Result: `max_nodes` −4.8% (queue-heavy, 10k nodes); `max_depth` flat (depth-4 tree barely
+touches the queue). Ordering is identical to the old `(-priority, depth)` btree: ascending
+flat index = highest priority then shallowest, FIFO within a bucket.
+
+Flamegraph confirms (budget-bounded run, shares): **PriorityQueue 21.3% → 0.6%** — btree
+navigation + rebalancing + VecDeque churn erased. The 21-point share drop ≫ the 4.8% timing
+win because `bench_snake_logic` pounds the queue far harder than the fixed benches; the
+*production* path (budget-bounded) therefore reclaims ~21% of each move's budget for real
+search. Extracted to `tree/priority_queue.rs` afterwards (pure move, no logic change).
+
 ## Next
 
-Shares from the latest run (`flamegraph_2`). Allocation is largely tapped for *cheap* wins —
-what looked like "~50% alloc" was mostly stack `memmove` + teardown, not removable mallocs.
+Shares from `flamegraph_3` (post-PQ). PriorityQueue is gone (21.3% → 0.6%); the freed time
+spread across everything else. Remaining allocation is now diffuse.
 
-1. **PriorityQueue — 17.6%** (`BTreeMap<(i8,u8), VecDeque<NodeId>>`). Now the top target.
-   `pop` does `iter().next()` + separate `remove` (double traversal) → `pop_first()`. Bounded
-   `(i8, u8)` key range → could be a fixed array of `VecDeque`s, killing the btree allocs too.
-2. **Cargo profile — free.** No `[profile.release]`. Add `lto = "fat"`, `codegen-units = 1`.
-   Zero code risk, typically 5–15%. Best ROI.
-3. **memmove 8.5% — `GameState` clone per child.** Not a malloc; a stack copy. Only removable
+1. **Pre-size the `nodes` `FxHashMap` (~6–7%, biggest single alloc).** hashbrown insert+grow
+   is ~319 samples — the map starts empty and rehashes ~14× growing toward `max_nodes`.
+   `with_capacity_and_hasher(max_nodes, ..)` → one alloc, no rehash churn. Caveat: `Node` is
+   large, so only worth it when `max_nodes` is bounded. Cheapest genuine win left.
+2. **memmove ~6.8% — `GameState` clone per child.** Not a malloc; a stack copy. Only removable
    by mutate-in-place + undo — large, risky refactor of the search core. Defer.
-4. **Minor.** `NodeStatus::partial_cmp` recursive reverse arms; `calculate_from_child_states`
-   walks children up to 4×. Node-local Vecs (`children` 2.4%, `children_states` 1.5%) are small.
+3. **Tree teardown ~6.2%.** Freeing the whole map + all nodes at end; needs pooling/arena to
+   avoid. Structural, defer.
+4. **Diffuse small Vecs.** `children: Vec<Node>` (140), `RawVec<(usize,u8)>` (94),
+   `children_states` (81). Individually small; `ArrayVec` on the bounded ones could help but
+   low payoff.
+5. **Minor.** `NodeStatus::partial_cmp` recursive reverse arms; `calculate_from_child_states`
+   walks children up to 4×.
 
 Re-profile after each step — shares reshuffle every time.

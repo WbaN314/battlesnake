@@ -7,12 +7,15 @@ use crate::logic::{
 use log::{debug, trace};
 use rustc_hash::FxHashMap;
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::HashMap,
     fmt,
     time::{Duration, Instant},
 };
 
+mod priority_queue;
 mod tree_stats;
+
+use priority_queue::PriorityQueue;
 
 #[derive(Clone)]
 pub struct Tree {
@@ -335,45 +338,6 @@ impl fmt::Display for Tree {
             }
         }
         Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub(super) struct PriorityQueue {
-    buckets: BTreeMap<(i8, u8), VecDeque<NodeId>>,
-}
-
-impl PriorityQueue {
-    fn new() -> Self {
-        Self {
-            buckets: BTreeMap::new(),
-        }
-    }
-
-    fn from(id: NodeId) -> Self {
-        let mut q = Self::new();
-        q.push(id, 0);
-        q
-    }
-
-    fn push(&mut self, id: NodeId, priority: i8) {
-        self.buckets
-            .entry((-priority, id.depth()))
-            .or_default()
-            .push_back(id);
-    }
-
-    fn pop(&mut self) -> Option<NodeId> {
-        let (&(priority, depth), queue) = self.buckets.iter_mut().next()?;
-        let id = queue.pop_front();
-        if queue.is_empty() {
-            self.buckets.remove(&(priority, depth));
-        }
-        id
-    }
-
-    fn len(&self) -> usize {
-        self.buckets.values().map(|q| q.len()).sum()
     }
 }
 
