@@ -65,7 +65,7 @@ impl GamestateNodesSnake {
             .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
             //.similarity_pruning(|_| 6)
             .head_tail_pruning(|_| [u8::MAX, 8, 4])
-            //.simulate_snakes_seperately()
+            .simulate_snakes_seperately(|d| d == 3)
             .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();

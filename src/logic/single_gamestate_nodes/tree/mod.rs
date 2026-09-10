@@ -22,7 +22,7 @@ pub struct Tree {
     max_time: Option<Duration>,
     max_nodes: usize,
     all_root_directions: bool,
-    simulate_snakes_seperately: bool,
+    simulate_snakes_seperately_fn: Option<fn(u8) -> bool>,
     similarity_distance_fn: Option<fn(u8) -> u8>,
     head_tail_distance_fn: Option<fn(u8) -> [u8; SNAKES - 1]>,
     child_priority_situations: Option<SituationSet>,
@@ -43,7 +43,7 @@ impl Tree {
             max_nodes: usize::MAX,
             elapsed_simulation_time: Duration::ZERO,
             all_root_directions: false,
-            simulate_snakes_seperately: false,
+            simulate_snakes_seperately_fn: None,
             similarity_distance_fn: None,
             head_tail_distance_fn: None,
             child_priority_situations: None,
@@ -77,8 +77,8 @@ impl Tree {
         self
     }
 
-    pub fn simulate_snakes_seperately(mut self) -> Self {
-        self.simulate_snakes_seperately = true;
+    pub fn simulate_snakes_seperately(mut self, condition: fn(u8) -> bool) -> Self {
+        self.simulate_snakes_seperately_fn = Some(condition);
         self
     }
 
@@ -179,12 +179,18 @@ impl Tree {
             .as_ref()
             .map(|f| f(node_id.depth()));
 
+        let simulate_snakes_seperately = self
+            .simulate_snakes_seperately_fn
+            .as_ref()
+            .map(|f| f(node_id.depth()))
+            .unwrap_or(false);
+
         let child_nodes = node.simulate(
             similarity_pruning_distance,
             head_tail_distances,
             self.node_direction_preference_situations.as_ref(),
             self.score_situations.as_ref(),
-            self.simulate_snakes_seperately
+            simulate_snakes_seperately
         );
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
@@ -776,14 +782,13 @@ mod tests {
             .similarity_pruning(|_| 6)
             .head_tail_pruning(|_| [u8::MAX, 6, 6])
             .child_priority_situations(SituationSet::new(vec![situation]))
-            .simulate_snakes_seperately()
+            .simulate_snakes_seperately(|d| d >= 1)
             .max_time(Duration::from_millis(200));
         tree.simulate();
         // println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"D_U_".try_into().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"D_U_-L_U_".try_into().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"DLD_".try_into().unwrap()).unwrap());
     }
 }
 
