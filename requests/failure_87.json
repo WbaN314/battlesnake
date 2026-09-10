@@ -1,0 +1,294 @@
+{
+    "game": {
+        "id": "dc43d8d2-f82a-4a37-8389-ca474c461b6e",
+        "ruleset": {
+            "version": "v1.2.3",
+            "settings": {
+                "foodSpawnChance": 15,
+                "hazardDamagePerTurn": 0,
+                "hazardMap": "",
+                "hazardMapAuthor": "",
+                "minimumFood": 1,
+                "royale": {
+                    "shrinkEveryNTurns": 0
+                },
+                "squad": {
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
+                }
+            },
+            "name": "standard"
+        },
+        "timeout": 500
+    },
+    "turn": 85,
+    "board": {
+        "height": 11,
+        "width": 11,
+        "food": [
+            {
+                "x": 8,
+                "y": 9
+            }
+        ],
+        "snakes": [
+            {
+                "id": "gs_vTWYjxCVW3ckKg4H3JCWF3MG",
+                "name": "SmartyRat",
+                "health": 96,
+                "body": [
+                    {
+                        "x": 7,
+                        "y": 6
+                    },
+                    {
+                        "x": 7,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 7
+                    },
+                    {
+                        "x": 8,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 8
+                    },
+                    {
+                        "x": 7,
+                        "y": 9
+                    },
+                    {
+                        "x": 6,
+                        "y": 9
+                    },
+                    {
+                        "x": 5,
+                        "y": 9
+                    },
+                    {
+                        "x": 4,
+                        "y": 9
+                    },
+                    {
+                        "x": 3,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 7,
+                    "y": 6
+                },
+                "length": 10,
+                "latency": "75",
+                "shout": ""
+            },
+            {
+                "id": "gs_tY7yS9Gb8vy4Gx7R3PHmkFhJ",
+                "name": "theOldSnake",
+                "health": 76,
+                "body": [
+                    {
+                        "x": 8,
+                        "y": 1
+                    },
+                    {
+                        "x": 9,
+                        "y": 1
+                    },
+                    {
+                        "x": 9,
+                        "y": 2
+                    },
+                    {
+                        "x": 9,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 3
+                    },
+                    {
+                        "x": 8,
+                        "y": 4
+                    },
+                    {
+                        "x": 7,
+                        "y": 4
+                    },
+                    {
+                        "x": 6,
+                        "y": 4
+                    }
+                ],
+                "head": {
+                    "x": 8,
+                    "y": 1
+                },
+                "length": 8,
+                "latency": "112",
+                "shout": ""
+            },
+            {
+                "id": "gs_gwjWTXQbGQqbkJBkYhmStKPC",
+                "name": "Game of Chicken",
+                "health": 89,
+                "body": [
+                    {
+                        "x": 7,
+                        "y": 2
+                    },
+                    {
+                        "x": 6,
+                        "y": 2
+                    },
+                    {
+                        "x": 6,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 1
+                    },
+                    {
+                        "x": 5,
+                        "y": 2
+                    },
+                    {
+                        "x": 5,
+                        "y": 3
+                    },
+                    {
+                        "x": 4,
+                        "y": 3
+                    },
+                    {
+                        "x": 3,
+                        "y": 3
+                    },
+                    {
+                        "x": 2,
+                        "y": 3
+                    }
+                ],
+                "head": {
+                    "x": 7,
+                    "y": 2
+                },
+                "length": 9,
+                "latency": "225",
+                "shout": ""
+            },
+            {
+                "id": "gs_MRjDWjpPSj6DQySyBhXr3YSc",
+                "name": "Cutiee ✨",
+                "health": 86,
+                "body": [
+                    {
+                        "x": 4,
+                        "y": 5
+                    },
+                    {
+                        "x": 3,
+                        "y": 5
+                    },
+                    {
+                        "x": 2,
+                        "y": 5
+                    },
+                    {
+                        "x": 2,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 6
+                    },
+                    {
+                        "x": 3,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 7
+                    },
+                    {
+                        "x": 2,
+                        "y": 8
+                    },
+                    {
+                        "x": 2,
+                        "y": 9
+                    },
+                    {
+                        "x": 1,
+                        "y": 9
+                    }
+                ],
+                "head": {
+                    "x": 4,
+                    "y": 5
+                },
+                "length": 10,
+                "latency": "420",
+                "shout": ""
+            }
+        ],
+        "hazards": []
+    },
+    "you": {
+        "id": "gs_gwjWTXQbGQqbkJBkYhmStKPC",
+        "name": "Game of Chicken",
+        "health": 89,
+        "body": [
+            {
+                "x": 7,
+                "y": 2
+            },
+            {
+                "x": 6,
+                "y": 2
+            },
+            {
+                "x": 6,
+                "y": 1
+            },
+            {
+                "x": 5,
+                "y": 1
+            },
+            {
+                "x": 5,
+                "y": 2
+            },
+            {
+                "x": 5,
+                "y": 3
+            },
+            {
+                "x": 4,
+                "y": 3
+            },
+            {
+                "x": 3,
+                "y": 3
+            },
+            {
+                "x": 2,
+                "y": 3
+            }
+        ],
+        "head": {
+            "x": 7,
+            "y": 2
+        },
+        "length": 9,
+        "latency": "225",
+        "shout": ""
+    }
+}

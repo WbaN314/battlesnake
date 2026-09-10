@@ -88,3 +88,5 @@ situation_test!(failure_82, Left, Right => "Both directions lead to death, not s
 situation_test!(failure_83, Left, Right => "Down leads to death, right not sure about it");
 situation_test!(failure_84, Right => "Fight for the area to have enough to wait for B tail to follow");
 situation_test!(failure_85, Down => "Pruning fail, Up leads to death but C moves are pruned away");
+situation_test!(failure_86, Down => "Down is ProbablyDead(0), Right is ProbablyDeadIn(0), but would be DeadIn(1) if simulation continued, which would be excluded");
+situation_test!(failure_87, Down => "Up can be killed by B or D");
