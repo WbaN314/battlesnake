@@ -33,7 +33,8 @@ Run games with logging, analyze lost games to find decisions that would differ w
 
 ```bash
 # 1. Run games with logging (first snake's logs split into game_logs/game_N.log or game_N_lost.log)
-cargo run --release --bin run_local_simulation -- -10 -l single_gamestate_nodes single_gamestate_nodes:main depth_first:main simple_hungry:main
+# Append :<git-ref> to build a snake from another branch, commit, or tag (e.g. :main, :v1.0.0).
+cargo run --release --bin run_local_simulation -- -10 -l single_gamestate_nodes single_gamestate_nodes:main single_gamestate_nodes:v1.0.0 depth_first:main
 
 # 2. Analyze lost games (default: 10s re-evaluation timeout, 20 turns back)
 cargo run --release --bin analyze_local_simulation

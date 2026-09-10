@@ -118,6 +118,8 @@ struct GameRecord {
     nodes: Option<f64>,
     depth_ctrl: Option<f64>,
     nodes_ctrl: Option<f64>,
+    depth_ctrl2: Option<f64>,
+    nodes_ctrl2: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -398,6 +400,10 @@ fn print_final_summary_from_json(results: &SimulationResults) {
     let mut depth_ctrl_count = 0usize;
     let mut nodes_ctrl_sum = 0.0f64;
     let mut nodes_ctrl_count = 0usize;
+    let mut depth_ctrl2_sum = 0.0f64;
+    let mut depth_ctrl2_count = 0usize;
+    let mut nodes_ctrl2_sum = 0.0f64;
+    let mut nodes_ctrl2_count = 0usize;
 
     for game in &results.games {
         for (name, sr) in &game.per_snake {
@@ -409,12 +415,16 @@ fn print_final_summary_from_json(results: &SimulationResults) {
         if let Some(n) = game.nodes { nodes_sum += n; nodes_count += 1; }
         if let Some(d) = game.depth_ctrl { depth_ctrl_sum += d; depth_ctrl_count += 1; }
         if let Some(n) = game.nodes_ctrl { nodes_ctrl_sum += n; nodes_ctrl_count += 1; }
+        if let Some(d) = game.depth_ctrl2 { depth_ctrl2_sum += d; depth_ctrl2_count += 1; }
+        if let Some(n) = game.nodes_ctrl2 { nodes_ctrl2_sum += n; nodes_ctrl2_count += 1; }
     }
 
     let overall_avg_depth = if depth_count > 0 { Some(depth_sum / depth_count as f64) } else { None };
     let overall_avg_nodes = if nodes_count > 0 { Some(nodes_sum / nodes_count as f64) } else { None };
     let overall_avg_depth_ctrl = if depth_ctrl_count > 0 { Some(depth_ctrl_sum / depth_ctrl_count as f64) } else { None };
     let overall_avg_nodes_ctrl = if nodes_ctrl_count > 0 { Some(nodes_ctrl_sum / nodes_ctrl_count as f64) } else { None };
+    let overall_avg_depth_ctrl2 = if depth_ctrl2_count > 0 { Some(depth_ctrl2_sum / depth_ctrl2_count as f64) } else { None };
+    let overall_avg_nodes_ctrl2 = if nodes_ctrl2_count > 0 { Some(nodes_ctrl2_sum / nodes_ctrl2_count as f64) } else { None };
 
     {
         let mut builder = TableBuilder::default();
@@ -426,11 +436,15 @@ fn print_final_summary_from_json(results: &SimulationResults) {
                     overall_avg_depth.map_or("-".to_string(), |d| format!("{:.1}", d))
                 } else if snake_names.len() > 1 && name == &snake_names[1] {
                     overall_avg_depth_ctrl.map_or("-".to_string(), |d| format!("{:.1}", d))
+                } else if snake_names.len() > 2 && name == &snake_names[2] {
+                    overall_avg_depth_ctrl2.map_or("-".to_string(), |d| format!("{:.1}", d))
                 } else { "-".to_string() };
                 let nodes_s = if name == &snake_names[0] {
                     overall_avg_nodes.map_or("-".to_string(), |n| format!("{:.0}", n))
                 } else if snake_names.len() > 1 && name == &snake_names[1] {
                     overall_avg_nodes_ctrl.map_or("-".to_string(), |n| format!("{:.0}", n))
+                } else if snake_names.len() > 2 && name == &snake_names[2] {
+                    overall_avg_nodes_ctrl2.map_or("-".to_string(), |n| format!("{:.0}", n))
                 } else { "-".to_string() };
                 builder.push_record([
                     name.clone(),
@@ -702,6 +716,20 @@ fn main() {
                 .stderr(log_file)
                 .spawn()
                 .expect("Failed to start server")
+        } else if idx == 2 {
+            let log_file = fs::File::create("game_logs/.control2.log")
+                .expect("Cannot create control2 log file");
+            let mut cmd = Command::new(&binary);
+            cmd.env("PORT", port.to_string())
+                .env("VARIANT", &snake.variant)
+                .env("LOCAL_SIMULATION", "1");
+            if let Some(sc) = sim_config.snakes.get(idx) {
+                cmd.envs(&sc.env);
+            }
+            cmd.stdout(log_file.try_clone().unwrap())
+                .stderr(log_file)
+                .spawn()
+                .expect("Failed to start server")
         } else {
             let mut cmd = Command::new(&binary);
             cmd.env("PORT", port.to_string())
@@ -720,7 +748,7 @@ fn main() {
             name,
             port,
             child.id(),
-            if idx == 0 { " (logging)" } else if idx == 1 { " (logging control)" } else { "" }
+            if idx == 0 { " (logging)" } else if idx == 1 { " (logging control)" } else if idx == 2 { " (logging control 2)" } else { "" }
         );
 
         server_pids.push(child);
@@ -749,6 +777,7 @@ fn main() {
     let mut total: usize = 0;
     let mut log_position: u64 = 0;
     let mut control_log_position: u64 = 0;
+    let mut control2_log_position: u64 = 0;
     let mut game_stats_log: Vec<HashMap<String, GameStats>> = Vec::new();
     let mut results = SimulationResults { snake_names: snake_names.clone(), games: Vec::new() };
 
@@ -823,6 +852,16 @@ fn main() {
         };
         control_log_position += new_control_log_content.len() as u64;
 
+        let new_control2_log_content = {
+            let mut content = String::new();
+            if let Ok(mut file) = fs::File::open("game_logs/.control2.log") {
+                file.seek(SeekFrom::Start(control2_log_position)).ok();
+                file.read_to_string(&mut content).ok();
+            }
+            content
+        };
+        control2_log_position += new_control2_log_content.len() as u64;
+
         if let Some(t) = parse_end_turn(&new_log_content) {
             turns = t.to_string();
         }
@@ -876,6 +915,11 @@ fn main() {
         } else {
             None
         };
+        let control2_depth_stats = if snake_names.len() > 2 {
+            parse_depth_stats(&new_control2_log_content)
+        } else {
+            None
+        };
 
         if let Some(board) = render_last_board(&new_log_content) {
             for line in board.lines() {
@@ -912,6 +956,8 @@ fn main() {
                     depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.1}", ds.avg_depth))
                 } else if snake_names.len() > 1 && *name == snake_names[1] {
                     control_depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.1}", ds.avg_depth))
+                } else if snake_names.len() > 2 && *name == snake_names[2] {
+                    control2_depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.1}", ds.avg_depth))
                 } else {
                     "-".to_string()
                 };
@@ -919,6 +965,8 @@ fn main() {
                     depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.0}", ds.avg_nodes))
                 } else if snake_names.len() > 1 && *name == snake_names[1] {
                     control_depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.0}", ds.avg_nodes))
+                } else if snake_names.len() > 2 && *name == snake_names[2] {
+                    control2_depth_stats.as_ref().map_or("-".to_string(), |ds| format!("{:.0}", ds.avg_nodes))
                 } else {
                     "-".to_string()
                 };
@@ -986,6 +1034,8 @@ fn main() {
                 nodes: depth_stats.as_ref().map(|ds| ds.avg_nodes),
                 depth_ctrl: control_depth_stats.as_ref().map(|ds| ds.avg_depth),
                 nodes_ctrl: control_depth_stats.as_ref().map(|ds| ds.avg_nodes),
+                depth_ctrl2: control2_depth_stats.as_ref().map(|ds| ds.avg_depth),
+                nodes_ctrl2: control2_depth_stats.as_ref().map(|ds| ds.avg_nodes),
             });
             write_results_json(&results, &results_path);
         }
@@ -1037,6 +1087,7 @@ fn main() {
     }
     let _ = fs::remove_file("game_logs/.server.log");
     let _ = fs::remove_file("game_logs/.control.log");
+    let _ = fs::remove_file("game_logs/.control2.log");
 
     cleanup_all_worktrees(&worktrees);
 
