@@ -138,7 +138,12 @@ impl MoveMatrix {
             let mut result = Vec::new();
             basis_matrix.set(0, self.moves[0]);
             for i in 1..SNAKES {
-                if self.moves[i].count_valid(0) != 0 {
+                if self.moves[i].count_valid(0) == 1 {
+                    basis_matrix.set(i, self.moves[i]);
+                }
+            }
+            for i in 1..SNAKES {
+                if self.moves[i].count_valid(0) >= 2 {
                     let mut seperate_snakes_matrix = basis_matrix.clone();
                     seperate_snakes_matrix.set(i, self.moves[i]);
                     result.extend(seperate_snakes_matrix.generate());
@@ -373,6 +378,51 @@ mod tests {
         let own_dirs: Vec<_> = fallback.iter().map(|m| m[0]).collect();
         assert!(own_dirs.contains(&Some(Direction::Up)));
         assert!(own_dirs.contains(&Some(Direction::Down)));
+    }
+
+    #[test]
+    fn test_pregenerate_separately_bakes_in_forced_moves() {
+        let matrix = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down (2)
+            MoveVector::new(Some([true, true, true, false])),  // snake 1: Up, Down, Left (3)
+            MoveVector::from(Direction::Right),                // snake 2: Right only (forced)
+            MoveVector::new(None),                             // snake 3: dead
+        ])
+        .simulate_snakes_seperately();
+
+        // Snake 2 has exactly one legal move, so it's baked into the basis and moves in
+        // every combination rather than being frozen to None. Only snake 1 branches, so
+        // there is a single separated batch: snake0 (2) * snake1 (3) * snake2 (1) = 6.
+        let separate = matrix.pregenerate();
+        assert_eq!(separate.len(), 6);
+
+        // Snake 2 always takes its forced move; snake 1 is the only free enemy; snake 3 stays None.
+        for m in &separate {
+            assert_eq!(m[2], Some(Direction::Right));
+            assert!(m[1].is_some());
+            assert!(m[3].is_none());
+        }
+    }
+
+    #[test]
+    fn test_pregenerate_separately_all_forced() {
+        // Every enemy is forced to a single move: no branching, so the fallback generates
+        // the basis with all forced enemies moving together. Count = snake0 (2) only.
+        let matrix = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down (2)
+            MoveVector::from(Direction::Left),                 // snake 1: forced Left
+            MoveVector::from(Direction::Right),                // snake 2: forced Right
+            MoveVector::new(None),                             // snake 3: dead
+        ])
+        .simulate_snakes_seperately();
+
+        let separate = matrix.pregenerate();
+        assert_eq!(separate.len(), 2);
+        for m in &separate {
+            assert_eq!(m[1], Some(Direction::Left));
+            assert_eq!(m[2], Some(Direction::Right));
+            assert!(m[3].is_none());
+        }
     }
 
     #[test]
