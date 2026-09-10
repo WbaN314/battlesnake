@@ -63,7 +63,9 @@ impl GamestateNodesSnake {
             .child_priority_situations(CHILD_PRIORITY_SITUATIONS.clone())
             .node_direction_preference_situations(NODE_DIRECTION_PREFERENCE_SITUATIONS.clone())
             .score_situations(SIMULATION_SCORE_SITUATIONS.clone())
+            //.similarity_pruning(|_| 6)
             .head_tail_pruning(|_| [u8::MAX, 8, 4])
+            //.simulate_snakes_seperately()
             .max_time(ENV_CONFIG.SIMULATION_TIME_MS);
         tree.simulate();
         let result = tree.result();

@@ -22,6 +22,7 @@ pub struct Tree {
     max_time: Option<Duration>,
     max_nodes: usize,
     all_root_directions: bool,
+    simulate_snakes_seperately: bool,
     similarity_distance_fn: Option<fn(u8) -> u8>,
     head_tail_distance_fn: Option<fn(u8) -> [u8; SNAKES - 1]>,
     child_priority_situations: Option<SituationSet>,
@@ -42,6 +43,7 @@ impl Tree {
             max_nodes: usize::MAX,
             elapsed_simulation_time: Duration::ZERO,
             all_root_directions: false,
+            simulate_snakes_seperately: false,
             similarity_distance_fn: None,
             head_tail_distance_fn: None,
             child_priority_situations: None,
@@ -72,6 +74,11 @@ impl Tree {
 
     pub fn head_tail_pruning(mut self, distance_fn: fn(u8) -> [u8; SNAKES - 1]) -> Self {
         self.head_tail_distance_fn = Some(distance_fn);
+        self
+    }
+
+    pub fn simulate_snakes_seperately(mut self) -> Self {
+        self.simulate_snakes_seperately = true;
         self
     }
 
@@ -177,6 +184,7 @@ impl Tree {
             head_tail_distances,
             self.node_direction_preference_situations.as_ref(),
             self.score_situations.as_ref(),
+            self.simulate_snakes_seperately
         );
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
@@ -763,16 +771,19 @@ mod tests {
             },
         );
 
-        let mut tree = create_tree_from_gamestate("requests/failure_43.json")
+        let mut tree = create_tree_from_gamestate("requests/failure_08.json")
             .all_root_directions()
             .similarity_pruning(|_| 6)
             .head_tail_pruning(|_| [u8::MAX, 6, 6])
             .child_priority_situations(SituationSet::new(vec![situation]))
+            .simulate_snakes_seperately()
             .max_time(Duration::from_millis(200));
         tree.simulate();
         // println!("{}", tree);
         println!("{}", tree.stats());
         println!("{}", tree.nodes.get(&"ROOT".try_into().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"D_U_".try_into().unwrap()).unwrap());
+        println!("{}", tree.nodes.get(&"D_U_-L_U_".try_into().unwrap()).unwrap());
     }
 }
 

@@ -54,17 +54,22 @@ impl From<Direction> for MoveVector {
 #[derive(Debug, Clone, Copy)]
 pub struct MoveMatrix {
     moves: [MoveVector; SNAKES as usize],
+    simulate_snakes_seperately: bool,
 }
 
 impl MoveMatrix {
     pub fn new() -> Self {
         Self {
             moves: [MoveVector::default(); SNAKES as usize],
+            simulate_snakes_seperately: false,
         }
     }
 
     pub fn from(moves: [MoveVector; SNAKES as usize]) -> Self {
-        Self { moves }
+        Self {
+            moves,
+            simulate_snakes_seperately: false,
+        }
     }
 
     pub fn get(&self, index: usize) -> MoveVector {
@@ -112,14 +117,44 @@ impl MoveMatrix {
         self
     }
 
+    pub fn simulate_snakes_seperately(mut self) -> Self {
+        self.simulate_snakes_seperately = true;
+        self
+    }
+
     pub fn pregenerate_for(&self, direction: Direction) -> Vec<Moves> {
-        let mut moves = self.moves;
-        moves[0] = MoveVector::from(direction);
-        MoveMatrix::from(moves).pregenerate()
+        let mut new_matrix = self.clone();
+        if new_matrix.get(0).is_valid(direction) {
+            new_matrix.set(0, MoveVector::from(direction));
+        } else {
+            new_matrix.set(0, MoveVector::new(None));
+        }
+        new_matrix.pregenerate()
     }
 
     pub fn pregenerate(&self) -> Vec<Moves> {
-        fn pregenerate_iterations_row(row: MoveVector) -> [Option<Option<Direction>>; 4] {
+        if self.simulate_snakes_seperately {
+            let mut basis_matrix = Self::new();
+            let mut result = Vec::new();
+            basis_matrix.set(0, self.moves[0]);
+            for i in 1..SNAKES {
+                if self.moves[i].count_valid(0) != 0 {
+                    let mut seperate_snakes_matrix = basis_matrix.clone();
+                    seperate_snakes_matrix.set(i, self.moves[i]);
+                    result.extend(seperate_snakes_matrix.generate());
+                }
+            }
+            if result.is_empty() {
+                result.extend(basis_matrix.generate());
+            }
+            result
+        } else {
+            self.generate()
+        }
+    }
+
+    fn generate(&self) -> Vec<Moves> {
+        fn generate_iterations_row(row: MoveVector) -> [Option<Option<Direction>>; 4] {
             if let Some(row) = *row {
                 let mut template = [None; 4];
                 let mut count = 0;
@@ -137,10 +172,10 @@ impl MoveMatrix {
         let mut list: Vec<Moves> = Vec::with_capacity(self.len());
 
         let iterations = [
-            pregenerate_iterations_row(self.moves[0]),
-            pregenerate_iterations_row(self.moves[1]),
-            pregenerate_iterations_row(self.moves[2]),
-            pregenerate_iterations_row(self.moves[3]),
+            generate_iterations_row(self.moves[0]),
+            generate_iterations_row(self.moves[1]),
+            generate_iterations_row(self.moves[2]),
+            generate_iterations_row(self.moves[3]),
         ];
 
         let mut template: [Option<Direction>; SNAKES as usize] = Default::default();
@@ -292,6 +327,95 @@ mod tests {
     }
 
     #[test]
+    fn test_pregenerate_snakes_separately() {
+        let matrix = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down
+            MoveVector::new(Some([true, true, true, false])),  // snake 1: Up, Down, Left
+            MoveVector::new(Some([true, false, false, true])), // snake 2: Up, Right
+            MoveVector::new(None),                             // snake 3: dead
+        ]);
+
+        // Without the flag: full Cartesian product; all live enemies move simultaneously.
+        // 2 * 3 * 2 * 1 = 12  (None snake contributes one None direction)
+        let combined = matrix.pregenerate();
+        assert_eq!(combined.len(), 12);
+        assert!(combined.iter().all(|m| m[1].is_some() && m[2].is_some()));
+
+        // With the flag: each live enemy is paired with snake 0 independently.
+        // snake 1 batch: 2 * 3 = 6, snake 2 batch: 2 * 2 = 4, snake 3 skipped (dead).
+        let separate = matrix.simulate_snakes_seperately().pregenerate();
+        assert_eq!(separate.len(), 10);
+
+        // In every generated Moves exactly one enemy (snake 1..=3) has a direction; the rest are None.
+        for m in &separate {
+            let active_enemies = [m[1], m[2], m[3]].iter().filter(|d| d.is_some()).count();
+            assert_eq!(active_enemies, 1);
+        }
+
+        // Fallback: when no enemy can move (all dead/headless), separate simulation used to
+        // produce zero combinations, which falsely declared our snake dead even with legal
+        // moves available. Our own moves must still be generated against the frozen board.
+        let no_enemy_can_move = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down
+            MoveVector::new(None),                             // snake 1: no moves
+            MoveVector::new(None),                             // snake 2: no moves
+            MoveVector::new(None),                             // snake 3: no moves
+        ])
+        .simulate_snakes_seperately();
+        let fallback = no_enemy_can_move.pregenerate();
+        // One combination per own legal direction, every enemy None.
+        assert_eq!(fallback.len(), 2);
+        assert!(
+            fallback
+                .iter()
+                .all(|m| m[1].is_none() && m[2].is_none() && m[3].is_none())
+        );
+        let own_dirs: Vec<_> = fallback.iter().map(|m| m[0]).collect();
+        assert!(own_dirs.contains(&Some(Direction::Up)));
+        assert!(own_dirs.contains(&Some(Direction::Down)));
+    }
+
+    #[test]
+    fn test_pregenerate_for_snakes_seperately() {
+        let matrix = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down
+            MoveVector::new(Some([true, true, true, false])),  // snake 1: Up, Down, Left
+            MoveVector::new(Some([true, false, false, true])), // snake 2: Up, Right
+            MoveVector::new(None),                             // snake 3: dead
+        ])
+        .simulate_snakes_seperately();
+
+        // Forcing our own move to a legal direction pins snake 0 and pairs each live enemy
+        // independently: snake 1 batch (3) + snake 2 batch (2) = 5, all with snake 0 = Up.
+        let up = matrix.pregenerate_for(Direction::Up);
+        assert_eq!(up.len(), 5);
+        assert!(up.iter().all(|m| m[0] == Some(Direction::Up)));
+        for m in &up {
+            let active_enemies = [m[1], m[2], m[3]].iter().filter(|d| d.is_some()).count();
+            assert_eq!(active_enemies, 1);
+        }
+
+        // Forcing an illegal own move (Left is invalid for snake 0) makes snake 0 None, but the
+        // enemy branching is unchanged.
+        let left = matrix.pregenerate_for(Direction::Left);
+        assert_eq!(left.len(), 5);
+        assert!(left.iter().all(|m| m[0].is_none()));
+
+        // Fallback also applies through pregenerate_for: no enemy can move, so only our forced
+        // own move survives (previously empty -> false death).
+        let no_enemy_can_move = MoveMatrix::from([
+            MoveVector::new(Some([true, true, false, false])), // snake 0: Up, Down
+            MoveVector::new(None),
+            MoveVector::new(None),
+            MoveVector::new(None),
+        ])
+        .simulate_snakes_seperately();
+        let down = no_enemy_can_move.pregenerate_for(Direction::Down);
+        assert_eq!(down.len(), 1);
+        assert_eq!(down[0], [Some(Direction::Down), None, None, None]);
+    }
+
+    #[test]
     fn test_prune_head_tail() {
         let gamestate = read_game_state("requests/test_game_start.json");
         let state = GameState::<BasicField>::from(&gamestate);
@@ -299,7 +423,9 @@ mod tests {
 
         let unpruned = state.valid_moves();
 
-        let pruned = unpruned.clone().prune_head_tail(&state, [u8::MAX; SNAKES as usize - 1]);
+        let pruned = unpruned
+            .clone()
+            .prune_head_tail(&state, [u8::MAX; SNAKES as usize - 1]);
         assert_eq!(pruned.get(0), unpruned.get(0));
         assert_eq!(pruned.get(1), unpruned.get(1));
         assert_eq!(pruned.get(2), unpruned.get(2));

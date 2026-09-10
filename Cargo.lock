@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "battlesnake_game_of_chicken"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "arrayvec",
  "crossterm",
