@@ -8,6 +8,7 @@ Fixed-work benchmarks (`cargo bench --lib bench_simulation`):
 | 1 — FxHash | 30,676,550 (−18.6%) | 126,207,012 (−16.8%) | `flamegraph_1_after_fxhash.svg` |
 | 2 — ArrayVec pregenerate | ~29,600,000 (−3.5%) | ~123,900,000 (−1.9%) | `flamegraph_2_after_arrayvec_movelist.svg` |
 | 3 — flat PriorityQueue | ~29,600,000 (flat) | ~118,000,000 (−4.8%) | `flamegraph_3_after_priority_queue.svg` |
+| 4 — pre-size node map | ~29,100,000 (flat) | ~109,400,000 (−7.5%) | — |
 
 > `bench_snake_logic` is budget-bounded (fixed wall-clock) — use it for flamegraph *shares*, not timing. Use the `bench_simulation_*` benches for timing.
 
@@ -83,23 +84,38 @@ win because `bench_snake_logic` pounds the queue far harder than the fixed bench
 *production* path (budget-bounded) therefore reclaims ~21% of each move's budget for real
 search. Extracted to `tree/priority_queue.rs` afterwards (pure move, no logic change).
 
+## Step 4 — pre-size the node map
+
+`Tree::simulate` reserves the `nodes` `FxHashMap` up front instead of letting it grow —
+`tree/mod.rs`. Measured node counts (`report_search_stats`, release, 200 ms): ~210k–330k,
+avg ~249k. Growing there means ~19 doubling-resizes, each re-inserting every live `Node`
+(~390 B) → ~190 MB of `memmove`; peak size is unchanged, so pre-sizing just does the one
+allocation instead.
+
+Gated because the count is only predictable when bounded by time (production, ~250k →
+reserve `EXPECTED_TIME_BOUNDED_NODES = 300_000`) or nodes (`reserve(max_nodes.min(EXPECTED))`).
+Depth-only searches are left to grow — a flat reserve there would memset a 512 KB control
+array for a shallow tree and regress `max_depth`. Can't live in `Tree::new`: the builder sets
+the bounds *after* construction, so `new` sees only defaults.
+
+Result: `max_nodes` −7.5% (reserves 10k, skips ~13 resizes); `max_depth` flat (gate declines
+— no regression). Production win (skips ~19 resizes / ~190 MB) shows only on the budget path.
+
 ## Next
 
-Shares from `flamegraph_3` (post-PQ). PriorityQueue is gone (21.3% → 0.6%); the freed time
-spread across everything else. Remaining allocation is now diffuse.
+Shares from `flamegraph_3` (post-PQ, pre-map-presize). PriorityQueue is gone (21.3% → 0.6%);
+the freed time spread across everything else. Remaining allocation is now diffuse, and step 4
+(map pre-size) has since removed the map's resize/grow slice.
 
-1. **Pre-size the `nodes` `FxHashMap` (~6–7%, biggest single alloc).** hashbrown insert+grow
-   is ~319 samples — the map starts empty and rehashes ~14× growing toward `max_nodes`.
-   `with_capacity_and_hasher(max_nodes, ..)` → one alloc, no rehash churn. Caveat: `Node` is
-   large, so only worth it when `max_nodes` is bounded. Cheapest genuine win left.
-2. **memmove ~6.8% — `GameState` clone per child.** Not a malloc; a stack copy. Only removable
+1. **memmove ~6.8% — `GameState` clone per child.** Not a malloc; a stack copy. Only removable
    by mutate-in-place + undo — large, risky refactor of the search core. Defer.
-3. **Tree teardown ~6.2%.** Freeing the whole map + all nodes at end; needs pooling/arena to
+2. **Tree teardown ~6.2%.** Freeing the whole map + all nodes at end; needs pooling/arena to
    avoid. Structural, defer.
-4. **Diffuse small Vecs.** `children: Vec<Node>` (140), `RawVec<(usize,u8)>` (94),
+3. **Diffuse small Vecs.** `children: Vec<Node>` (140), `RawVec<(usize,u8)>` (94),
    `children_states` (81). Individually small; `ArrayVec` on the bounded ones could help but
    low payoff.
-5. **Minor.** `NodeStatus::partial_cmp` recursive reverse arms; `calculate_from_child_states`
+4. **Minor.** `NodeStatus::partial_cmp` recursive reverse arms; `calculate_from_child_states`
    walks children up to 4×.
 
-Re-profile after each step — shares reshuffle every time.
+Re-profile after each step — shares reshuffle every time. (Map pre-size done; re-flamegraph
+to see the map's grow slice shrink and where time went.)

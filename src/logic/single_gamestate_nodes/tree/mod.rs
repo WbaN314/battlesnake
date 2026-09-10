@@ -1,5 +1,6 @@
 use crate::logic::{
-    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES}, single_gamestate_nodes::{
+    general::{direction::Direction, field::BasicField, game_state::GameState, snakes::SNAKES},
+    single_gamestate_nodes::{
         node::{Node, NodeStatus, PruneReason, node_id::NodeId},
         situation::SituationSet,
     },
@@ -123,6 +124,17 @@ impl Tree {
         let start = Instant::now();
         let deadline = self.max_time.map(|d| Instant::now() + d);
 
+        self.nodes.reserve(
+            [
+                100_000,
+                self.max_nodes,
+                3_usize.saturating_pow(4_u32 * self.max_depth as u32),
+            ]
+            .into_iter()
+            .min()
+            .unwrap()
+        );
+
         // Simulate all root directions first once
         if self.all_root_directions {
             let root_id = self.queue.pop().unwrap();
@@ -194,7 +206,7 @@ impl Tree {
             head_tail_distances,
             self.node_direction_preference_situations.as_ref(),
             self.score_situations.as_ref(),
-            simulate_snakes_seperately
+            simulate_snakes_seperately,
         );
         let node_status = node.status();
         self.propagate_status(node_id, node_status);
@@ -346,8 +358,18 @@ mod tests {
     use super::*;
     use crate::{
         logic::{
-            general::{direction::DIRECTIONS, snake::Snake}, single_gamestate_nodes::{env_config::ENV_CONFIG, node::NodeScore, situation::Situation, situation_config::{CHILD_PRIORITY_SITUATIONS, NODE_DIRECTION_PREFERENCE_SITUATIONS, SIMULATION_SCORE_SITUATIONS}},
-        }, read_game_state,
+            general::{direction::DIRECTIONS, snake::Snake},
+            single_gamestate_nodes::{
+                env_config::ENV_CONFIG,
+                node::NodeScore,
+                situation::Situation,
+                situation_config::{
+                    CHILD_PRIORITY_SITUATIONS, NODE_DIRECTION_PREFERENCE_SITUATIONS,
+                    SIMULATION_SCORE_SITUATIONS,
+                },
+            },
+        },
+        read_game_state,
     };
 
     pub(super) fn create_tree_from_gamestate(filename: &str) -> Tree {
@@ -738,10 +760,28 @@ mod tests {
         println!("{}", tree.nodes.get(&"ROOT".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"ULR_".parse().unwrap()).unwrap());
         println!("{}", tree.nodes.get(&"ULR_-UDR_".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_-U_R_".parse().unwrap()).unwrap());
-        println!("{}", tree.nodes.get(&"ULR_-UDR_-U_R_-U_R_-U_R_-L_D_".parse().unwrap()).unwrap());
+        println!(
+            "{}",
+            tree.nodes.get(&"ULR_-UDR_-U_R_".parse().unwrap()).unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"ULR_-UDR_-U_R_-U_R_".parse().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"ULR_-UDR_-U_R_-U_R_-U_R_".parse().unwrap())
+                .unwrap()
+        );
+        println!(
+            "{}",
+            tree.nodes
+                .get(&"ULR_-UDR_-U_R_-U_R_-U_R_-L_D_".parse().unwrap())
+                .unwrap()
+        );
     }
 }
 
