@@ -291,7 +291,16 @@ impl Brain for GamestateNodesSnake {
 }
 
 #[cfg(test)]
+pub(crate) mod bench_fixtures;
+
+#[cfg(test)]
+mod benchmarks;
+
+#[cfg(test)]
 mod tests {
+    use super::GamestateNodesSnake;
+    use super::bench_fixtures;
+    use super::env_config::ENV_CONFIG;
     use crate::get_move_from_json_file_with_timeout;
 
     #[test]
@@ -299,10 +308,96 @@ mod tests {
         let timeout_ms = 10000;
         get_move_from_json_file_with_timeout("failure_81.json", timeout_ms);
     }
+
+    /// Diagnostic reporter (not a timing bench): runs each fixture once under the
+    /// production time budget and prints the emergent search metrics — resolved
+    /// depth, simulated nodes, branching factor. These are only meaningful under
+    /// `max_time` (a node/depth bound fixes them by construction), so this mirrors
+    /// what production actually does. Ignored because it takes SIMULATION_TIME_MS
+    /// per fixture; run explicitly with:
+    ///   cargo test --lib report_search_stats -- --ignored --nocapture
+    #[test]
+    #[ignore = "slow; diagnostic — run with --ignored --nocapture"]
+    fn report_search_stats() {
+        use super::node::NodeStatus;
+        use tabled::builder::Builder;
+        use tabled::settings::{Alignment, Style, object::Columns};
+
+        // The minmax horizon actually resolved across the root directions. Unlike
+        // `max_depth_reached` (deepest node anywhere in an uneven tree), this is the
+        // depth the *decision* is backed by. Preference order:
+        //   1. Any AliveFor  -> min of their n (shallowest verified-survival branch,
+        //      a conservative floor on how deep we resolved).
+        //   2. Else any WinnerIn -> min of their n. `WinnerIn(n)` counts "steps to
+        //      victory", a different quantity than survival, so it's only used as a
+        //      fallback — a short winning line must not drag down the estimate when a
+        //      plain AliveFor sibling gives the truer survival horizon.
+        //   3. Else (all dead) -> max of DeadIn/ProbablyDeadIn n (longest we stall
+        //      forced death). Pruned/NotSimulated carry no horizon and are skipped.
+        fn resolved_depth(result: &[NodeStatus; 4]) -> u8 {
+            let pick = |f: fn(&NodeStatus) -> Option<u8>| result.iter().filter_map(f);
+            if let Some(min) = pick(|s| match s {
+                NodeStatus::AliveFor(n, _) => Some(*n),
+                _ => None,
+            })
+            .min()
+            {
+                min
+            } else if let Some(min) = pick(|s| match s {
+                NodeStatus::WinnerIn(n, _) => Some(*n),
+                _ => None,
+            })
+            .min()
+            {
+                min
+            } else {
+                pick(|s| match s {
+                    NodeStatus::DeadIn(n, _) | NodeStatus::ProbablyDeadIn(n, _) => Some(*n),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(0)
+            }
+        }
+
+        let mut builder = Builder::default();
+        builder.push_record(["fixture", "nodes", "depth", "branching"]);
+
+        let mut sum_nodes = 0usize;
+        let mut sum_depth = 0u32;
+        let mut sum_branching = 0f32;
+        let mut count = 0u32;
+        for (path, state) in bench_fixtures::PATHS
+            .iter()
+            .zip(bench_fixtures::basic_field_states())
+        {
+            let mut tree =
+                GamestateNodesSnake::configured_tree(state).max_time(ENV_CONFIG.SIMULATION_TIME_MS);
+            tree.simulate();
+            let stats = tree.stats();
+            let depth = resolved_depth(&tree.result());
+            sum_nodes += stats.total_nodes;
+            sum_depth += depth as u32;
+            sum_branching += stats.avg_branching_factor;
+            count += 1;
+            builder.push_record([
+                path.trim_start_matches("requests/").to_string(),
+                stats.total_nodes.to_string(),
+                depth.to_string(),
+                format!("{:.2}", stats.avg_branching_factor),
+            ]);
+        }
+        let n = count.max(1) as f32;
+        builder.push_record([
+            "AVG".to_string(),
+            format!("{:.0}", sum_nodes as f32 / n),
+            format!("{:.1}", sum_depth as f32 / n),
+            format!("{:.2}", sum_branching / n),
+        ]);
+
+        let mut table = builder.build();
+        table.with(Style::rounded());
+        table.modify(Columns::new(1..), Alignment::right());
+        println!("\n{table}\n");
+    }
 }
-
-#[cfg(test)]
-pub(crate) mod bench_fixtures;
-
-#[cfg(test)]
-mod benchmarks;
