@@ -292,3 +292,9 @@ mod tests {
         get_move_from_json_file_with_timeout("failure_81.json", timeout_ms);
     }
 }
+
+#[cfg(test)]
+pub(crate) mod bench_fixtures;
+
+#[cfg(test)]
+mod benchmarks;

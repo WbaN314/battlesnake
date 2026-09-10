@@ -557,27 +557,17 @@ mod benchmarks {
     use std::hint::black_box;
 
     use super::{Situation, SituationSet};
-    use crate::{
-        logic::general::{
-            direction::{Direction, Directions}, evaluation::Evaluation, field::BasicField, game_state::GameState, snake::Snake, snakes::Snakes
-        },
-        read_game_state,
+    use crate::logic::general::{
+        direction::{Direction, Directions},
+        evaluation::Evaluation,
+        field::BasicField,
+        game_state::GameState,
+        snake::Snake,
     };
+    use crate::logic::single_gamestate_nodes::bench_fixtures;
 
     fn test_states() -> Vec<GameState<BasicField>> {
-        [
-            "requests/test_move_request_2.json",
-            "requests/example_move_request_2.json",
-            "requests/example_move_request_3.json",
-            "requests/failure_01.json",
-            "requests/failure_02.json",
-            "requests/failure_03.json",
-            "requests/failure_04.json",
-            "requests/failure_05.json",
-        ]
-        .iter()
-        .map(|p| GameState::<BasicField>::from(&read_game_state(p)))
-        .collect()
+        bench_fixtures::basic_field_states()
     }
 
     #[bench]

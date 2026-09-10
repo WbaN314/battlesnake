@@ -932,24 +932,13 @@ mod benchmarks {
     use std::hint::black_box;
 
     use super::*;
-    use crate::read_game_state;
+    use crate::logic::single_gamestate_nodes::bench_fixtures;
 
     fn test_nodes() -> Vec<Node> {
-        [
-            "requests/failure_01.json",
-            "requests/failure_03.json",
-            "requests/failure_04.json",
-            "requests/failure_05.json",
-            "requests/example_move_request_2.json",
-            "requests/example_move_request_3.json",
-        ]
-        .iter()
-        .map(|p| {
-            let gamestate = read_game_state(p);
-            let state = GameState::<BasicField>::from(&gamestate);
-            Node::new(NodeId::new(), state)
-        })
-        .collect()
+        bench_fixtures::basic_field_states()
+            .into_iter()
+            .map(|state| Node::new(NodeId::new(), state))
+            .collect()
     }
 
     #[bench]

@@ -786,28 +786,11 @@ mod benchmarks {
     use std::hint::black_box;
 
     use super::*;
-    use crate::read_game_state;
-
-    fn test_gamestates() -> Vec<GameState<BasicField>> {
-        [
-            "requests/failure_01.json",
-            "requests/failure_03.json",
-            "requests/failure_04.json",
-            "requests/failure_05.json",
-            "requests/example_move_request_2.json",
-            "requests/example_move_request_3.json",
-        ]
-        .iter()
-        .map(|p| {
-            let gamestate = read_game_state(p);
-            GameState::<BasicField>::from(&gamestate)
-        })
-        .collect()
-    }
+    use crate::logic::single_gamestate_nodes::bench_fixtures;
 
     #[bench]
     fn bench_tree_simulate_max_nodes(b: &mut test::Bencher) {
-        let states = test_gamestates();
+        let states = bench_fixtures::basic_field_states();
         let mut i = 0;
         b.iter(|| {
             let mut tree = Tree::new(states[i % states.len()].clone()).max_nodes(10000);
