@@ -5,6 +5,7 @@ use crate::logic::{
     },
 };
 use log::{debug, trace};
+use rustc_hash::FxHashMap;
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt,
@@ -15,7 +16,7 @@ mod tree_stats;
 
 #[derive(Clone)]
 pub struct Tree {
-    pub(super) nodes: HashMap<NodeId, Node>,
+    pub(super) nodes: FxHashMap<NodeId, Node>,
     pub(super) queue: PriorityQueue,
     pub(super) elapsed_simulation_time: Duration,
     max_depth: u8,
@@ -34,7 +35,7 @@ impl Tree {
     pub fn new(root: GameState<BasicField>) -> Self {
         let node = Node::new(NodeId::new(), root);
         let queue = PriorityQueue::from(node.id());
-        let nodes = HashMap::from([(node.id(), node)]);
+        let nodes = FxHashMap::from_iter([(node.id(), node)]);
         Self {
             nodes,
             queue,

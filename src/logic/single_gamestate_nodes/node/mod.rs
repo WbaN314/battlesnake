@@ -12,8 +12,9 @@ use crate::logic::{
     },
 };
 use core::panic;
+use rustc_hash::FxHashSet;
 use std::{
-    collections::{HashMap, HashSet}, fmt::Display, ops::{Add, AddAssign, Deref},
+    collections::HashMap, fmt::Display, ops::{Add, AddAssign, Deref},
 };
 
 pub mod node_id;
@@ -560,7 +561,7 @@ impl Node {
 
         'direction: while let Some(direction) = self.next_direction() {
             let mut children: Vec<Node> = Vec::new();
-            let mut similarity_set: HashSet<u64> = HashSet::new();
+            let mut similarity_set: FxHashSet<u64> = FxHashSet::default();
 
             for moves in self
                 .move_matrix
