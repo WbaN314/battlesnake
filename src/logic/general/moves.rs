@@ -1,10 +1,13 @@
 use std::ops::Deref;
 
+use arrayvec::ArrayVec;
+
 use crate::logic::general::{
     direction::Direction, field::Field, game_state::GameState, snake::Snake, snakes::SNAKES,
 };
 
 pub type Moves = [Option<Direction>; SNAKES as usize];
+pub type MovesList = ArrayVec<Moves, 256>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MoveVector(Option<[bool; 4]>);
@@ -122,7 +125,7 @@ impl MoveMatrix {
         self
     }
 
-    pub fn pregenerate_for(&self, direction: Direction) -> Vec<Moves> {
+    pub fn pregenerate_for(&self, direction: Direction) -> MovesList {
         let mut new_matrix = self.clone();
         if new_matrix.get(0).is_valid(direction) {
             new_matrix.set(0, MoveVector::from(direction));
@@ -132,10 +135,10 @@ impl MoveMatrix {
         new_matrix.pregenerate()
     }
 
-    pub fn pregenerate(&self) -> Vec<Moves> {
+    pub fn pregenerate(&self) -> MovesList {
         if self.simulate_snakes_seperately {
             let mut basis_matrix = Self::new();
-            let mut result = Vec::new();
+            let mut result = MovesList::new();
             basis_matrix.set(0, self.moves[0]);
             for i in 1..SNAKES {
                 if self.moves[i].count_valid(0) == 1 {
@@ -158,7 +161,7 @@ impl MoveMatrix {
         }
     }
 
-    fn generate(&self) -> Vec<Moves> {
+    fn generate(&self) -> MovesList {
         fn generate_iterations_row(row: MoveVector) -> [Option<Option<Direction>>; 4] {
             if let Some(row) = *row {
                 let mut template = [None; 4];
@@ -174,7 +177,7 @@ impl MoveMatrix {
                 [Some(None), None, None, None]
             }
         }
-        let mut list: Vec<Moves> = Vec::with_capacity(self.len());
+        let mut list: MovesList = MovesList::new();
 
         let iterations = [
             generate_iterations_row(self.moves[0]),
@@ -256,7 +259,7 @@ mod tests {
 
         let none = [MoveVector::new(None); SNAKES as usize];
         let no_moves_set = MoveMatrix::from(none);
-        let no_moves_list: Vec<Moves> = no_moves_set.pregenerate();
+        let no_moves_list: MovesList = no_moves_set.pregenerate();
         assert_eq!(no_moves_list.len(), 1);
         assert_eq!(no_moves_list[0], [None, None, None, None]);
 
