@@ -10,22 +10,25 @@ use super::bench_fixtures;
 use crate::logic::legacy::shared::brain::Brain;
 use std::hint::black_box;
 
-// Ignored so `cargo bench` skips it: a full sweep is slow because each of the 20
-// fixtures runs to the SIMULATION_TIME_MS budget, and libtest fixes the sample
-// count regardless of per-call cost (~300 sweeps → minutes). It exists for
-// flamegraph profiling — the README command passes `--include-ignored` to run it.
+// Ignored so `cargo bench` skips it: each fixture runs to the SIMULATION_TIME_MS
+// budget, and libtest fixes the sample count regardless of per-call cost, so this
+// takes minutes. It exists for flamegraph profiling — the README command passes
+// `--include-ignored` to run it.
 #[bench]
-#[ignore = "slow; only for flamegraph with --include-ignored"]
+#[ignore = "only for flamegraph with --include-ignored"]
 fn bench_snake_logic(b: &mut test::Bencher) {
     let snake = GamestateNodesSnake::new();
     let states = bench_fixtures::test_gamestates();
-    // One measured iteration = one full sweep of all fixtures, so every sample
-    // does identical aggregate work (avoids variance from time-bounded per-state
-    // cost differences being sampled unevenly across the harness's batches).
+    // One measured iteration = one state, cycling through the fixtures. Because
+    // every `logic()` call runs to the same SIMULATION_TIME_MS budget, per-call
+    // cost is constant regardless of state, so cycling introduces no sampling
+    // variance — and each sample is ~one budget instead of a full 20-fixture
+    // sweep, cutting the flamegraph run's wall-clock roughly by the fixture count.
+    let mut i = 0;
     b.iter(|| {
-        for state in &states {
-            black_box(snake.logic(state));
-        }
+        let state = &states[i % states.len()];
+        i += 1;
+        black_box(snake.logic(state));
     });
 }
 
